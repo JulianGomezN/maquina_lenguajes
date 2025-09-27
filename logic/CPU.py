@@ -1,5 +1,5 @@
 from typing import Optional, Dict
-
+from logic.Memory import Memory
 MASK64 = (1 << 64) - 1
 MASK44 = (1 << 44) - 1
 
@@ -34,11 +34,13 @@ class Instruction:
                 f"rd={self.rd} rs={self.rs} imm={self.imm}>")
 
 class CPU:
-    def __init__(self, mem_size=4096):
+    def __init__(self, memory:Memory):
         self.registers = [0] * 16
         self.flags: Dict[str, int] = {"Z": 0, "N": 0, "C": 0, "V": 0}
-        self.memory = [0] * mem_size
+        self.memory = memory
         self.pc = 0
+        self.ir = 0
+        self.sp = 0
         self.running = True
         self.io_map: Dict[int, int] = {}
 
@@ -82,7 +84,7 @@ class CPU:
 
     @staticmethod
     def unsigned_sub_borrow(a: int, b: int) -> int:
-        return int(a >= b)
+        return int(a < b) ###REVISAR
 
     @staticmethod
     def signed_overflow_add(a: int, b: int, r: int) -> int:
@@ -97,11 +99,13 @@ class CPU:
         if self.pc + 8 > len(self.memory):
             raise IndexError(f"PC fuera de rango: {self.pc:#x}")
         # little-endian: byte bajo primero
-        word = int.from_bytes(self.memory[self.pc:self.pc+8], "little")
+        word = int.from_bytes(self.memory.get_bytes(self.pc,8), "little")
+        self.ir = word
         self.pc += 8
-        return word
+        
 
-    def decode(self, instr: int) -> Instruction:
+    def decode(self) -> Instruction:
+        instr = self.ir
         opcode = (instr >> 48) & 0xFFFF
         fmt = self.formats.get(opcode, None)
 
@@ -123,7 +127,7 @@ class CPU:
             return Instruction(opcode, fmt)
 
         else:
-            raise ValueError(f"Formato desconocido para opcode {hex(opcode)}")
+            raise ValueError(f"Formato desconocido para opcode {hex(opcode)}, dir {self.pc-8}, ins = {self.ir:X}")
 
     def execute(self, ins: Instruction):
         op = ins.opcode
@@ -385,12 +389,12 @@ class CPU:
         raise ValueError(f"Opcode {op:#06x} no implementado")
 
     # ---------------- Main Loop ----------------
-    def run(self, max_cycles=1_000_000_000):
+    def run(self, max_cycles=1_000_000):
         cycles = 0
       
         while self.running and cycles < max_cycles:
             raw = self.fetch()
-            ins = self.decode(raw)
+            ins = self.decode()
             self.execute(ins)
             cycles += 1
         if cycles >= max_cycles:
@@ -414,12 +418,13 @@ class CPU:
 
 
 if __name__ == "__main__":
-    cpu = CPU()
+    memoria = Memory(1024)
+    cpu = CPU(memoria)
     program = []
 
     #Sumar los primeros n enteros usando un ciclo
     # R1 = n 
-    program.append((0x0061 << 48) | (0x1 << 44) | int(1e13)) #n= 5
+    program.append((0x0061 << 48) | (0x1 << 44) | 5) #n= 5
     # R2 = 0 (acumulador)
     program.append((0x0064 << 48) | (0x2 << 44))
 
@@ -445,6 +450,10 @@ if __name__ == "__main__":
     # PARAR
     program.append((0x0000 << 48))
 
-    cpu.load_program(program, start=0x00)
+    for i, ins in enumerate(program):
+        memoria.write64(i*8,ins)
+
     cpu.run()
     cpu.dump_state()
+    for i in program:
+        print(f"0x{i:16x}")
