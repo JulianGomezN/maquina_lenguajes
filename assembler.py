@@ -222,7 +222,7 @@ if __name__ == "__main__":
     
     ; Mostrar resultado
     SVIO R2, 0x30    ; guardar resultado en IO[0x30]
-    SHOWIO R2, 0x30  ; mostrar resultado
+    SHOWIO 0x30      ; mostrar resultado
     PARAR            ; terminar programa
     """
     

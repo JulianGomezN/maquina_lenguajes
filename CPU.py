@@ -35,7 +35,7 @@ class Instruction:
                 f"rd={self.rd} rs={self.rs} imm={self.imm}>")
 
 class CPU:
-    def __init__(self, mem_size=4096, gui=None):
+    def __init__(self, mem_size=25000, gui=None):
         self.registers = [0] * 16
         self.flags: Dict[str, int] = {"Z": 0, "N": 0, "C": 0, "V": 0}
         self.memory = [0] * mem_size

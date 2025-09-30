@@ -38,6 +38,10 @@ class Loader:
         if not self.check_memory_space(start_address, program_size):
             raise MemoryError(f"No hay espacio suficiente en memoria para cargar {program_name}")
         
+        # Aplicar reubicación si es necesario
+        if start_address != 0:
+            program_binary = self.relocate_program(program_binary, 0, start_address)
+        
         # Cargar programa en memoria
         self.write_program_to_memory(program_binary, start_address)
         

@@ -74,16 +74,36 @@ class SimuladorGUI:
         ttk.Button(buttons_container, text="👆 Paso Manual", 
                   command=self.ejecutar_paso, width=20).grid(row=1, column=2, padx=3, pady=2, sticky="ew")
         
-        # FILA 2: Controles de estado
+        # FILA 2: Dirección de carga
+        ttk.Label(buttons_container, text="📍 Dirección de carga:", font=("Arial", 9, "bold")).grid(row=2, column=0, sticky="w", pady=(10, 2))
+        
+        # Frame para dirección de carga
+        direccion_frame = ttk.Frame(buttons_container)
+        direccion_frame.grid(row=3, column=0, columnspan=3, padx=3, pady=2, sticky="ew")
+        
+        ttk.Label(direccion_frame, text="Cargar programa en dirección:").pack(side="left")
+        self.entrada_direccion = ttk.Entry(direccion_frame, width=10)
+        self.entrada_direccion.pack(side="left", padx=(5, 5))
+        self.entrada_direccion.insert(0, "0")  # Valor por defecto
+        
+        # Botones de dirección rápida
+        ttk.Button(direccion_frame, text="Euclides (2500)", 
+                  command=lambda: self.entrada_direccion.delete(0, 'end') or self.entrada_direccion.insert(0, "2500")).pack(side="left", padx=2)
+        ttk.Button(direccion_frame, text="Matrices (3700)", 
+                  command=lambda: self.entrada_direccion.delete(0, 'end') or self.entrada_direccion.insert(0, "3700")).pack(side="left", padx=2)
+        ttk.Button(direccion_frame, text="Origen (0)", 
+                  command=lambda: self.entrada_direccion.delete(0, 'end') or self.entrada_direccion.insert(0, "0")).pack(side="left", padx=2)
+        
+        # FILA 4: Controles de estado
         self.boton_parar = ttk.Button(buttons_container, text="⏹️ Parar", 
                                      command=self.parar_ejecucion, state="disabled", width=20)
-        self.boton_parar.grid(row=2, column=0, padx=3, pady=2, sticky="ew")
+        self.boton_parar.grid(row=4, column=0, padx=3, pady=2, sticky="ew")
         
         ttk.Button(buttons_container, text="🔄 Reset CPU", 
-                  command=self.reset_cpu, width=20).grid(row=2, column=1, padx=3, pady=2, sticky="ew")
+                  command=self.reset_cpu, width=20).grid(row=4, column=1, padx=3, pady=2, sticky="ew")
         
         ttk.Button(buttons_container, text="📊 Info Cargador", 
-                  command=self.mostrar_info_cargador, width=20).grid(row=2, column=2, padx=3, pady=2, sticky="ew")
+                  command=self.mostrar_info_cargador, width=20).grid(row=4, column=2, padx=3, pady=2, sticky="ew")
 
         # ================ COLUMNA CENTRO: TRADUCCIÓN ================
         center_frame = ttk.LabelFrame(main_frame, text="Traducción Binaria")
@@ -189,6 +209,25 @@ PARAR            ; terminar programa"""
 
 
     # ========== Metodos ==========
+    def obtener_direccion_carga(self):
+        """Obtiene la dirección de carga desde el campo de entrada"""
+        try:
+            direccion_texto = self.entrada_direccion.get().strip()
+            
+            # Permitir formato hexadecimal (0x...) o decimal
+            if direccion_texto.lower().startswith('0x'):
+                return int(direccion_texto, 16)
+            else:
+                return int(direccion_texto)
+                
+        except ValueError:
+            # Si hay error, usar 0 por defecto
+            messagebox.showwarning("Dirección inválida", 
+                                 f"Dirección '{self.entrada_direccion.get()}' no válida. Usando 0.")
+            self.entrada_direccion.delete(0, 'end')
+            self.entrada_direccion.insert(0, "0")
+            return 0
+
     def cargar_programa(self):
         """Carga y ensambla el programa desde el área de texto"""
         texto = self.texto_programa.get("1.0", "end").strip()
@@ -209,11 +248,16 @@ PARAR            ; terminar programa"""
             
             self.set_traduccion(traduccion)
             
-            # Cargar programa en la CPU
-            self.cpu.load_program(self.programa_actual, start=0)
+            # *** OBTENER DIRECCIÓN ESPECÍFICA DEL CAMPO DE ENTRADA ***
+            direccion_carga = self.obtener_direccion_carga()
+            
+            # Cargar programa en la CPU en la dirección especificada
+            self.cpu.load_program(self.programa_actual, start=direccion_carga)
             self.cpu.update_gui()
             
-            self.set_salida("Programa cargado exitosamente. ¡Haz clic en 'Ejecutar'!")
+            # Informar al usuario dónde se cargó
+            mensaje = f"✅ Programa cargado exitosamente en dirección {direccion_carga} (0x{direccion_carga:X})"
+            self.set_salida(f"{mensaje}\n¡Haz clic en 'Ejecutar'!")
             
         except Exception as e:
             messagebox.showerror("Error", f"Error al ensamblar programa:\n{str(e)}")
