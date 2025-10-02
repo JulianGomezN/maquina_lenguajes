@@ -4,16 +4,20 @@ from tkinter import messagebox
 import sys
 import os
 
+SALIDA_PORT = 0x30
+
 # Añadir el directorio padre al path para importar los módulos
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from CPU import CPU
-from disco_64bits import Disco
+from logic.CPU import CPU, Memory
+#from disco_64bits import Disco
 from assembler import Assembler
+from loader import Loader
 
 
 class SimuladorGUI:
-    def __init__(self, root):
+
+    def __init__(self, root, CPU:CPU, memory:Memory):
         self.root = root
         self.root.title("Simulador - Atlas")
         
@@ -25,9 +29,10 @@ class SimuladorGUI:
         self.root.bind('<F11>', self.toggle_fullscreen)
         
         # Inicializar componentes del simulador
-        self.cpu = CPU(gui=self)
-        self.disco = Disco()
+        self.cpu = CPU
+        #self.disco = Disco()
         self.assembler = Assembler()
+        self.loader = Loader(memory)
         self.programa_actual = []
 
         self.create_widgets()
@@ -154,6 +159,42 @@ class SimuladorGUI:
             
             self.flags[flag] = valor
         
+                # ================ MEMORIA ================
+        mem_frame = ttk.LabelFrame(right_frame, text="Examinador de Memoria")
+        mem_frame.pack(fill="x", pady=5)
+
+        # Dirección de memoria
+        ttk.Label(mem_frame, text="Dirección (hex):").grid(row=0, column=0, padx=5, pady=2, sticky="w")
+        self.mem_address = ttk.Entry(mem_frame, width=10)
+        self.mem_address.grid(row=0, column=1, padx=5, pady=2, sticky="w")
+
+        # Tamaño de lectura
+        ttk.Label(mem_frame, text="Tamaño:").grid(row=1, column=0, padx=5, pady=2, sticky="w")
+        self.mem_size = tk.StringVar(value="1")
+        size_combo = ttk.Combobox(mem_frame, textvariable=self.mem_size, 
+                                  values=["1", "2", "4", "8"], width=5, state="readonly")
+        size_combo.grid(row=1, column=1, padx=5, pady=2, sticky="w")
+
+        # Formato de salida (hex/dec)
+        ttk.Label(mem_frame, text="Formato:").grid(row=2, column=0, padx=5, pady=2, sticky="w")
+        self.mem_format = tk.StringVar(value="hex")
+        ttk.Radiobutton(mem_frame, text="Hex", variable=self.mem_format, value="hex").grid(row=2, column=1, sticky="w")
+        ttk.Radiobutton(mem_frame, text="Dec", variable=self.mem_format, value="dec").grid(row=2, column=2, sticky="w")
+
+        # Signo
+        ttk.Label(mem_frame, text="Interpretación:").grid(row=3, column=0, padx=5, pady=2, sticky="w")
+        self.mem_signed = tk.StringVar(value="unsigned")
+        ttk.Radiobutton(mem_frame, text="Sin signo", variable=self.mem_signed, value="unsigned").grid(row=3, column=1, sticky="w")
+        ttk.Radiobutton(mem_frame, text="Con signo", variable=self.mem_signed, value="signed").grid(row=3, column=2, sticky="w")
+
+        # Botón leer
+        ttk.Button(mem_frame, text="Leer", command=self.leer_memoria_gui).grid(row=0, column=3, rowspan=4, padx=5, pady=2, sticky="ns")
+
+        # Resultado
+        ttk.Label(mem_frame, text="Valor:").grid(row=4, column=0, padx=5, pady=2, sticky="w")
+        self.mem_valor = ttk.Label(mem_frame, text="--", width=25, relief="solid", anchor="center")
+        self.mem_valor.grid(row=4, column=1, columnspan=3, padx=5, pady=2, sticky="ew")
+
         # Modo de ejecución
         mode_frame = ttk.LabelFrame(right_frame, text="Modo de Ejecución")
         mode_frame.pack(fill="x", pady=5)
@@ -235,8 +276,9 @@ PARAR            ; terminar programa"""
             messagebox.showwarning("Advertencia", "No hay código para cargar")
             return
         
+            
         try:
-            # Ensamblar el código
+           # Ensamblar el código
             self.programa_actual = self.assembler.assemble(texto)
             
             # Mostrar la traducción
@@ -248,17 +290,18 @@ PARAR            ; terminar programa"""
             
             self.set_traduccion(traduccion)
             
-            # *** OBTENER DIRECCIÓN ESPECÍFICA DEL CAMPO DE ENTRADA ***
-            direccion_carga = self.obtener_direccion_carga()
-            
-            # Cargar programa en la CPU en la dirección especificada
-            self.cpu.load_program(self.programa_actual, start=direccion_carga)
-            self.cpu.update_gui()
-            
-            # Informar al usuario dónde se cargó
-            mensaje = f"✅ Programa cargado exitosamente en dirección {direccion_carga} (0x{direccion_carga:X})"
-            self.set_salida(f"{mensaje}\n¡Haz clic en 'Ejecutar'!")
-            
+            # Cargar programa en la CPU
+            start = 0
+            program_info = self.loader.load_program(
+                    self.programa_actual, 
+                    start_address=start, 
+                    program_name="program_name"
+                )
+            self.cpu.set_pc(start)
+            #self.cpu.load_program(self.programa_actual, start=0)
+            ##self.cpu.update_gui()
+            self.update_gui()
+            self.set_salida("Programa cargado exitosamente. ¡Haz clic en 'Ejecutar'!")
         except Exception as e:
             messagebox.showerror("Error", f"Error al ensamblar programa:\n{str(e)}")
             self.set_traduccion(f"Error de ensamblado:\n{str(e)}")
@@ -274,10 +317,11 @@ PARAR            ; terminar programa"""
             
             if modo == "automatico":
                 # Modo automático: ejecutar todo de una vez
+                print("SIA")
                 self.set_salida("Ejecutando programa...\n")
                 self.cpu.run(step_mode=False)
+                self.append_salida(str(self.cpu.io_map[SALIDA_PORT]))
                 self.append_salida("\nPrograma terminado")
-                
             elif modo == "paso":
                 # Modo paso a paso: ejecutar con pausas
                 self.set_salida("Ejecutando programa paso a paso...\n")
@@ -285,9 +329,11 @@ PARAR            ; terminar programa"""
                 self.boton_parar.config(state="normal")
                 self.ejecutar_modo_paso_automatico()
             
+            self.update_gui()
         except Exception as e:
             messagebox.showerror("Error", f"Error durante la ejecución:\n{str(e)}")
             self.append_salida(f"\nError: {str(e)}")
+            
 
     def ejecutar_modo_paso_automatico(self):
         """Ejecuta el programa paso a paso con pausas automáticas"""
@@ -299,13 +345,13 @@ PARAR            ; terminar programa"""
         
         try:
             # Ejecutar una instrucción
-            raw = self.cpu.fetch()
-            ins = self.cpu.decode(raw)
+            self.cpu.fetch()
+            ins = self.cpu.decode()
             self.cpu.execute(ins)
-            self.cpu.update_gui()
+            #self.cpu.update_gui()
             
             # Mostrar qué instrucción se ejecutó
-            instr_info = self.assembler.disassemble_instruction(raw)
+            instr_info = self.assembler.disassemble_instruction(self.cpu.ir)
             self.append_salida(f"Ejecutado: {instr_info}")
             
             # Si el programa sigue corriendo y no se ha pausado, programar la siguiente instrucción
@@ -349,8 +395,8 @@ PARAR            ; terminar programa"""
         
         # Obtener información del cargador
         try:
-            memory_map = self.cpu.get_loader_info()
-            loaded_programs = self.cpu.list_loaded_programs()
+            memory_map = self.loader.get_memory_map()
+            loaded_programs = self.loader.list_loaded_programs()
             
             info_content = "=== INFORMACIÓN DEL CARGADOR ===\n\n"
             info_content += f"Memoria Total: {memory_map['total_memory']} bytes\n"
@@ -395,13 +441,13 @@ PARAR            ; terminar programa"""
         
         try:
             # Ejecutar una sola instrucción
-            raw = self.cpu.fetch()
-            ins = self.cpu.decode(raw)
+            self.cpu.fetch()
+            ins = self.cpu.decode()
             self.cpu.execute(ins)
-            self.cpu.update_gui()
+            self.update_gui()
             
             # Mostrar información de la instrucción ejecutada
-            instr_info = self.assembler.disassemble_instruction(raw)
+            instr_info = self.assembler.disassemble_instruction(self.cpu.ir)
             self.append_salida(f"Ejecutado: {instr_info}")
             
         except Exception as e:
@@ -416,11 +462,11 @@ PARAR            ; terminar programa"""
         
         # Reiniciar componentes
         self.cpu = CPU(gui=self)
-        self.disco = Disco()  # También reiniciar el disco
+        ##self.disco = Disco()  # También reiniciar el disco
         self.programa_actual = []  # Limpiar programa actual
         
         # Limpiar interfaz
-        self.cpu.update_gui()
+        self.update_gui()
         self.set_salida("CPU y memoria reiniciados. ¡Carga un nuevo programa!")
         self.set_traduccion("Traducción aparecerá aquí después de cargar un programa...")
 
@@ -445,7 +491,11 @@ PARAR            ; terminar programa"""
 
     def set_traduccion(self, texto):
         """Actualizar la traducción en el label central"""
-        self.label_traduccion.config(text=texto)
+        PC = self.CPU.pc
+        for i, text in enumerate(texto.splitlines()):
+            ##Load into real memory
+            self.memory.write64(PC+i*8,int(text,16))
+        self.memoria_viewer.redibujar()
 
     def set_flag(self, flag, valor):
         """Asignar valor a una bandera"""
@@ -472,7 +522,71 @@ PARAR            ; terminar programa"""
         self.texto_salida.insert("end", "\n" + texto)
         self.texto_salida.see("end")            
 
+    def update_resgitros(self):
+        for i,value in enumerate(self.CPU.registers):
+            self.set_registro(f"R{i:02}",value)     
 
+    def update_flags(self):
+        for key, value in self.CPU.flags.items():
+            self.set_flag(key,value)
+        
+        #PC
+        self.set_flag("PC",self.CPU.pc)
+
+    def correr_programa(self):
+
+        #TODO modos de ejecucion por ahora automatico
+        self.CPU.run()
+        self.update_resgitros()
+        self.update_flags()
+        self.CPU.dump_state()
+
+    def leer_memoria_gui(self):
+        """Lee memoria según dirección, tamaño, formato y signo seleccionados en el GUI"""
+        try:
+            addr_str = self.mem_address.get().strip()
+            if not addr_str:
+                messagebox.showwarning("Advertencia", "Ingrese una dirección de memoria")
+                return
+
+            # Dirección en hexadecimal
+            direccion = int(addr_str, 16)
+
+            # Tamaño (1, 2, 4, 8 bytes)
+            size = int(self.mem_size.get())
+
+            # Interpretación con signo o sin signo
+            signed = (self.mem_signed.get() == "signed")
+
+            # Leer valor desde la memoria
+            valor = self.cpu.memory.read(direccion, size, signed=signed)
+
+            # Mostrar en formato elegido
+            if self.mem_format.get() == "hex":
+                # Se enmascara al tamaño leído para mostrar valor "crudo"
+                mask = (1 << (size * 8)) - 1
+                texto = f"0x{valor & mask:0{size*2}X}"
+            else:
+                texto = str(valor)
+
+            self.mem_valor.config(text=texto)
+
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo leer memoria:\n{str(e)}")
+
+
+    def update_gui(self):
+        # Actualizar registros
+        for i in range(16):
+            self.set_registro(f"R{i:02}", self.cpu.registers[i])
+        
+        # Actualizar flags
+        self.set_flag("Z (Zero)", self.cpu.flags["Z"])
+        self.set_flag("N (Negative)", self.cpu.flags["N"])
+        self.set_flag("C (Carry)", self.cpu.flags["C"])
+        self.set_flag("V (Overflow)", self.cpu.flags["V"])
+        self.set_flag("PC (Program Counter)", self.cpu.pc)
+    
 if __name__ == "__main__":
     root = tk.Tk()
     app = SimuladorGUI(root)
