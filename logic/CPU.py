@@ -1,6 +1,5 @@
 from typing import Optional, Dict
 from logic.Memory import Memory
-from loader import Loader
 
 MASK64 = (1 << 64) - 1
 MASK44 = (1 << 44) - 1
@@ -45,10 +44,6 @@ class CPU:
         self.sp = 0
         self.running = True
         self.io_map: Dict[int, int] = {}
-        ##self.gui = gui  # Referencia a la GUI para actualizada
-        
-        # Inicializar el cargador
-        self.loader = Loader(self)
 
         # mapa de opcode -> formato
         self.formats = {
@@ -83,7 +78,7 @@ class CPU:
     def update_ZN(self, val: int):
         self.flags["Z"] = int((val & MASK64) == 0)
         self.flags["N"] = int(((val >> 63) & 1) == 1)
-        self.update_gui()
+        #self.update_gui()
 
     @staticmethod
     def unsigned_add_carry(a: int, b: int) -> int:
@@ -102,7 +97,7 @@ class CPU:
         return int(((a >= 0 and b < 0 and r < 0) or (a < 0 and b >= 0 and r >= 0)))
 
     # ---------------- Fetch / Decode / Execute ----------------
-    def fetch(self) -> int:
+    def fetch(self) -> None:
         if self.pc + 8 > len(self.memory):
             raise IndexError(f"PC fuera de rango: {self.pc:#x}")
         # little-endian: byte bajo primero
@@ -315,7 +310,7 @@ class CPU:
 
         # -------- Memoria --------
         if op == 0x0060:  # LOAD R, M
-            self.registers[ins.rd] = self.memory[ins.imm]
+            self.registers[ins.rd] = self.memory.read(ins.imm,8)
             self.update_ZN(self.registers[ins.rd])
             return
 
@@ -331,7 +326,7 @@ class CPU:
             return
 
         if op == 0x0063:  # SV M, R
-            self.memory[ins.imm] = self.registers[ins.rd]
+            self.memory.write(ins.imm,self.registers[ins.rd],8)
             return
 
         # -------- Comparación --------
@@ -389,8 +384,8 @@ class CPU:
         if op == 0x00A2:  # SHOWIO
             output_text = f"[IO {ins.imm:#x}] = {self.io_map.get(ins.imm, 0)}"
             print(output_text)
-            if self.gui:
-                self.gui.append_salida(output_text)
+            #if self.gui:
+            #    self.gui.append_salida(output_text)
             return
         if op in (0x00A3, 0x00A4):
             self.io_map.clear()
@@ -398,26 +393,14 @@ class CPU:
 
         raise ValueError(f"Opcode {op:#06x} no implementado")
 
-    def update_gui(self):
-        """Actualiza la GUI con el estado actual del CPU"""
-        if self.gui:
-            # Actualizar registros
-            for i in range(16):
-                self.gui.set_registro(f"R{i:02}", self.registers[i])
-            
-            # Actualizar flags
-            self.gui.set_flag("Z (Zero)", self.flags["Z"])
-            self.gui.set_flag("N (Negative)", self.flags["N"])
-            self.gui.set_flag("C (Carry)", self.flags["C"])
-            self.gui.set_flag("V (Overflow)", self.flags["V"])
-            self.gui.set_flag("PC (Program Counter)", self.pc)
+    
 
     # ---------------- Main Loop ----------------
     def run(self, max_cycles=1_000_000_000, step_mode=False):
         cycles = 0
       
         while self.running and cycles < max_cycles:
-            raw = self.fetch()
+            self.fetch()
             ins = self.decode()
             self.execute(ins)
             cycles += 1
@@ -426,9 +409,13 @@ class CPU:
             raise RuntimeError("Max cycles reached")
         
         # Actualizar GUI al final de la ejecución
-        if self.gui:
-            self.update_gui()
-      
+        #if self.gui:
+         #   #self.update_gui()
+    
+    def set_pc(self,pc):
+        self.pc = pc
+    
+
     def load_program(self, program, start=0, program_name="main"):
         """
         Carga un programa usando el cargador
@@ -450,9 +437,9 @@ class CPU:
             self.pc = program_info['start_address']
             
             # Si hay GUI, mostrar información de carga
-            if self.gui:
-                message = f"Programa '{program_name}' cargado en 0x{program_info['start_address']:04x}"
-                # self.gui.append_salida(message)  # Comentado para no saturar la salida
+            ##if self.gui:
+            ##    message = f"Programa '{program_name}' cargado en 0x{program_info['start_address']:04x}"
+            ##    # self.gui.append_salida(message)  # Comentado para no saturar la salida
             
             return program_info
             
@@ -493,10 +480,6 @@ class CPU:
             print(f"R{i:02d}: {v:#018x} ({to_int64(v)})")
         print("FLAGS:", self.flags)
         print("IO:", self.io_map)
-        
-        print("\n=== ESTADO DEL CARGADOR ===")
-        self.loader.dump_memory_state()
-
 
 if __name__ == "__main__":
     memoria = Memory(1024)

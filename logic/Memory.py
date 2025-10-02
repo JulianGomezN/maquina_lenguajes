@@ -29,46 +29,25 @@ class Memory:
             raise IndexError(f"Dirección fuera de rango: {addr}..{addr+nbytes-1}")
 
     # ---------- Lecturas ----------
-    def read8(self, addr: int, signed: bool = False) -> int:
-        """Leer 1 byte"""
-        self._check_range(addr, 1)
-        return int.from_bytes(self.mem[addr:addr+1], 'little', signed=signed)
+    def read(self, addr: int, size: int, signed: bool = False) -> int:
+        """Leer un valor de size bytes (1, 2, 4, 8) desde memoria en little endian"""
+        if size not in (1, 2, 4, 8):
+            raise ValueError("El tamaño debe ser 1, 2, 4 u 8 bytes")
 
-    def read16(self, addr: int, signed: bool = False) -> int:
-        """Leer 2 bytes"""
-        self._check_range(addr, 2)
-        return int.from_bytes(self.mem[addr:addr+2], 'little', signed=signed)
-
-    def read32(self, addr: int, signed: bool = False) -> int:
-        """Leer 4 bytes"""
-        self._check_range(addr, 4)
-        return int.from_bytes(self.mem[addr:addr+4], 'little', signed=signed)
-
-    def read64(self, addr: int, signed: bool = False) -> int:
-        """Leer 8 bytes"""
-        self._check_range(addr, 8)
-        return int.from_bytes(self.mem[addr:addr+8], 'little', signed=signed)
+        self._check_range(addr, size)
+        data = self.mem[addr:addr+size]
+        return int.from_bytes(data, byteorder="little", signed=signed)
 
     # ---------- Escrituras ----------
-    def write8(self, addr: int, val: int):
-        """Escribir 1 byte"""
-        self._check_range(addr, 1)
-        self.mem[addr:addr+1] = val.to_bytes(1, 'little', signed=False)
+    def write(self, addr: int, val: int, size: int):
+        """Escribir un valor de size bytes (1, 2, 4, 8) en memoria en little endian"""
+        if size not in (1, 2, 4, 8):
+            raise ValueError("El tamaño debe ser 1, 2, 4 u 8 bytes")
 
-    def write16(self, addr: int, val: int):
-        """Escribir 2 bytes"""
-        self._check_range(addr, 2)
-        self.mem[addr:addr+2] = val.to_bytes(2, 'little', signed=False)
+        self._check_range(addr, size)
+        # Convertir a bytes en little endian, siempre unsigned
+        self.mem[addr:addr+size] = int(val).to_bytes(size, byteorder="little", signed=False)
 
-    def write32(self, addr: int, val: int):
-        """Escribir 4 bytes"""
-        self._check_range(addr, 4)
-        self.mem[addr:addr+4] = val.to_bytes(4, 'little', signed=False)
-
-    def write64(self, addr: int, val: int):
-        """Escribir 8 bytes"""
-        self._check_range(addr, 8)
-        self.mem[addr:addr+8] = to_uint64(val).to_bytes(8, 'little', signed=False)
 
     # ---------- Utilidades ----------
     def dump(self, start: int = 0, end: int = 64):
@@ -91,3 +70,9 @@ class Memory:
 
     def __len__(self):
         return self.size
+    
+    def __getitem__(self, key):
+        return self.mem[key]
+
+    def __setitem__(self, key, value):
+        self.mem[key] = value
