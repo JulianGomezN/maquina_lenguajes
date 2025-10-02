@@ -3,22 +3,21 @@ from tkinter import ttk
 from tkinter import messagebox
 import sys
 import os
-
-SALIDA_PORT = 0x30
+from pprint import pformat
 
 # Añadir el directorio padre al path para importar los módulos
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from logic.CPU import CPU, Memory
+from logic.CPU import CPU
 #from disco_64bits import Disco
-from assembler import Assembler
-from loader import Loader
+from compiler.assembler import Assembler
+from logic.Loader import Loader
 
 
 class SimuladorGUI:
 
-    def __init__(self, root, CPU:CPU, memory:Memory):
-        self.root = root
+    def __init__(self , CPU:CPU):
+        self.root = tk.Tk()
         self.root.title("Simulador - Atlas")
         
         # Configurar pantalla completa
@@ -30,9 +29,8 @@ class SimuladorGUI:
         
         # Inicializar componentes del simulador
         self.cpu = CPU
-        #self.disco = Disco()
         self.assembler = Assembler()
-        self.loader = Loader(memory)
+        self.loader = Loader(self.cpu.memory)
         self.programa_actual = []
 
         self.create_widgets()
@@ -164,7 +162,7 @@ class SimuladorGUI:
         mem_frame.pack(fill="x", pady=5)
 
         # Dirección de memoria
-        ttk.Label(mem_frame, text="Dirección (hex):").grid(row=0, column=0, padx=5, pady=2, sticky="w")
+        ttk.Label(mem_frame, text="Dirección (dec):").grid(row=0, column=0, padx=5, pady=2, sticky="w")
         self.mem_address = ttk.Entry(mem_frame, width=10)
         self.mem_address.grid(row=0, column=1, padx=5, pady=2, sticky="w")
 
@@ -282,24 +280,26 @@ PARAR            ; terminar programa"""
             self.programa_actual = self.assembler.assemble(texto)
             
             # Mostrar la traducción
+
+            start = self.obtener_direccion_carga()
+
             traduccion = "Código ensamblado:\n\n"
             for i, instr in enumerate(self.programa_actual):
-                addr = i * 8
+                addr = i * 8 + start
                 desasm = self.assembler.disassemble_instruction(instr)
                 traduccion += f"{addr:04x}: {instr:016x}\n      {desasm}\n\n"
             
             self.set_traduccion(traduccion)
             
             # Cargar programa en la CPU
-            start = 0
+            
+            print(start)
             program_info = self.loader.load_program(
                     self.programa_actual, 
                     start_address=start, 
                     program_name="program_name"
                 )
             self.cpu.set_pc(start)
-            #self.cpu.load_program(self.programa_actual, start=0)
-            ##self.cpu.update_gui()
             self.update_gui()
             self.set_salida("Programa cargado exitosamente. ¡Haz clic en 'Ejecutar'!")
         except Exception as e:
@@ -312,24 +312,26 @@ PARAR            ; terminar programa"""
             messagebox.showwarning("Advertencia", "Primero carga un programa")
             return
         
-        try:
-            modo = self.modo.get()
+        modo = self.modo.get()
+        
+        if modo == "automatico":
+            # Modo automático: ejecutar todo de una vez
+            print("SIA")
+            self.set_salida("Ejecutando programa...\n")
+            self.cpu.run(step_mode=False)
+            self.append_salida(
+                pformat(self.cpu.io_map, indent=4, width=40, sort_dicts=False)
+                )
+            self.append_salida("\nPrograma terminado")
+        elif modo == "paso":
+            # Modo paso a paso: ejecutar con pausas
+            self.set_salida("Ejecutando programa paso a paso...\n")
+            self.ejecutando_paso_automatico = True
+            self.boton_parar.config(state="normal")
+            self.ejecutar_modo_paso_automatico()
             
-            if modo == "automatico":
-                # Modo automático: ejecutar todo de una vez
-                print("SIA")
-                self.set_salida("Ejecutando programa...\n")
-                self.cpu.run(step_mode=False)
-                self.append_salida(str(self.cpu.io_map[SALIDA_PORT]))
-                self.append_salida("\nPrograma terminado")
-            elif modo == "paso":
-                # Modo paso a paso: ejecutar con pausas
-                self.set_salida("Ejecutando programa paso a paso...\n")
-                self.ejecutando_paso_automatico = True
-                self.boton_parar.config(state="normal")
-                self.ejecutar_modo_paso_automatico()
-            
-            self.update_gui()
+        self.update_gui()
+        try: pass
         except Exception as e:
             messagebox.showerror("Error", f"Error durante la ejecución:\n{str(e)}")
             self.append_salida(f"\nError: {str(e)}")
@@ -461,7 +463,7 @@ PARAR            ; terminar programa"""
         self.boton_parar.config(state="disabled")
         
         # Reiniciar componentes
-        self.cpu = CPU(gui=self)
+        self.cpu = CPU(self.cpu.memory)
         ##self.disco = Disco()  # También reiniciar el disco
         self.programa_actual = []  # Limpiar programa actual
         
@@ -550,7 +552,7 @@ PARAR            ; terminar programa"""
                 return
 
             # Dirección en hexadecimal
-            direccion = int(addr_str, 16)
+            direccion = int(addr_str, 10)
 
             # Tamaño (1, 2, 4, 8 bytes)
             size = int(self.mem_size.get())
@@ -586,8 +588,6 @@ PARAR            ; terminar programa"""
         self.set_flag("C (Carry)", self.cpu.flags["C"])
         self.set_flag("V (Overflow)", self.cpu.flags["V"])
         self.set_flag("PC (Program Counter)", self.cpu.pc)
-    
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = SimuladorGUI(root)
-    root.mainloop()
+
+    def mainloop(self):
+        self.root.mainloop()

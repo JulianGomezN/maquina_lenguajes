@@ -373,7 +373,7 @@ class CPU:
                 self.pc = imm
             return
 
-        # -------- I/O --------
+         # -------- I/O --------
         if op == 0x00A0:  # SVIO
             self.io_map[ins.imm] = self.registers[ins.rd]
             return
@@ -390,8 +390,6 @@ class CPU:
         if op in (0x00A3, 0x00A4):
             self.io_map.clear()
             return
-
-        raise ValueError(f"Opcode {op:#06x} no implementado")
 
     
 

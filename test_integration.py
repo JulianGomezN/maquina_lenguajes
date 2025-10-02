@@ -6,9 +6,10 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from CPU import CPU
-from disco_64bits import Disco  
-from assembler import Assembler
+from logic.CPU import CPU
+from logic.Memory import Memory 
+from logic.Loader import Loader
+from compiler.assembler import Assembler
 
 def test_integration():
     """Prueba la integración entre CPU, Disco y Assembler"""
@@ -16,14 +17,15 @@ def test_integration():
     print("=== PRUEBA DE INTEGRACIÓN DEL SIMULADOR ===\n")
     
     # Crear componentes
-    cpu = CPU()
-    disco = Disco()
+    disco = Memory(2**16)
+    loader = Loader(disco)
+    cpu = CPU(disco)
     assembler = Assembler()
     
     # Programa de prueba más complejo
     programa_texto = """
     ; Programa que calcula factorial de 4
-    LOADV R1, 4      ; n = 4
+    LOADV R1, 4      ; n = 5
     LOADV R2, 1      ; factorial = 1
     
     FACTORIAL_LOOP:
@@ -62,16 +64,18 @@ def test_integration():
         print(f"Error al ensamblar: {e}")
         return
     
-    # Cargar programa en CPU
-    cpu.load_program(programa_binario, start=0)
-    print("Programa cargado en CPU")
-    print(f"PC inicial: {cpu.pc}")
-    print()
+    # Cargar programa en Memoria
+    loader.load_program(programa_binario)
+    ##cpu.load_program(programa_binario, start=0)
+    ##print("Programa cargado en CPU")
+    ##print(f"PC inicial: {cpu.pc}")
+    ##print()
     
-    # Ejecutar programa
+    # Ejecutar programa en CPU
+    
     print("Ejecutando programa...")
     try:
-        cpu.run(max_cycles=1000)
+        cpu.run()
         print("Programa terminado exitosamente")
     except Exception as e:
         print(f"Error durante ejecución: {e}")
@@ -86,13 +90,8 @@ def test_integration():
     # Interacción con disco (ejemplo)
     print("Interacción con disco de memoria:")
     
-    # Escribir algunos valores en el disco
-    disco.escribir("R00", "1010")  # Registro R00 = 1010 (binario)
-    disco.escribir("M0", "1111000011110000" + "0" * 48)  # Memoria M0
     
     # Leer valores del disco
-    print(f"Registro R00 del disco: {disco.leer('R00')}")
-    print(f"Memoria M0 del disco: {disco.leer('M0')}")
     
     print("\n=== PRUEBA COMPLETADA ===")
 

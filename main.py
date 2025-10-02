@@ -1,8 +1,10 @@
-from GUI.GUI import *
+from GUI.GUI import SimuladorGUI
+from logic.Memory import Memory
+from logic.CPU import CPU
 
-root = tk.Tk()
-mem = Memory(2**10*1000)
-app = SimuladorGUI(root,CPU(mem),mem)
-app.set_salida("Hola")
-app.append_salida(" mundo")
-root.mainloop()
+mem = Memory(2**16)
+
+cpu = CPU(mem)
+app = SimuladorGUI(cpu)
+
+app.mainloop()

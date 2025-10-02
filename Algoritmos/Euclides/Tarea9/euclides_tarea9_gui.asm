@@ -5,13 +5,13 @@
 
 ; Cargar datos de prueba
 LOADV R1, 1071
-STOREV R1, 700      ; A = 1071
+STOREV R1, 375      ; A = 1071
 LOADV R1, 462
-STOREV R1, 701      ; B = 462
+STOREV R1, 1535      ; B = 462
 
 ; Algoritmo de Euclides
-LOAD R1, 700        ; Cargar A
-LOAD R2, 701        ; Cargar B
+LOAD R1, 375        ; Cargar A
+LOAD R2, 1535        ; Cargar B
 
 EUCLIDES:
 CLEAR R0            ; R0 = 0
@@ -36,18 +36,18 @@ ADD R2, R3          ; R2 = resto (nuevo B)
 JMP EUCLIDES
 
 FIN_GCD:
-STOREV R1, 702      ; Guardar MCD
+STOREV R1, 7478      ; Guardar MCD
 
 ; Verificar datos
-LOAD R1, 700        ; Mostrar A original
+LOAD R1, 375        ; Mostrar A original
 SVIO R1, 0x700
 SHOWIO 0x700
 
-LOAD R1, 701        ; Mostrar B original
+LOAD R1, 1535        ; Mostrar B original
 SVIO R1, 0x701
 SHOWIO 0x701
 
-LOAD R1, 702        ; Mostrar MCD
+LOAD R1, 7478        ; Mostrar MCD
 SVIO R1, 0x702
 SHOWIO 0x702
 
