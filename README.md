@@ -68,9 +68,6 @@ Antes de convertir, revise el documento Markdown y retire cualquier índice manu
 - **Sistema Operativo**: Windows, Linux, o macOS
 - **Memoria RAM**: 512 MB mínimo
 - **Espacio en disco**: 100 MB
-- **Pandoc** (opcional, para convertir `Documentacion/*.md` a PDF)
-- **Distribución LaTeX** (MiKTeX/TeX Live) si desea generar PDFs con Pandoc
-- **Tkinter** (incluido en la mayoría de distribuciones de Python; requerido por el diálogo en `mdconverter`)
 
 ### Instalación y Ejecución
 
@@ -287,7 +284,6 @@ maquina_lenguajes/
 └── README.md                # Este archivo (guía del proyecto)
 ```
 
-> **Nota**: El documento `Documentacion/Tarea14_GrupoD_Hexacore_Atlas.md` contiene la documentación académica consolidada (Tarea 14).
 
 ---
 
