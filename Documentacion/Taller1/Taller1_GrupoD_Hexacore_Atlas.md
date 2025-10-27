@@ -1,3 +1,45 @@
+<div align="center">
+
+---
+
+# **Taller 1**
+
+## **Grupo D:**
+
+**Jorge Isaac Alandete Díaz**  
+**Manuel Eduardo Díaz Sabogal**  
+**Julián Andrés Gómez Niño**  
+**Juan Esteban Medina Cárdenas**  
+**Sergio Nicolás Siabatto Cleves**
+
+---
+
+**Facultad de Ingeniería, Universidad Nacional de Colombia**  
+**Departamento de Ingeniería de Sistemas e Industrial**  
+**Lenguajes de programación: Grupo 2**  
+**Jorge Eduardo Ortiz Triviño**  
+
+**Octubre del 2025**
+
+---
+
+</div>
+
+\newpage
+
+---
+
+# Índice de Contenidos
+
+1. **[Marco Teórico](#1-marco-teórico)** - Fundamentos de arquitectura de computadores
+2. **[Descripción del Problema](#2-descripción-del-problema)** - Análisis del problema educativo
+3. **[Validación y Evidencias](#3-validación-y-evidencias)** - Documentación de Tarea 9
+4. **[Diseño de la Aplicación](#4-diseño-de-la-aplicación)** - Arquitectura y diagramas
+5. **[Manual Técnico y de Usuario](#5-manual-técnico-y-de-usuario)** - Guía completa
+6. **[Especificaciones Técnicas](#6-especificaciones-técnicas)** - Detalles de implementación
+
+---
+
 \newpage
 
 # 1. Marco Teórico
@@ -14,11 +56,12 @@ En el diseño de esta máquina se adoptaron varias decisiones claves:
 
 - Palabra de 64 bits y direccionamiento por byte.
 - Espacio de memoria direccionable de 16 TiB, suficiente para programas y datos extensos.
-- Registros de propósito general (R01-R15) y un registro de estado con banderas de control (Z, N, C, V).
+- Registros de propósito general (R01–R15) y un registro de estado con banderas de control (Z, N, C, V).
 - Conjunto de instrucciones que incluye operaciones aritméticas, lógicas, de control de flujo, carga/almacenamiento y manejo de E/S mapeada en memoria.
 
 El desarrollo de un simulador de esta arquitectura en un lenguaje de alto nivel permite aplicar de manera práctica los conceptos de organización y diseño de computadores, desde el nivel lógico hasta la ejecución de programas binarios.
 
+---
 
 \newpage
 
@@ -40,6 +83,7 @@ El problema central radica en crear un sistema integrado que incluya:
 
 Los desafíos técnicos incluyen mantener la consistencia arquitectural, asegurar el correcto manejo de formatos de datos binarios, implementar validaciones robustas para prevenir errores de ejecución, y lograr un diseño modular que permita extensiones futuras. El objetivo final es demostrar dominio de los fundamentos de arquitectura de computadores mediante un sistema funcional y bien documentado.
 
+---
 
 \newpage
 
@@ -101,7 +145,7 @@ FIN_GCD:
 3. MCD(147, 21): 147 mod 21 = 0
 4. **Resultado**: MCD = 21
 
-**Verificación**: 1071 = 21 x 51, 462 = 21 x 22
+**Verificación**: 1071 = 21 × 51, 462 = 21 × 22
 
 ## 3.3 Algoritmo del Módulo - Operación a % b
 
@@ -127,7 +171,7 @@ FIN_MOD:
     PARAR
 ```
 
-**Resultado**: 17 % 5 = 2 (Verificación: 3x5+2=17)
+**Resultado**: 17 % 5 = 2 (Verificación: 3×5+2=17)
 
 ## 3.4 Algoritmo de Valor Absoluto
 
@@ -180,6 +224,7 @@ POSITIVO:
 - **Robustez**: Manejo correcto de casos límite
 - **Usabilidad**: Interfaz intuitiva validada por usuarios
 
+---
 
 \newpage
 
@@ -192,39 +237,39 @@ El **Simulador Atlas CPU** implementa una arquitectura modular que separa claram
 ### Componentes Principales
 
 ```
-+---------------------------------------------------------+
-|                    GUI (main.py)                        |
-|                   Interfaz Gráfica                      |
-+----------------------------+----------------------------+
-                             |
-+----------------------------+----------------------------+
-|                        CPU.py                           |
-|                  Procesador Principal                   |
-|       +-----------+ +----------+ +--------------+       |
-|       | Registros | |   ALU    | |Unidad Control|       |
-|       +-----------+ +----------+ +--------------+       |
-+-----------------------------+---------------------------+
-                              |
-+-----------------------------+---------------------------+
-|                      assembler.py                       |
-|        +--------------+ +-----------------+             |
-|        |  Analizador  | |   Generador     |             |
-|        |  Sintáctico  | |   de Código     |             |
-|        +--------------+ +-----------------+             |
-+-----------------------------+---------------------------+
-                              |
-+-----------------------------+---------------------------+
-|                       loader.py                         |
-|        +--------------+ +-----------------+             |
-|        |   Cargador   | |   Reubicador    |             |
-|        |  de Memoria  | |   de Código     |             |
-|        +--------------+ +-----------------+             |
-+-----------------------------+---------------------------+
-                              |
-+-----------------------------+---------------------------+
-|                   disco_64bits.py                       |
-|                   Sistema de E/S                        |
-+---------------------------------------------------------+
+┌─────────────────────────────────────────────────────────┐
+│                    GUI (main.py)                        │
+│                   Interfaz Gráfica                      │
+└────────────────────────────┬────────────────────────────┘
+                             │
+┌────────────────────────────┴────────────────────────────┐
+│                        CPU.py                           │
+│                  Procesador Principal                   │
+│       ┌───────────┐ ┌──────────┐ ┌──────────────┐       │
+│       │ Registros │ │   ALU    │ │Unidad Control│       │
+│       └───────────┘ └──────────┘ └──────────────┘       │
+└─────────────────────────────┬───────────────────────────┘
+                              │
+┌─────────────────────────────┼───────────────────────────┐
+│                      assembler.py                       │
+│        ┌──────────────┐ ┌─────────────────┐             │
+│        │  Analizador  │ │   Generador     │             │
+│        │  Sintáctico  │ │   de Código     │             │
+│        └──────────────┘ └─────────────────┘             │
+└─────────────────────────────┬───────────────────────────┘
+                              │
+┌─────────────────────────────┼───────────────────────────┐
+│                       loader.py                         │
+│        ┌──────────────┐ ┌─────────────────┐             │
+│        │   Cargador   │ │   Reubicador    │             │
+│        │  de Memoria  │ │   de Código     │             │
+│        └──────────────┘ └─────────────────┘             │
+└─────────────────────────────┬───────────────────────────┘
+                              │
+┌─────────────────────────────┴───────────────────────────┐
+│                   disco_64bits.py                       │
+│                   Sistema de E/S                        │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ## 4.2 Diseño del Procesador (CPU.py)
@@ -263,46 +308,46 @@ class CPU:
 #### Formato OP - Operaciones sin operandos
 ```
  63        48 47                         0
-+------------+--------------------------+
-|   OPCODE   |             0            |
-|  16 bits   |         48 bits          |
-+------------+--------------------------+
+┌────────────┬──────────────────────────┐
+│   OPCODE   │             0            │
+│  16 bits   │         48 bits          │
+└────────────┴──────────────────────────┘
 ```
 
 #### Formato R - Registro único
 ```
  63        48 47    44 43                0
-+------------+--------+------------------+
-|   OPCODE   |   RD   |        0         |
-|  16 bits   | 4 bits |     44 bits      |
-+------------+--------+------------------+
+┌────────────┬────────┬──────────────────┐
+│   OPCODE   │   RD   │        0         │
+│  16 bits   │ 4 bits │     44 bits      │
+└────────────┴────────┴──────────────────┘
 ```
 
 #### Formato RR - Registro-Registro
 ```
  63        48 47              8 7    4 3   0
-+------------+-----------------+------+-----+
-|   OPCODE   |        0        |  RD  | RS  |
-|  16 bits   |    40 bits      |4bits |4bits|
-+------------+-----------------+------+-----+
+┌────────────┬─────────────────┬──────┬─────┐
+│   OPCODE   │        0        │  RD  │ RS  │
+│  16 bits   │    40 bits      │4bits │4bits│
+└────────────┴─────────────────┴──────┴─────┘
 ```
 
 #### Formato RI - Registro-Inmediato
 ```
  63        48 47    44 43                 0
-+------------+--------+-------------------+
-|   OPCODE   |   RD   |    INMEDIATO      |
-|  16 bits   | 4 bits |     44 bits       |
-+------------+--------+-------------------+
+┌────────────┬────────┬───────────────────┐
+│   OPCODE   │   RD   │    INMEDIATO      │
+│  16 bits   │ 4 bits │     44 bits       │
+└────────────┴────────┴───────────────────┘
 ```
 
 #### Formato I - Solo Inmediato
 ```
  63        48 47                         0
-+------------+--------------------------+
-|   OPCODE   |       INMEDIATO          |
-|  16 bits   |        48 bits           |
-+------------+--------------------------+
+┌────────────┬──────────────────────────┐
+│   OPCODE   │       INMEDIATO          │
+│  16 bits   │        48 bits           │
+└────────────┴──────────────────────────┘
 ```
 
 ## 4.3 Ensamblador (assembler.py)
@@ -364,43 +409,43 @@ def encode_instruction(self, opcode, operands):
 
 ```
                   INICIO
-                     |
-                     v
-             +---------------+
-             |    Cargar     |
-             |   Programa    |
-             +-------+-------+
-                     |
-                     v
-             +---------------+
-             |     Fetch     |<-----+
-             |  Instrucción  |      |
-             +-------+-------+      |
-                     |              |
-                     v              |
-             +---------------+      |
-             |    Decode     |      |
-             |  Instrucción  |      |
-             +-------+-------+      |
-                     |              |
-                     v              |
-             +---------------+      |
-             |    Execute    |      |
-             |   Operación   |      |
-             +-------+-------+      |
-                     |              |
-                     v              |
-             +---------------+      |
-             |   Update PC   |      |
-             |   & Flags     |      |
-             +-------+-------+      |
-                     |              |
-                     v              |
-             +---------------+      |
-             |   ¿PARAR?     |--No--+
-             +-------+-------+
-                     | Sí
-                     v
+                     │
+                     ▼
+             ┌───────────────┐
+             │    Cargar     │
+             │   Programa    │
+             └───────┬───────┘
+                     │
+                     ▼
+             ┌───────────────┐
+             │     Fetch     │◄─────┐
+             │  Instrucción  │      │
+             └───────┬───────┘      │
+                     │              │
+                     ▼              │
+             ┌───────────────┐      │
+             │    Decode     │      │
+             │  Instrucción  │      │
+             └───────┬───────┘      │
+                     │              │
+                     ▼              │
+             ┌───────────────┐      │
+             │    Execute    │      │
+             │   Operación   │      │
+             └───────┬───────┘      │
+                     │              │
+                     ▼              │
+             ┌───────────────┐      │
+             │   Update PC   │      │
+             │   & Flags     │      │
+             └───────┬───────┘      │
+                     │              │
+                     ▼              │
+             ┌───────────────┐      │
+             │   ¿PARAR?     │──No──┘
+             └───────┬───────┘
+                     │ Sí
+                     ▼
                    FIN
 ```
 
@@ -425,6 +470,7 @@ def encode_instruction(self, opcode, operands):
    - Entrada de datos
    - Log de operaciones
 
+---
 
 \newpage
 
@@ -695,6 +741,7 @@ def execute_sqrt(self, operands):
     self.update_flags(result)
 ```
 
+---
 
 \newpage
 
@@ -733,9 +780,9 @@ def execute_sqrt(self, operands):
 |--------|-----------|---------|-------------|
 | 0x0010 | ADD | RR | Rd = Rd + Rs |
 | 0x0011 | SUB | RR | Rd = Rd - Rs |
-| 0x0012 | MULS | RR | Rd = Rd x Rs (con signo) |
-| 0x0013 | MUL | RR | Rd = Rd x Rs (sin signo) |
-| 0x0014 | DIV | RR | Rd = Rd / Rs |
+| 0x0012 | MULS | RR | Rd = Rd × Rs (con signo) |
+| 0x0013 | MUL | RR | Rd = Rd × Rs (sin signo) |
+| 0x0014 | DIV | RR | Rd = Rd ÷ Rs |
 | 0x0020 | ADDV | RI | Rd = Rd + inmediato |
 | 0x0021 | SUBV | RI | Rd = Rd - inmediato |
 | 0x0030 | INC | R | Rd = Rd + 1 |
@@ -811,19 +858,19 @@ MEMORY_LAYOUT = {
 ### Mapa de Memoria
 
 ```
-0x0000 +-------------------------+
-       |   Código Programa       |
-       |        (16KB)           |
-0x4000 +-------------------------+
-       |    Área de Datos        |
-       |        (8KB)            |
-0x6000 +-------------------------+
-       |        Pila             |
-       |        (8KB)            |
-0x8000 +-------------------------+
-       |    E/S Mapeada          |
-       |       (resto)           |
-0x61A8 +-------------------------+
+0x0000 ┌─────────────────────────┐
+       │   Código Programa       │
+       │        (16KB)           │
+0x4000 ├─────────────────────────┤
+       │    Área de Datos        │
+       │        (8KB)            │
+0x6000 ├─────────────────────────┤
+       │        Pila             │
+       │        (8KB)            │
+0x8000 ├─────────────────────────┤
+       │    E/S Mapeada          │
+       │       (resto)           │
+0x61A8 └─────────────────────────┘
 ```
 
 ## 6.3 Sistema de E/S
@@ -850,6 +897,7 @@ LOADIO R1, 0x8100   # R1 = IO[0x8100]
 SHOWIO 0x8000       # Mostrar contenido de IO[0x8000]
 ```
 
+---
 
 ## Conclusiones
 
@@ -868,10 +916,11 @@ El **Simulador Atlas CPU** representa una herramienta educativa completa que cum
 - **Experimentación**: Ambiente seguro para pruebas y errores
 - **Comprensión**: Visualización directa de conceptos abstractos
 
+---
 
 <div align="center">
 
 **2025 - Grupo D - Universidad Nacional de Colombia**  
 **Simulador Atlas CPU - Hexacore Technologies**
-
+**Repositorio GitHub:** [https://github.com/JulianGomezN/maquina_lenguajes](https://github.com/JulianGomezN/maquina_lenguajes)
 </div>

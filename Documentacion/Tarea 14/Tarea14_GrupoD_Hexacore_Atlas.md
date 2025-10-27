@@ -1,7 +1,5 @@
 <div align="center">
 
-![Universidad Nacional de Colombia](./unal.png)
-
 ---
 
 # **Tarea 14**
@@ -924,5 +922,5 @@ El **Simulador Atlas CPU** representa una herramienta educativa completa que cum
 
 **2025 - Grupo D - Universidad Nacional de Colombia**  
 **Simulador Atlas CPU - Hexacore Technologies**
-
+**Repositorio GitHub:** [https://github.com/JulianGomezN/maquina_lenguajes](https://github.com/JulianGomezN/maquina_lenguajes)
 </div>

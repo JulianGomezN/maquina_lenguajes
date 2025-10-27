@@ -1,9 +1,7 @@
 # Simulador Atlas CPU
 ## Simulador Educativo de Arquitectura de Computadores
 
-[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https:/## Control de Flujo
-
-| Opcode | Instrucción | Descripción |thon.org)
+[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org)
 [![License](https://img.shields.io/badge/License-Educational-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-Complete-brightgreen.svg)](README.md)
 
@@ -50,6 +48,16 @@ El **Simulador Atlas CPU** es una herramienta educativa completa que implementa 
 
 El documento principal contiene toda la información técnica necesaria. Para detalles específicos de implementación, consultar directamente el código fuente en los archivos Python del proyecto.
 
+Herramienta de conversión (mdconverter)
+--------------------------------------
+En la carpeta `Documentacion/mdconverter` hay una pequeña utilidad para convertir archivos Markdown (.md) a PDF con Pandoc y una configuración LaTeX mínima.
+
+- `convertir.bat` — lanzador para Windows que abre un diálogo de archivos.
+- `convertir_dialogo.py` — script Python que pide el .md mediante un filedialog, limpia caracteres Unicode problemáticos, genera el PDF con Pandoc (pdflatex + --toc) y elimina el archivo .md temporal.
+- `limpiar_unicode.py` — limpiador de caracteres Unicode y líneas separadoras (`---`).
+
+Antes de convertir, revise el documento Markdown y retire cualquier índice manual o contenido de portada hasta la primera aparición de `\newpage` justo antes de la primera sección (por ejemplo, antes de `# 1. Marco Teórico`). El convertidor genera su propia tabla de contenidos automáticamente.
+
 ---
 
 ## Inicio Rápido
@@ -60,6 +68,9 @@ El documento principal contiene toda la información técnica necesaria. Para de
 - **Sistema Operativo**: Windows, Linux, o macOS
 - **Memoria RAM**: 512 MB mínimo
 - **Espacio en disco**: 100 MB
+- **Pandoc** (opcional, para convertir `Documentacion/*.md` a PDF)
+- **Distribución LaTeX** (MiKTeX/TeX Live) si desea generar PDFs con Pandoc
+- **Tkinter** (incluido en la mayoría de distribuciones de Python; requerido por el diálogo en `mdconverter`)
 
 ### Instalación y Ejecución
 
@@ -69,7 +80,6 @@ git clone <repository-url>
 cd maquina_lenguajes
 
 # 2. Ejecutar la interfaz gráfica
-cd GUI
 python main.py
 
 # 3. ¡Listo para programar!
@@ -261,26 +271,23 @@ INC R1  ; R1 = -7
 
 ```
 maquina_lenguajes/
-├── Algoritmos/              # Algoritmos de prueba validados
-│   ├── Euclides/Tarea9/        # Algoritmo de Euclides
-│   ├── Modulo/                 # Operación módulo
-│   ├── ValorAbsoluto/          # Valor absoluto con complemento a 2
-│   ├── Matrix/                 # Operaciones matriciales
-│   └── SumaEnteros/            # Suma iterativa
-├── GUI/                     # Interfaz gráfica de usuario
-│   └── main.py                 # Aplicación principal
+├── Algoritmos/              # Algoritmos de prueba y ejemplos (Euclides, Módulo, Matrix, ...)
+├── GUI/                     # Interfaz gráfica de usuario (código Tkinter)
+│   └── GUI.py               # Entrada y widgets principales
 ├── Documentacion/           # Archivos de documentación técnica
-│   ├── unal.png             # Logo institucional
-│   └── Tarea14_GrupoD_Hexacore_Atlas.md # DOCUMENTO ACADÉMICO PRINCIPAL
-├── CPU.py                   # Procesador principal (64-bit, 47 instrucciones)
-├── assembler.py             # Ensamblador con 5 formatos de instrucción
-├── loader.py                # Cargador con reubicación automática
-├── disco_64bits.py          # Sistema de memoria auxiliar
-├── test_integration.py      # Pruebas de integración
+│   └── mdconverter/         # Utilidad para convertir .md -> .pdf (gui + scripts)
+├── compiler/                # Herramientas del compilador / ensamblador
+│   └── assembler.py         # Ensamblador (parsing y generación binaria)
+├── logic/                   # Núcleo del simulador (CPU, Memory, Loader)
+│   ├── CPU.py
+│   ├── Memory.py
+│   └── Loader.py
+├── main.py                  # Launcher de la GUI
+├── test_integration.py      # Pruebas de integración y ejemplos de uso
 └── README.md                # Este archivo (guía del proyecto)
 ```
 
-> **Nota**: El documento `Documentacion/Tarea14_GrupoD_Hexacore_Atlas.md` es el archivo principal que contiene toda la documentación académica consolidada.
+> **Nota**: El documento `Documentacion/Tarea14_GrupoD_Hexacore_Atlas.md` contiene la documentación académica consolidada (Tarea 14).
 
 ---
 

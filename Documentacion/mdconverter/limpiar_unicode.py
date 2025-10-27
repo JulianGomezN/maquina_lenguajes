@@ -61,12 +61,25 @@ def limpiar_unicode(archivo_entrada, archivo_salida):
         return False
 
 if __name__ == "__main__":
-    archivo_entrada = "Tarea14_GrupoD_Hexacore_Atlas.md"
-    archivo_salida = "Tarea14_Limpio.md"
-    
+    # Uso:
+    # python limpiar_unicode.py <archivo_entrada.md> <archivo_salida.md>
+    # Si se pasa solo archivo_entrada se crea archivo_salida en el mismo
+    # directorio con sufijo _limpio.md
+    if len(sys.argv) >= 3:
+        archivo_entrada = sys.argv[1]
+        archivo_salida = sys.argv[2]
+    elif len(sys.argv) == 2:
+        archivo_entrada = sys.argv[1]
+        base = os.path.splitext(os.path.basename(archivo_entrada))[0]
+        archivo_salida = os.path.join(os.path.dirname(archivo_entrada), f"{base}_limpio.md")
+    else:
+        # Compatibilidad: archivos por defecto en carpeta actual
+        archivo_entrada = "Tarea14_GrupoD_Hexacore_Atlas.md"
+        archivo_salida = "Tarea14_Limpio.md"
+
     if not os.path.exists(archivo_entrada):
         print(f"✗ Error: No se encuentra {archivo_entrada}")
         sys.exit(1)
-    
+
     success = limpiar_unicode(archivo_entrada, archivo_salida)
     sys.exit(0 if success else 1)
