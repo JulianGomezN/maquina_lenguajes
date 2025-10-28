@@ -898,6 +898,250 @@ SHOWIO 0x8000       # Mostrar contenido de IO[0x8000]
 ```
 
 ---
+\newpage
+
+## 7 Documentación de Experimentación y Resultados
+
+Se presentan los experimentos realizados sobre el analizador lexico desarrollado, con el objetivo de probar y validar el correcto funcionamiento del analizador en la identificación de categorias lexicas y su clasificación en tokens. Para esto en cada escenario se procesa una cadena de caracteres correspondiente a un un programa en alto nivel, que debe ser aceptado por el analizador lexico.
+
+### 7.1 Escenario 1
+
+Para este escenario se toma la cadena de caracteres correspondiente al un codigo en alto nivel que determina si un entero es par o impar
+
+```
+    funcion entero4 espar(entero4 a) {
+        a = a%2;
+        booleano resultado = 0;
+        si(a%2 == 0){
+            resultado = 1;
+        }
+        si_no{
+            resultado = 0;
+        }
+        retornar resultado;
+    }    
+```
+
+Retornando como resultado del analisis 
+
+```
+    LexToken(FUNCION,'funcion',3,30)
+    LexToken(ENTERO4,'entero4',3,38)
+    LexToken(ID,'espar',3,46)
+    LexToken(PARIZQ,'(',3,51)
+    LexToken(ENTERO4,'entero4',3,52)
+    LexToken(ID,'a',3,60)
+    LexToken(PARDER,')',3,61)
+    LexToken(LLAVEIZQ,'{',3,63)
+    LexToken(ID,'a',4,73)
+    LexToken(ASIGNAR,'=',4,75)
+    LexToken(ID,'a',4,77)
+    LexToken(MOD,'%',4,78)
+    LexToken(ENTERO,2,4,79)
+    LexToken(PUNTOCOMA,';',4,80)
+    LexToken(BOOLEANO,'booleano',5,90)
+    LexToken(ID,'resultado',5,99)
+    LexToken(ASIGNAR,'=',5,109)
+    LexToken(ENTERO,0,5,111)
+    LexToken(PUNTOCOMA,';',5,112)
+    LexToken(SI,'si',6,122)
+    LexToken(PARIZQ,'(',6,124)
+    LexToken(ID,'a',6,125)
+    LexToken(MOD,'%',6,126)
+    LexToken(ENTERO,2,6,127)
+    LexToken(IGUAL,'==',6,129)
+    LexToken(ENTERO,0,6,132)
+    LexToken(PARDER,')',6,133)
+    LexToken(LLAVEIZQ,'{',6,134)
+    LexToken(ID,'resultado',7,148)
+    LexToken(ASIGNAR,'=',7,158)
+    LexToken(ENTERO,1,7,160)
+    LexToken(PUNTOCOMA,';',7,161)
+    LexToken(LLAVEDER,'}',8,171)
+    LexToken(SINO,'si_no',9,181)
+    LexToken(LLAVEIZQ,'{',9,186)
+    LexToken(ID,'resultado',10,200)
+    LexToken(ASIGNAR,'=',10,210)
+    LexToken(ENTERO,0,10,212)
+    LexToken(PUNTOCOMA,';',10,213)
+    LexToken(LLAVEDER,'}',11,223)
+    LexToken(RETORNAR,'retornar',12,233)
+    LexToken(ID,'resultado',12,242)
+    LexToken(PUNTOCOMA,';',12,251)
+    LexToken(LLAVEDER,'}',13,257)
+```
+
+### 7.1 Escenario 2
+
+Para este escenario se toma la cadena de caracteres correspondiente al un codigo del algoritmo de euclides
+
+```
+    funcion entero4 euclides(entero4 a, entero4 b) {
+        mientras(b != 0) {
+            entero4 temp = b;
+            b = a % b;
+            a = temp;
+        }
+        retornar a;
+    }    
+```
+
+Retornando como resultado del analisis 
+
+```
+    LexToken(FUNCION,'funcion',3,30)
+    LexToken(ENTERO4,'entero4',3,38)  
+    LexToken(ID,'euclides',3,46)      
+    LexToken(PARIZQ,'(',3,54)
+    LexToken(ENTERO4,'entero4',3,55)  
+    LexToken(ID,'a',3,63)
+    LexToken(COMA,',',3,64)
+    LexToken(ENTERO4,'entero4',3,66)  
+    LexToken(ID,'b',3,74)
+    LexToken(PARDER,')',3,75)
+    LexToken(LLAVEIZQ,'{',3,77)       
+    LexToken(MIENTRAS,'mientras',4,87)
+    LexToken(PARIZQ,'(',4,95)
+    LexToken(ID,'b',4,96)
+    LexToken(DISTINTO,'!=',4,98)      
+    LexToken(ENTERO,0,4,101)
+    LexToken(PARDER,')',4,102)
+    LexToken(LLAVEIZQ,'{',4,104)
+    LexToken(ENTERO4,'entero4',5,118)
+    LexToken(ID,'temp',5,126)
+    LexToken(ASIGNAR,'=',5,131)
+    LexToken(ID,'b',5,133)
+    LexToken(PUNTOCOMA,';',5,134)
+    LexToken(ID,'b',6,148)
+    LexToken(ASIGNAR,'=',6,150)
+    LexToken(ID,'a',6,152)
+    LexToken(MOD,'%',6,154)
+    LexToken(ID,'b',6,156)
+    LexToken(PUNTOCOMA,';',6,157)
+    LexToken(ID,'a',7,171)
+    LexToken(ASIGNAR,'=',7,173)
+    LexToken(ID,'temp',7,175)
+    LexToken(PUNTOCOMA,';',7,179)
+    LexToken(LLAVEDER,'}',8,189)
+    LexToken(RETORNAR,'retornar',9,199)
+    LexToken(ID,'a',9,208)
+    LexToken(PUNTOCOMA,';',9,209)
+    LexToken(LLAVEDER,'}',10,215)
+```
+
+### 7.1 Escenario 3
+
+Para este escenario se toma la cadena de caracteres correspondiente al un codigo que calcula el determinante de una matriz cuadrada 2x2
+
+```
+    funcion entero4 determinante(entero4 x1, entero4 x2, entero4 y1, entero4 y2){
+        entero8 det = (x1 * y2) - (x2 * y1);
+        retornar det;
+    }
+```
+
+Retornando como resultado el analisis 
+
+```
+    LexToken(FUNCION,'funcion',3,30)
+    LexToken(ENTERO4,'entero4',3,38)
+    LexToken(ID,'determinante',3,46)
+    LexToken(PARIZQ,'(',3,58)       
+    LexToken(ENTERO4,'entero4',3,59)
+    LexToken(ID,'x1',3,67)
+    LexToken(COMA,',',3,69)
+    LexToken(ENTERO4,'entero4',3,71)
+    LexToken(ID,'x2',3,79)
+    LexToken(COMA,',',3,81)
+    LexToken(ENTERO4,'entero4',3,83)
+    LexToken(ID,'y1',3,91)
+    LexToken(COMA,',',3,93)
+    LexToken(ENTERO4,'entero4',3,95)
+    LexToken(ID,'y2',3,103)
+    LexToken(PARDER,')',3,105)
+    LexToken(LLAVEIZQ,'{',3,106)
+    LexToken(ENTERO8,'entero8',4,116)
+    LexToken(ID,'det',4,124)
+    LexToken(ASIGNAR,'=',4,128)
+    LexToken(PARIZQ,'(',4,130)
+    LexToken(ID,'x1',4,131)
+    LexToken(MULT,'*',4,134)
+    LexToken(ID,'y2',4,136)
+    LexToken(PARDER,')',4,138)
+    LexToken(MENOS,'-',4,140)
+    LexToken(PARIZQ,'(',4,142)
+    LexToken(ID,'x2',4,143)
+    LexToken(MULT,'*',4,146)
+    LexToken(ID,'y1',4,148)
+    LexToken(PARDER,')',4,150)
+    LexToken(PUNTOCOMA,';',4,151)
+    LexToken(RETORNAR,'retornar',5,161)
+    LexToken(ID,'det',5,170)
+    LexToken(PUNTOCOMA,';',5,173)
+    LexToken(LLAVEDER,'}',6,179)
+```
+
+### 7.1 Escenario 4
+
+Para este escenario se toma la cadena de caracteres correspondiente al un codigo que calcula el determinante de una matriz cuadrada 2x2
+
+```
+    funcion entero4 abs(entero4 con_signo a){
+        si(a >= 0){
+            retornar a;
+        }
+        si_no{
+            absoluto = -1*a;
+            retornar absoluto;
+        }        
+    }
+```
+
+Retornando como resultado el analisis 
+
+```
+    LexToken(FUNCION,'funcion',3,30)
+    LexToken(ENTERO4,'entero4',3,38)    
+    LexToken(ID,'abs',3,46)
+    LexToken(PARIZQ,'(',3,49)
+    LexToken(ENTERO4,'entero4',3,50)    
+    LexToken(CON_SIGNO,'con_signo',3,58)
+    LexToken(ID,'a',3,68)
+    LexToken(PARDER,')',3,69)
+    LexToken(LLAVEIZQ,'{',3,70)
+    LexToken(SI,'si',4,80)
+    LexToken(PARIZQ,'(',4,82)
+    LexToken(ID,'a',4,83)
+    LexToken(MAYORIGUAL,'>=',4,85)      
+    LexToken(ENTERO,0,4,88)
+    LexToken(PARDER,')',4,89)
+    LexToken(LLAVEIZQ,'{',4,90)
+    LexToken(RETORNAR,'retornar',5,104)
+    LexToken(ID,'a',5,113)
+    LexToken(PUNTOCOMA,';',5,114)
+    LexToken(LLAVEDER,'}',6,124)
+    LexToken(SINO,'si_no',7,134)
+    LexToken(LLAVEIZQ,'{',7,139)
+    LexToken(ID,'absoluto',8,153)
+    LexToken(ASIGNAR,'=',8,162)
+    LexToken(MENOS,'-',8,164)
+    LexToken(ENTERO,1,8,165)
+    LexToken(MULT,'*',8,166)
+    LexToken(ID,'a',8,167)
+    LexToken(PUNTOCOMA,';',8,168)
+    LexToken(RETORNAR,'retornar',9,182)
+    LexToken(ID,'absoluto',9,191)
+    LexToken(PUNTOCOMA,';',9,199)
+    LexToken(LLAVEDER,'}',10,209)
+    LexToken(LLAVEDER,'}',11,223)
+```
+
+### Analisis
+Tras el análisis de los resultados obtenidos en los cuatro casos de prueba, se pudo comprobar que el analizador léxico identificó correctamente las categorías léxicas asociadas a cada una de las subcadenas en las cadenas de entrada. En todos los casos, los tokens generados coincidieron con los valores esperados de acuerdo con las reglas definidas en la gramática léxica del lenguaje.
+
+Esto demuestra que las expresiones regulares implementadas en las definiciones de tokens son adecuadas para reconocer las estructuras básicas del lenguaje, como identificadores, palabras reservadas, operadores y delimitadores.
+
+---
 
 ## Conclusiones
 
