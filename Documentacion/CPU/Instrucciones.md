@@ -1,3 +1,5 @@
+### Formatos de Instrucción (64 bits)
+
 ## Formatos de Instrucción (64 bits)
 
 Para simplificar la implementación, se definen **cinco formatos fijos** de 64 bits:
@@ -162,6 +164,17 @@ Usado en `JMP k`, `SHOWIO addr`.
 | 0x0304 | DIV4 Rd, Rs | Rd = Rd ÷ Rs (4 bytes, con signo) |
 | 0x0310 | ADDV4 Rd, v | Rd = Rd + v (4 bytes, valor inmediato) |
 | 0x0311 | SUBV4 Rd, v | Rd = Rd - v (4 bytes, valor inmediato) |
+
+### Operaciones de 8 Bytes
+| Opcode | Instrucción | Descripción |
+|--------|-------------|-------------|
+| 0x0300 | ADD8 Rd, Rs | Rd = Rd + Rs (4 bytes, con signo) |
+| 0x0301 | SUB8 Rd, Rs | Rd = Rd - Rs (4 bytes, con signo) |
+| 0x0302 | MUL8 Rd, Rs | Rd = Rd × Rs (4 bytes, sin signo) |
+| 0x0303 | MULS8 Rd, Rs | Rd = Rd × Rs (4 bytes, con signo) |
+| 0x0304 | DIV8 Rd, Rs | Rd = Rd ÷ Rs (4 bytes, con signo) |
+| 0x0310 | ADDV8 Rd, v | Rd = Rd + v (4 bytes, valor inmediato) |
+| 0x0311 | SUBV8 Rd, v | Rd = Rd - v (4 bytes, valor inmediato) |
 
 ### Transferencia de Datos (MOV)
 
