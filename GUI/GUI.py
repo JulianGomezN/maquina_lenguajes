@@ -68,8 +68,8 @@ class SimuladorGUI:
         ttk.Button(buttons_container, text="🔄 Cargar Programa", 
                   command=self.cargar_programa, width=20).grid(row=1, column=0, padx=3, pady=2, sticky="ew")
         
-        ttk.Button(buttons_container, text="� Reset CPU", 
-                  command=self.reset_cpu, width=20).grid(row=1, column=1, padx=3, pady=2, sticky="ew")
+        ttk.Button(buttons_container, text="📂 Cargar Archivo", 
+                  command=self.cargar_archivo, width=20).grid(row=1, column=1, padx=3, pady=2, sticky="ew")
         
         # FILA 2: Dirección de carga
         ttk.Label(buttons_container, text="📍 Dirección de carga:", font=("Arial", 9, "bold")).grid(row=2, column=0, columnspan=2, sticky="w", pady=(10, 2))
@@ -202,7 +202,9 @@ class SimuladorGUI:
         ttk.Button(mode_grid, text="👆 Paso", command=self.ejecutar_paso, width=12).grid(row=0, column=2, padx=2, pady=1, sticky="ew")
         
         self.boton_parar = ttk.Button(mode_grid, text="⏹️ Parar", command=self.parar_ejecucion, state="disabled", width=12)
-        self.boton_parar.grid(row=1, column=1, columnspan=2, padx=2, pady=1, sticky="ew")
+        self.boton_parar.grid(row=1, column=1, padx=2, pady=1, sticky="ew")
+        
+        ttk.Button(mode_grid, text="🔄 Reset", command=self.reset_cpu, width=12).grid(row=1, column=2, padx=2, pady=1, sticky="ew")
         
         # Salida
         output_frame = ttk.LabelFrame(right_frame, text="Salida")
@@ -251,6 +253,39 @@ PARAR            ; terminar programa"""
 
 
     # ========== Metodos ==========
+    def cargar_archivo(self):
+        """Carga un archivo de texto externo en el área de programa"""
+        from tkinter import filedialog
+        
+        # Abrir diálogo para seleccionar archivo
+        archivo = filedialog.askopenfilename(
+            title="Seleccionar archivo de programa",
+            filetypes=[
+                ("Archivos Assembly", "*.asm"),
+                ("Archivos de texto", "*.txt"),
+                ("Todos los archivos", "*.*")
+            ],
+            initialdir=os.path.join(os.path.dirname(__file__), "..", "Algoritmos")
+        )
+        
+        if archivo:
+            try:
+                # Leer el contenido del archivo
+                with open(archivo, 'r', encoding='utf-8') as f:
+                    contenido = f.read()
+                
+                # Limpiar y cargar en el área de texto
+                self.texto_programa.delete("1.0", "end")
+                self.texto_programa.insert("1.0", contenido)
+                
+                # Mostrar mensaje de éxito
+                nombre_archivo = os.path.basename(archivo)
+                self.set_salida(f"Archivo '{nombre_archivo}' cargado exitosamente.\nHaz clic en 'Cargar Programa' para ensamblarlo.")
+                
+            except Exception as e:
+                messagebox.showerror("Error", f"Error al cargar el archivo:\n{str(e)}")
+                self.set_salida(f"Error al cargar archivo: {str(e)}")
+    
     def obtener_direccion_carga(self):
         """Obtiene la dirección de carga desde el campo de entrada"""
         try:
