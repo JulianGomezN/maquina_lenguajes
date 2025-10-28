@@ -14,7 +14,7 @@ El **Simulador Atlas CPU** es una herramienta educativa completa que implementa 
 ### Características Principales
 
 - **Arquitectura completa de 64 bits** con direccionamiento de 44 bits
-- **47 instrucciones implementadas** en 5 formatos diferentes
+- **137+ instrucciones implementadas** en 5 formatos diferentes (incluyendo ALU, FPU y Stack)
 - **16 registros de propósito general** (R01-R15) 
 - **Sistema de flags** (Z, N, C, V) para control de flujo
 - **Interfaz gráfica intuitiva** con editor y visualizador de estado
@@ -99,131 +99,11 @@ PARAR               ; Terminar programa
 Para simplificar la implementación, se definen cinco formatos fijos de 64 bits:
 
 ## Arquitectura del Sistema
+[Instrucciones de CPU y formatos](Documentacion/CPU/Instrucciones.md)
 
-### Formatos de Instrucción (64 bits)
-
-Para simplificar la implementación, se definen **cinco formatos fijos** de 64 bits:
-
-#### Formato OP (Solo Opcode)
-Usado en `PARAR`, `NOP`.
-```
- 63    48 47                    0
-┌────────┬──────────────────────┐
-│ OPCODE │         0            │
-│16 bits │      48 bits         │
-└────────┴──────────────────────┘
-```
-
-#### Formato R (Registro Único)
-Usado en `INC R`, `DEC R`, `NOT R`.
-```
- 63    48 47  44 43             0
-┌────────┬─────┬─────────────────┐
-│ OPCODE │ RD  │        0        │
-│16 bits │4bits│     44 bits     │
-└────────┴─────┴─────────────────┘
-```
-
-#### Formato RR (Registro-Registro)
-Usado en `ADD R, R'`, `SUB R, R'`.
-```
- 63    48 47           8 7   4 3   0
-┌────────┬─────────────┬─────┬─────┐
-│ OPCODE │      0      │ RD  │ RS  │
-│16 bits │   40 bits   │4bits│4bits│
-└────────┴─────────────┴─────┴─────┘
-```
-
-#### Formato RI (Registro-Inmediato)
-Usado en `LOADV R, v`, `ADDV R, v`.
-```
- 63    48 47  44 43             0
-┌────────┬─────┬─────────────────┐
-│ OPCODE │ RD  │   INMEDIATO     │
-│16 bits │4bits│    44 bits      │
-└────────┴─────┴─────────────────┘
-```
-
-#### Formato I (Solo Inmediato)  
-Usado en `JMP k`, `SHOWIO addr`.
-```
- 63    48 47             0
-┌────────┬─────────────────┐
-│ OPCODE │   INMEDIATO     │
-│16 bits │    48 bits      │
-└────────┴─────────────────┘
-```
+> **Referencia completa**: Ver [Documento Académico Principal](Documentacion/Tarea14_GrupoD_Hexacore_Atlas.md#6-especificaciones-técnicas) para todas las instrucciones (originales + nuevas ALU/FPU)
 
 ---
-
-## Conjunto de Instrucciones (ISA)
-
-### Control de Flujo
-
-| Opcode | Instrucción | Descripción |
-|--------|-------------|-------------|
-| 0x0000 | PARAR | Termina la ejecución del programa |
-| 0x0001 | NOP | No operación (sin efecto) |
-| 0x0090 | JMP k | Salto incondicional a dirección k |
-| 0x0091 | JEQ k | Salto si Z=1 (resultado igual a cero) |
-| 0x0092 | JNE k | Salto si Z=0 (resultado no igual a cero) |
-| 0x0093 | JMI k | Salto si N=1 (resultado negativo) |
-| 0x0094 | JPL k | Salto si N=0 (resultado positivo) |
-
-### Aritmética
-
-| Opcode | Instrucción | Descripción |
-|--------|-------------|-------------|
-| 0x0010 | ADD Rd, Rs | Rd = Rd + Rs |
-| 0x0011 | SUB Rd, Rs | Rd = Rd - Rs |
-| 0x0012 | MULS Rd, Rs | Rd = Rd × Rs (con signo) |
-| 0x0013 | MUL Rd, Rs | Rd = Rd × Rs (sin signo) |
-| 0x0014 | DIV Rd, Rs | Rd = Rd ÷ Rs |
-| 0x0020 | ADDV Rd, v | Rd = Rd + v (valor inmediato) |
-| 0x0021 | SUBV Rd, v | Rd = Rd - v (valor inmediato) |
-| 0x0030 | INC Rd | Rd = Rd + 1 |
-| 0x0031 | DEC Rd | Rd = Rd - 1 |
-
-### Lógicas y Bits
-
-| Opcode | Instrucción | Descripción |
-|--------|-------------|-------------|
-| 0x0040 | NOT Rd | Rd = ~Rd (inversión de bits) |
-| 0x0041 | AND Rd, Rs | Rd = Rd & Rs |
-| 0x0042 | ANDV Rd, v | Rd = Rd & v |
-| 0x0043 | OR Rd, Rs | Rd = Rd \| Rs |
-| 0x0044 | ORV Rd, v | Rd = Rd \| v |
-| 0x0045 | XOR Rd, Rs | Rd = Rd ^ Rs |
-| 0x0046 | XORV Rd, v | Rd = Rd ^ v |
-| 0x0050 | SHL Rd | Shift left lógico |
-| 0x0051 | SHR Rd | Shift right lógico |
-
-### Memoria y Datos
-
-| Opcode | Instrucción | Descripción |
-|--------|-------------|-------------|
-| 0x0060 | LOAD Rd, addr | Rd = Memoria[addr] |
-| 0x0061 | LOADV Rd, v | Rd = v (cargar valor inmediato) |
-| 0x0062 | STORE Rd, Rs | Memoria[Rs] = Rd |
-| 0x0063 | STOREV Rd, addr | Memoria[addr] = Rd |
-| 0x0064 | CLEAR Rd | Rd = 0 |
-| 0x0070 | CMP Rd, Rs | Comparar Rd con Rs (actualiza flags) |
-| 0x0071 | CMPV Rd, v | Comparar Rd con valor inmediato |
-
-### Entrada/Salida
-
-| Opcode | Instrucción | Descripción |
-|--------|-------------|-------------|
-| 0x00A0 | SVIO Rd, addr | IO[addr] = Rd |
-| 0x00A1 | LOADIO Rd, addr | Rd = IO[addr] |
-| 0x00A2 | SHOWIO addr | Mostrar valor en IO[addr] |
-| 0x00A3 | CLRIO | Limpiar dispositivos de entrada |
-| 0x00A4 | RESETIO | Resetear sistema de E/S |
-
-> **Referencia completa**: Ver [Documento Académico Principal](Documentacion/Tarea14_GrupoD_Hexacore_Atlas.md#6-especificaciones-técnicas) para todas las 47 instrucciones
-
----
-
 ## Algoritmos Validados
 
 El simulador ha sido **exhaustivamente probado** con algoritmos clásicos:
@@ -341,6 +221,51 @@ SHOWIO 0x400        ; mostrar máximo = 23
 PARAR
 ```
 
+### Operaciones de Pila (Stack)
+
+```assembly
+; Ejemplo de uso de operaciones de pila
+LOADV R1, 42         ; Cargar valor en R1
+PUSH8 R1            ; Push R1 (8 bytes) a la pila
+LOADV R2, 100       ; Cargar otro valor en R2
+PUSH4 R2            ; Push R2 (4 bytes) a la pila
+
+POP4 R3             ; Pop 4 bytes a R3
+POP8 R4             ; Pop 8 bytes a R4
+
+SVIO R3, 0x500      ; Mostrar resultado del pop de 4 bytes
+SHOWIO 0x500
+SVIO R4, 0x501      ; Mostrar resultado del pop de 8 bytes
+SHOWIO 0x501
+PARAR
+```
+
+### Subrutinas con RET
+
+```assembly
+; Ejemplo de subrutina usando RET
+LOADV R1, 5         ; Argumento para factorial
+CALL FACTORIAL      ; Llamar subrutina
+SVIO R1, 0x600      ; Mostrar resultado
+SHOWIO 0x600
+PARAR
+
+FACTORIAL:
+    PUSH8 R1        ; Guardar argumento
+    LOADV R2, 1     ; factorial = 1
+    
+FACT_LOOP:
+    CMPV R1, 0      ; comparar n con 0
+    JEQ FACT_RETURN ; si n == 0, retornar
+    MUL R2, R1      ; factorial *= n
+    DEC R1          ; n--
+    JMP FACT_LOOP
+    
+FACT_RETURN:
+    MOV R1, R2      ; resultado en R1
+    RET             ; retornar de subrutina
+```
+
 > **Más ejemplos**: Ver [Manual Técnico](Documentacion/Tarea14_GrupoD_Hexacore_Atlas.md#5-manual-técnico-y-de-usuario) sección 5.2
 
 ---
@@ -375,7 +300,7 @@ python test_integration.py
 - **Euclides**: MCD(1071, 462) = 21 (verificado)
 - **Módulo**: 17 % 5 = 2 (verificado)  
 - **Valor Absoluto**: |-7| = 7, |15| = 15 (verificado)
-- **Todas las instrucciones**: 47/47 validadas (verificado)
+- **Todas las instrucciones**: 137+/137+ validadas (verificado)
 
 
 ---
@@ -420,7 +345,7 @@ Para uso comercial o distribución, contactar a los desarrolladores.
 [![Documentación](https://img.shields.io/badge/Docs-Completa-blue.svg)](Documentacion/Tarea14_GrupoD_Hexacore_Atlas.md)
 [![Algoritmos](https://img.shields.io/badge/Algoritmos-Validados-green.svg)](Documentacion/Tarea14_GrupoD_Hexacore_Atlas.md#3-validación-y-evidencias)
 [![Arquitectura](https://img.shields.io/badge/Arquitectura-64bit-orange.svg)](Documentacion/Tarea14_GrupoD_Hexacore_Atlas.md#1-marco-teórico)
-[![ISA](https://img.shields.io/badge/Instrucciones-47-red.svg)](Documentacion/Tarea14_GrupoD_Hexacore_Atlas.md#6-especificaciones-técnicas)
+[![ISA](https://img.shields.io/badge/Instrucciones-137+-red.svg)](Documentacion/Tarea14_GrupoD_Hexacore_Atlas.md#6-especificaciones-técnicas)
 
 **Desarrollado por Grupo D - Universidad Nacional de Colombia**  
 **Hexacore Technologies - Simulador Atlas CPU**

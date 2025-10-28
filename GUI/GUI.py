@@ -449,17 +449,17 @@ PARAR            ; terminar programa"""
             messagebox.showinfo("Info", "El programa ya terminó")
             return
         
+        # Ejecutar una sola instrucción
+        self.cpu.fetch()
+        ins = self.cpu.decode()
+        self.cpu.execute(ins)
+        self.update_gui()
+        
+        # Mostrar información de la instrucción ejecutada
+        instr_info = self.assembler.disassemble_instruction(self.cpu.ir)
+        self.append_salida(f"Ejecutado: {instr_info}")
         try:
-            # Ejecutar una sola instrucción
-            self.cpu.fetch()
-            ins = self.cpu.decode()
-            self.cpu.execute(ins)
-            self.update_gui()
-            
-            # Mostrar información de la instrucción ejecutada
-            instr_info = self.assembler.disassemble_instruction(self.cpu.ir)
-            self.append_salida(f"Ejecutado: {instr_info}")
-            
+            pass
         except Exception as e:
             messagebox.showerror("Error", f"Error al ejecutar paso:\n{str(e)}")
             self.append_salida(f"Error: {str(e)}")
@@ -588,7 +588,7 @@ PARAR            ; terminar programa"""
     def update_gui(self):
         # Actualizar registros
         for i in range(16):
-            self.set_registro(f"R{i:02}", self.cpu.registers[i])
+            self.set_registro(f"R{i:02}", self.cpu.registers[i].value)
         
         # Actualizar flags
         self.set_flag("Z (Zero)", self.cpu.flags["Z"])

@@ -1,45 +1,3 @@
-<div align="center">
-
----
-
-# **Taller 1**
-
-## **Grupo D:**
-
-**Jorge Isaac Alandete Díaz**  
-**Manuel Eduardo Díaz Sabogal**  
-**Julián Andrés Gómez Niño**  
-**Juan Esteban Medina Cárdenas**  
-**Sergio Nicolás Siabatto Cleves**
-
----
-
-**Facultad de Ingeniería, Universidad Nacional de Colombia**  
-**Departamento de Ingeniería de Sistemas e Industrial**  
-**Lenguajes de programación: Grupo 2**  
-**Jorge Eduardo Ortiz Triviño**  
-
-**Octubre del 2025**
-
----
-
-</div>
-
-\newpage
-
----
-
-# Índice de Contenidos
-
-1. **[Marco Teórico](#1-marco-teórico)** - Fundamentos de arquitectura de computadores
-2. **[Descripción del Problema](#2-descripción-del-problema)** - Análisis del problema educativo
-3. **[Validación y Evidencias](#3-validación-y-evidencias)** - Documentación de Tarea 9
-4. **[Diseño de la Aplicación](#4-diseño-de-la-aplicación)** - Arquitectura y diagramas
-5. **[Manual Técnico y de Usuario](#5-manual-técnico-y-de-usuario)** - Guía completa
-6. **[Especificaciones Técnicas](#6-especificaciones-técnicas)** - Detalles de implementación
-
----
-
 \newpage
 
 # 1. Marco Teórico
@@ -82,6 +40,26 @@ El problema central radica en crear un sistema integrado que incluya:
 5. **Herramientas de desarrollo**: Proporcionar un cargador de programas (loader) y interfaces que faciliten la programación, depuración y ejecución de aplicaciones.
 
 Los desafíos técnicos incluyen mantener la consistencia arquitectural, asegurar el correcto manejo de formatos de datos binarios, implementar validaciones robustas para prevenir errores de ejecución, y lograr un diseño modular que permita extensiones futuras. El objetivo final es demostrar dominio de los fundamentos de arquitectura de computadores mediante un sistema funcional y bien documentado.
+
+### Requisitos y Alcance del Taller 1 (Análisis Léxico)
+
+Este taller toma como base la solución desarrollada en las Tareas #09 y #14 y se centra en la primera fase de construcción del Sistema de Procesamiento del Lenguaje (SPL). Los objetivos específicos de esta entrega son:
+
+a) Diseñar, implementar y entregar un PREPROCESADOR mediante el metalenguaje FLEX (o herramienta equivalente: JFlex, lex.py).
+
+b) Diseñar, implementar y entregar un ENSAMBLADOR (assembler) mediante FLEX (o alternativa justificable).
+
+c) Diseñar, implementar y entregar el ENLAZADOR-CARGADOR (linker/loader) mediante FLEX (o alternativa justificable).
+
+d) Determinar y documentar el vocabulario completo que reconocerá el compilador (lista de palabras reservadas, operadores, literales, registros, directivas, comentarios, etc.).
+
+e) Definir las categorías léxicas (tokens) y especificar las expresiones regulares que las reconocen.
+
+f) Entregar el analizador léxico implementado en C/C++ usando FLEX (o en Java con JFlex, o en Python con lex.py si se justifica). Incluir archivos fuente (`.l`, `.c/.cpp`), un `Makefile` o instrucciones de compilación, y casos de prueba.
+
+g) Entregar evidencia de pruebas (programas de ejemplo, salidas de tokens) que demuestren la correcta identificación de categorías léxicas.
+
+h) Entregar un informe (formato PDF) que documente diseño, decisiones, patrones regulares, arquitectura y pruebas. Puede generarse con la utilidad `mdconverter` incluida en `Documentacion/mdconverter`.
 
 ---
 
@@ -406,48 +384,7 @@ def encode_instruction(self, opcode, operands):
 ## 4.4 Flujo de Ejecución
 
 ### Diagrama de Flujo Principal
-
-```
-                  INICIO
-                     │
-                     ▼
-             ┌───────────────┐
-             │    Cargar     │
-             │   Programa    │
-             └───────┬───────┘
-                     │
-                     ▼
-             ┌───────────────┐
-             │     Fetch     │◄─────┐
-             │  Instrucción  │      │
-             └───────┬───────┘      │
-                     │              │
-                     ▼              │
-             ┌───────────────┐      │
-             │    Decode     │      │
-             │  Instrucción  │      │
-             └───────┬───────┘      │
-                     │              │
-                     ▼              │
-             ┌───────────────┐      │
-             │    Execute    │      │
-             │   Operación   │      │
-             └───────┬───────┘      │
-                     │              │
-                     ▼              │
-             ┌───────────────┐      │
-             │   Update PC   │      │
-             │   & Flags     │      │
-             └───────┬───────┘      │
-                     │              │
-                     ▼              │
-             ┌───────────────┐      │
-             │   ¿PARAR?     │──No──┘
-             └───────┬───────┘
-                     │ Sí
-                     ▼
-                   FIN
-```
+![Diagrama de Flujo Principal](images/4_4.png)
 
 ## 4.5 Interfaz Gráfica (GUI)
 
@@ -472,6 +409,129 @@ def encode_instruction(self, opcode, operands):
 
 ---
 
+## 4.6 Flujo del Compilador SPL (Preprocesador → Analizador Léxico → Sintáctico → IR → Opt → Ensamblador → Enlazador/Cargador)
+
+El siguiente diagrama resume la cadena de herramientas para el SPL del Taller 1. 
+
+### 4.6.1 Pipeline general (fases)
+![Pipeline general (fases)](images/4_6_1.png)
+
+#### **Definiciones:** 
++ Preproc: transforma y normaliza el código fuente (p. ej. directivas, includes, limpieza).
++ Lexer: convierte texto en tokens (IDs, números, operadores).
++ Parser: aplica la gramática y construye el AST.
++ AST: representación en árbol de la estructura sintáctica.
++ IR: representación intermedia para análisis/optimización.
++ Opt.: optimizador opcional.
++ Assembler: genera instrucciones binarias.
++ Linker/Loader: reubica y combina módulos, carga en memoria.
++ Mem/CPU: memoria y simulador donde se ejecuta el binario.
+
+
+### 4.6.2 Flujo de tokens → árbol sintáctico → AST
+
+![Flujo de tokens → árbol sintáctico → AST](images/4_6_2.png)
+
+**Definiciones:** 
++ Parsing: proceso que toma tokens y aplica la gramática para reconocer construcciones (producciones) y crear nodos sintácticos.
++ Stmt (Statement): unidad ejecutable del programa, ej: asignación, if, while, return.
++ AST: estructura de datos en forma de árbol que representa la estructura jerárquica del programa.
+
+### 4.6.3 Optimización y generación final
+
+![Optimización y generación final](images/4_6_3.png)
+
+**Definiciones:** 
++ IR: formato intermedio entre parser y generador que permite análisis y transformaciones.
++ Análisis de flujo: computa dependencias/alcances (p. ej. dominadores, live-variables).
++ Optimización local: mejoras dentro de bloques (p. ej. const-fold).
++ Eliminación de código muerto: borrar instrucciones no usadas.
++ Codegen/Assembler: genera instrucciones binarias finales.
++ Binario: secuencia de instrucciones lista para cargar/ejecutar.
++ Linker: reubica símbolos y combina módulos en ejecutable.
+
+Descripción rápida de cómo esto encaja con el repositorio actual:
+
+- En esta entrega el ensamblador (`compiler/assembler.py`) implementa el generador de instrucción (CODEGEN) y el desensamblador. El `Loader` (`logic/Loader.py`) realiza la función del enlazador/cargador (reubicación simple, escritura a memoria y registro de programas cargados).
+
+## 4.7 Especificación Léxica del Lenguaje
+
+### Keywords
+```
+- si
+- si_no
+- mientras
+- para
+- romper
+- continuar
+- vacio
+- constante
+- entero2
+- entero4
+- entero8
+- caracter
+- cadena
+- con_signo
+- sin_signo
+- flotante
+- doble
+- booleano
+- funcion
+- retornar
+- nuevo
+- eliminar
+```
+### Identificadores
+```
+Empiezan por letra mayúscula o minúscula.
+- Nombres de variables 
+- Nombres de funciones
+```
+### Constantes
+```
+- Enteros: 10, -25, 0xFF (decimal y hexadecimal)
+- Flotantes: 3.14, 2.0e3
+- Caracteres: 'A', '\n'
+- Cadenas: "Hola, Mundo"
+- Booleanos: True or False
+```
+### Comentarios
+```
+- /*
+- */
+- //
+```
+### Operadores
+```
+- Asignación y compuestos: =, +=, -=, *=, /=, %=
+- Incremento / decremento: ++, --
+- Aritméticos: +, -, *, /, %
+- Bitwise: &, |, ^
+- Comparación: ==, !=, <, <=, >, >=
+- Lógicos: &&, ||
+```
+### Delimitadores
+```
+- Llaves: { }
+- Paréntesis: ( )
+- Punto y coma: ;
+- Coma: ,
+- Corchetes: [ ]
+- Comillas: " " y ' '
+```
+### Expresiones regulares
+
+```
+- digito: [0-9]
+- numero_entero: -? digito+
+- numero_decimal: -? digito+ (\.digito+)?([eE][-+]?{digito}+)?
+- caracter: \'([^\'\\]|\\[ntr0'\\])\'
+- cadena: \"([^\"\\]|\\.)*\"    \"[^\"\n]*\"
+- booleano: verdadero | falso
+- comentario: (\/\/[^\n]*|\/\*([^*]|\*+[^*/])*\*+\/)
+- identificadores: [a-zA-Z_][a-zA-Z0-9_]*
+```
+---
 \newpage
 
 # 5. Manual Técnico y de Usuario
@@ -507,7 +567,6 @@ python --version  # Debe ser 3.8+
 
 3. **Ejecutar simulador**
 ```bash
-cd GUI
 python main.py
 ```
 
@@ -516,7 +575,7 @@ python main.py
 ### Inicio Rápido
 
 #### Primer Programa
-1. Abrir la aplicación ejecutando `python main.py` desde la carpeta GUI
+1. Abrir la aplicación ejecutando `python main.py` desde la raíz del repositorio (la misma carpeta que contiene `main.py`)
 2. En el editor, escribir:
 ```assembly
 LOADV R1, 10    ; Cargar 10 en registro R1
@@ -860,17 +919,17 @@ MEMORY_LAYOUT = {
 ```
 0x0000 ┌─────────────────────────┐
        │   Código Programa       │
-       │        (16KB)           │
+       │        (16 KiB)         │
 0x4000 ├─────────────────────────┤
        │    Área de Datos        │
-       │        (8KB)            │
+       │        (8 KiB)          │
 0x6000 ├─────────────────────────┤
        │        Pila             │
-       │        (8KB)            │
+       │        (8 KiB)          │
 0x8000 ├─────────────────────────┤
        │    E/S Mapeada          │
-       │       (resto)           │
-0x61A8 └─────────────────────────┘
+       │  (resto hasta 64KiB)    │
+0xFFFF └─────────────────────────┘
 ```
 
 ## 6.3 Sistema de E/S
@@ -898,12 +957,256 @@ SHOWIO 0x8000       # Mostrar contenido de IO[0x8000]
 ```
 
 ---
+\newpage
 
-## Conclusiones
+# 7. Documentación de Experimentación y Resultados
+
+Se presentan los experimentos realizados sobre el analizador lexico desarrollado, con el objetivo de probar y validar el correcto funcionamiento del analizador en la identificación de categorias lexicas y su clasificación en tokens. Para esto en cada escenario se procesa una cadena de caracteres correspondiente a un un programa en alto nivel, que debe ser aceptado por el analizador lexico.
+
+## 7.1 Escenario 1
+
+Para este escenario se toma la cadena de caracteres correspondiente al un codigo en alto nivel que determina si un entero es par o impar
+
+```
+    funcion entero4 espar(entero4 a) {
+        a = a%2;
+        booleano resultado = 0;
+        si(a%2 == 0){
+            resultado = 1;
+        }
+        si_no{
+            resultado = 0;
+        }
+        retornar resultado;
+    }    
+```
+
+Retornando como resultado del analisis 
+
+```
+    LexToken(FUNCION,'funcion',3,30)
+    LexToken(ENTERO4,'entero4',3,38)
+    LexToken(ID,'espar',3,46)
+    LexToken(PARIZQ,'(',3,51)
+    LexToken(ENTERO4,'entero4',3,52)
+    LexToken(ID,'a',3,60)
+    LexToken(PARDER,')',3,61)
+    LexToken(LLAVEIZQ,'{',3,63)
+    LexToken(ID,'a',4,73)
+    LexToken(ASIGNAR,'=',4,75)
+    LexToken(ID,'a',4,77)
+    LexToken(MOD,'%',4,78)
+    LexToken(ENTERO,2,4,79)
+    LexToken(PUNTOCOMA,';',4,80)
+    LexToken(BOOLEANO,'booleano',5,90)
+    LexToken(ID,'resultado',5,99)
+    LexToken(ASIGNAR,'=',5,109)
+    LexToken(ENTERO,0,5,111)
+    LexToken(PUNTOCOMA,';',5,112)
+    LexToken(SI,'si',6,122)
+    LexToken(PARIZQ,'(',6,124)
+    LexToken(ID,'a',6,125)
+    LexToken(MOD,'%',6,126)
+    LexToken(ENTERO,2,6,127)
+    LexToken(IGUAL,'==',6,129)
+    LexToken(ENTERO,0,6,132)
+    LexToken(PARDER,')',6,133)
+    LexToken(LLAVEIZQ,'{',6,134)
+    LexToken(ID,'resultado',7,148)
+    LexToken(ASIGNAR,'=',7,158)
+    LexToken(ENTERO,1,7,160)
+    LexToken(PUNTOCOMA,';',7,161)
+    LexToken(LLAVEDER,'}',8,171)
+    LexToken(SINO,'si_no',9,181)
+    LexToken(LLAVEIZQ,'{',9,186)
+    LexToken(ID,'resultado',10,200)
+    LexToken(ASIGNAR,'=',10,210)
+    LexToken(ENTERO,0,10,212)
+    LexToken(PUNTOCOMA,';',10,213)
+    LexToken(LLAVEDER,'}',11,223)
+    LexToken(RETORNAR,'retornar',12,233)
+    LexToken(ID,'resultado',12,242)
+    LexToken(PUNTOCOMA,';',12,251)
+    LexToken(LLAVEDER,'}',13,257)
+```
+
+## 7.2 Escenario 2
+
+Para este escenario se toma la cadena de caracteres correspondiente al un codigo del algoritmo de euclides
+
+```
+    funcion entero4 euclides(entero4 a, entero4 b) {
+        mientras(b != 0) {
+            entero4 temp = b;
+            b = a % b;
+            a = temp;
+        }
+        retornar a;
+    }    
+```
+
+Retornando como resultado del analisis 
+
+```
+    LexToken(FUNCION,'funcion',3,30)
+    LexToken(ENTERO4,'entero4',3,38)  
+    LexToken(ID,'euclides',3,46)      
+    LexToken(PARIZQ,'(',3,54)
+    LexToken(ENTERO4,'entero4',3,55)  
+    LexToken(ID,'a',3,63)
+    LexToken(COMA,',',3,64)
+    LexToken(ENTERO4,'entero4',3,66)  
+    LexToken(ID,'b',3,74)
+    LexToken(PARDER,')',3,75)
+    LexToken(LLAVEIZQ,'{',3,77)       
+    LexToken(MIENTRAS,'mientras',4,87)
+    LexToken(PARIZQ,'(',4,95)
+    LexToken(ID,'b',4,96)
+    LexToken(DISTINTO,'!=',4,98)      
+    LexToken(ENTERO,0,4,101)
+    LexToken(PARDER,')',4,102)
+    LexToken(LLAVEIZQ,'{',4,104)
+    LexToken(ENTERO4,'entero4',5,118)
+    LexToken(ID,'temp',5,126)
+    LexToken(ASIGNAR,'=',5,131)
+    LexToken(ID,'b',5,133)
+    LexToken(PUNTOCOMA,';',5,134)
+    LexToken(ID,'b',6,148)
+    LexToken(ASIGNAR,'=',6,150)
+    LexToken(ID,'a',6,152)
+    LexToken(MOD,'%',6,154)
+    LexToken(ID,'b',6,156)
+    LexToken(PUNTOCOMA,';',6,157)
+    LexToken(ID,'a',7,171)
+    LexToken(ASIGNAR,'=',7,173)
+    LexToken(ID,'temp',7,175)
+    LexToken(PUNTOCOMA,';',7,179)
+    LexToken(LLAVEDER,'}',8,189)
+    LexToken(RETORNAR,'retornar',9,199)
+    LexToken(ID,'a',9,208)
+    LexToken(PUNTOCOMA,';',9,209)
+    LexToken(LLAVEDER,'}',10,215)
+```
+
+## 7.3 Escenario 3
+
+Para este escenario se toma la cadena de caracteres correspondiente al un codigo que calcula el determinante de una matriz cuadrada 2x2
+
+```
+    funcion entero4 determinante(entero4 x1, entero4 x2, entero4 y1, entero4 y2){
+        entero8 det = (x1 * y2) - (x2 * y1);
+        retornar det;
+    }
+```
+
+Retornando como resultado el analisis 
+
+```
+    LexToken(FUNCION,'funcion',3,30)
+    LexToken(ENTERO4,'entero4',3,38)
+    LexToken(ID,'determinante',3,46)
+    LexToken(PARIZQ,'(',3,58)       
+    LexToken(ENTERO4,'entero4',3,59)
+    LexToken(ID,'x1',3,67)
+    LexToken(COMA,',',3,69)
+    LexToken(ENTERO4,'entero4',3,71)
+    LexToken(ID,'x2',3,79)
+    LexToken(COMA,',',3,81)
+    LexToken(ENTERO4,'entero4',3,83)
+    LexToken(ID,'y1',3,91)
+    LexToken(COMA,',',3,93)
+    LexToken(ENTERO4,'entero4',3,95)
+    LexToken(ID,'y2',3,103)
+    LexToken(PARDER,')',3,105)
+    LexToken(LLAVEIZQ,'{',3,106)
+    LexToken(ENTERO8,'entero8',4,116)
+    LexToken(ID,'det',4,124)
+    LexToken(ASIGNAR,'=',4,128)
+    LexToken(PARIZQ,'(',4,130)
+    LexToken(ID,'x1',4,131)
+    LexToken(MULT,'*',4,134)
+    LexToken(ID,'y2',4,136)
+    LexToken(PARDER,')',4,138)
+    LexToken(MENOS,'-',4,140)
+    LexToken(PARIZQ,'(',4,142)
+    LexToken(ID,'x2',4,143)
+    LexToken(MULT,'*',4,146)
+    LexToken(ID,'y1',4,148)
+    LexToken(PARDER,')',4,150)
+    LexToken(PUNTOCOMA,';',4,151)
+    LexToken(RETORNAR,'retornar',5,161)
+    LexToken(ID,'det',5,170)
+    LexToken(PUNTOCOMA,';',5,173)
+    LexToken(LLAVEDER,'}',6,179)
+```
+
+### 7.4 Escenario 4
+
+Para este escenario se toma la cadena de caracteres correspondiente al un codigo que calcula el determinante de una matriz cuadrada 2x2
+
+```
+    funcion entero4 abs(entero4 con_signo a){
+        si(a >= 0){
+            retornar a;
+        }
+        si_no{
+            absoluto = -1*a;
+            retornar absoluto;
+        }        
+    }
+```
+
+Retornando como resultado el analisis 
+
+```
+    LexToken(FUNCION,'funcion',3,30)
+    LexToken(ENTERO4,'entero4',3,38)    
+    LexToken(ID,'abs',3,46)
+    LexToken(PARIZQ,'(',3,49)
+    LexToken(ENTERO4,'entero4',3,50)    
+    LexToken(CON_SIGNO,'con_signo',3,58)
+    LexToken(ID,'a',3,68)
+    LexToken(PARDER,')',3,69)
+    LexToken(LLAVEIZQ,'{',3,70)
+    LexToken(SI,'si',4,80)
+    LexToken(PARIZQ,'(',4,82)
+    LexToken(ID,'a',4,83)
+    LexToken(MAYORIGUAL,'>=',4,85)      
+    LexToken(ENTERO,0,4,88)
+    LexToken(PARDER,')',4,89)
+    LexToken(LLAVEIZQ,'{',4,90)
+    LexToken(RETORNAR,'retornar',5,104)
+    LexToken(ID,'a',5,113)
+    LexToken(PUNTOCOMA,';',5,114)
+    LexToken(LLAVEDER,'}',6,124)
+    LexToken(SINO,'si_no',7,134)
+    LexToken(LLAVEIZQ,'{',7,139)
+    LexToken(ID,'absoluto',8,153)
+    LexToken(ASIGNAR,'=',8,162)
+    LexToken(MENOS,'-',8,164)
+    LexToken(ENTERO,1,8,165)
+    LexToken(MULT,'*',8,166)
+    LexToken(ID,'a',8,167)
+    LexToken(PUNTOCOMA,';',8,168)
+    LexToken(RETORNAR,'retornar',9,182)
+    LexToken(ID,'absoluto',9,191)
+    LexToken(PUNTOCOMA,';',9,199)
+    LexToken(LLAVEDER,'}',10,209)
+    LexToken(LLAVEDER,'}',11,223)
+```
+
+## Análisis
+Tras el análisis de los resultados obtenidos en los cuatro casos de prueba, se pudo comprobar que el analizador léxico identificó correctamente las categorías léxicas asociadas a cada una de las subcadenas en las cadenas de entrada. En todos los casos, los tokens generados coincidieron con los valores esperados de acuerdo con las reglas definidas en la gramática léxica del lenguaje.
+
+Esto demuestra que las expresiones regulares implementadas en las definiciones de tokens son adecuadas para reconocer las estructuras básicas del lenguaje, como identificadores, palabras reservadas, operadores y delimitadores.
+
+---
+
+# 8. Conclusiones
 
 El **Simulador Atlas CPU** representa una herramienta educativa completa que cumple exitosamente con los objetivos establecidos:
 
-### Logros Principales
+## Logros Principales
 
 1. **Funcionalidad Completa**: 47 instrucciones implementadas y validadas
 2. **Validación Exhaustiva**: Algoritmos clásicos verificados matemáticamente  
@@ -911,7 +1214,7 @@ El **Simulador Atlas CPU** representa una herramienta educativa completa que cum
 4. **Interfaz Intuitiva**: GUI diseñada para facilitar el aprendizaje
 5. **Arquitectura Sólida**: Diseño modular y extensible
 
-### Impacto Educativo
+## Impacto Educativo
 
 - **Experimentación**: Ambiente seguro para pruebas y errores
 - **Comprensión**: Visualización directa de conceptos abstractos
