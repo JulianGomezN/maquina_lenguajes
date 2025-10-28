@@ -105,7 +105,7 @@ def main():
             # el alto disponible en la página; se mantiene la relación de aspecto.
             # Usar directamente claves de graphicx: limitar al ancho de la línea y
             # al 90% de la altura de texto para evitar que una imagen ocupe toda la página.
-            hf.write('\\setkeys{Gin}{width=\\linewidth,height=0.9\\textheight,keepaspectratio}\\n')
+            hf.write('\\setkeys{Gin}{width=\\linewidth,height=0.9\\textheight,keepaspectratio}\n')
         # Pasar la carpeta del markdown como resource-path para que pandoc
         # encuentre imágenes referenciadas con rutas relativas (por ejemplo images/...).
         res = ejecutar_pandoc(md_limpio, pdf_salida, header_path=header_path, resource_path=dirpath)
