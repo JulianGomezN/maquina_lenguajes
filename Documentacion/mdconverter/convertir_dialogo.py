@@ -28,7 +28,7 @@ def seleccionar_md():
     return file_path
 
 
-def ejecutar_pandoc(md_path, pdf_path, header_path=None):
+def ejecutar_pandoc(md_path, pdf_path, header_path=None, resource_path=None):
     # Ejecutar pandoc con pdflatex y table of contents
     cmd = [
         'pandoc',
@@ -39,6 +39,9 @@ def ejecutar_pandoc(md_path, pdf_path, header_path=None):
     ]
     if header_path:
         cmd.extend(['--include-in-header', header_path])
+    if resource_path:
+        # Indicar a pandoc la carpeta donde buscar recursos relativos (imágenes)
+        cmd.extend(['--resource-path', resource_path])
     cmd.extend(['-o', pdf_path, md_path])
 
     print('Ejecutando:', ' '.join(cmd))
@@ -91,10 +94,21 @@ def main():
             hf.write('\\usepackage[utf8]{inputenc}\n')
             hf.write('\\usepackage[spanish]{babel}\n')
             hf.write('\\usepackage{geometry}\n')
-            hf.write('\\geometry{a4paper,margin=2.54cm}\n')
+            hf.write('\\geometry{letterpaper,margin=2.54cm}\n')
             hf.write('\\usepackage{graphicx}\n')
-
-        res = ejecutar_pandoc(md_limpio, pdf_salida, header_path=header_path)
+            # Forzar que las figuras se coloquen donde aparecen en el Markdown
+            hf.write('\\usepackage{float}\n')
+            hf.write('\\floatplacement{figure}{H}\n')
+            # Permitir barreras de floats si se desea usar \FloatBarrier
+            hf.write('\\usepackage{placeins}\n')
+            # Ajustar automáticamente las imágenes para que no excedan el ancho ni
+            # el alto disponible en la página; se mantiene la relación de aspecto.
+            # Usar directamente claves de graphicx: limitar al ancho de la línea y
+            # al 90% de la altura de texto para evitar que una imagen ocupe toda la página.
+            hf.write('\\setkeys{Gin}{width=\\linewidth,height=0.9\\textheight,keepaspectratio}\\n')
+        # Pasar la carpeta del markdown como resource-path para que pandoc
+        # encuentre imágenes referenciadas con rutas relativas (por ejemplo images/...).
+        res = ejecutar_pandoc(md_limpio, pdf_salida, header_path=header_path, resource_path=dirpath)
     finally:
         # borrar header temporal después de la conversión
         try:
