@@ -37,6 +37,8 @@
 4. **[Diseño de la Aplicación](#4-diseño-de-la-aplicación)** - Arquitectura y diagramas
 5. **[Manual Técnico y de Usuario](#5-manual-técnico-y-de-usuario)** - Guía completa
 6. **[Especificaciones Técnicas](#6-especificaciones-técnicas)** - Detalles de implementación
+7. **[Documentación de Experimentación y Resultados](#7-documentación-de-experimentación-y-resultados)** - Análisis de funcionamiento
+8. **[Conclusiones](#8-conclusiones)** - Resumen y logros del proyecto
 
 ---
 
@@ -82,6 +84,26 @@ El problema central radica en crear un sistema integrado que incluya:
 5. **Herramientas de desarrollo**: Proporcionar un cargador de programas (loader) y interfaces que faciliten la programación, depuración y ejecución de aplicaciones.
 
 Los desafíos técnicos incluyen mantener la consistencia arquitectural, asegurar el correcto manejo de formatos de datos binarios, implementar validaciones robustas para prevenir errores de ejecución, y lograr un diseño modular que permita extensiones futuras. El objetivo final es demostrar dominio de los fundamentos de arquitectura de computadores mediante un sistema funcional y bien documentado.
+
+### Requisitos y Alcance del Taller 1 (Análisis Léxico)
+
+Este taller toma como base la solución desarrollada en las Tareas #09 y #14 y se centra en la primera fase de construcción del Sistema de Procesamiento del Lenguaje (SPL). Los objetivos específicos de esta entrega son:
+
+a) Diseñar, implementar y entregar un PREPROCESADOR mediante el metalenguaje FLEX (o herramienta equivalente: JFlex, lex.py).
+
+b) Diseñar, implementar y entregar un ENSAMBLADOR (assembler) mediante FLEX (o alternativa justificable).
+
+c) Diseñar, implementar y entregar el ENLAZADOR-CARGADOR (linker/loader) mediante FLEX (o alternativa justificable).
+
+d) Determinar y documentar el vocabulario completo que reconocerá el compilador (lista de palabras reservadas, operadores, literales, registros, directivas, comentarios, etc.).
+
+e) Definir las categorías léxicas (tokens) y especificar las expresiones regulares que las reconocen.
+
+f) Entregar el analizador léxico implementado en C/C++ usando FLEX (o en Java con JFlex, o en Python con lex.py si se justifica). Incluir archivos fuente (`.l`, `.c/.cpp`), un `Makefile` o instrucciones de compilación, y casos de prueba.
+
+g) Entregar evidencia de pruebas (programas de ejemplo, salidas de tokens) que demuestren la correcta identificación de categorías léxicas.
+
+h) Entregar un informe (formato PDF) que documente diseño, decisiones, patrones regulares, arquitectura y pruebas. Puede generarse con la utilidad `mdconverter` incluida en `Documentacion/mdconverter`.
 
 ---
 
@@ -472,6 +494,127 @@ def encode_instruction(self, opcode, operands):
 
 ---
 
+## 4.6 Flujo del Compilador SPL (Preprocesador → Analizador Léxico → Sintáctico → IR → Opt → Ensamblador → Enlazador/Cargador)
+
+El siguiente diagrama resume la cadena de herramientas para el SPL del Taller 1. 
+
+### 4.6.1 Pipeline general (fases)
+
+```mermaid
+flowchart LR
+    SRC["Archivo fuente"] --> PRE["Preprocesador"]
+    PRE --> LEX["Analizador léxico (tokenizer)"]
+    LEX --> PAR["Analizador sintáctico (parser)"]
+    PAR --> AST["Árbol sintáctico (AST)"]
+    AST --> IR["Generador de código intermedio (IR)"]
+    IR --> OPT["Optimizador (opcional)"]
+    OPT --> ASM["Generador / Ensamblador"]
+    ASM --> LNK["Enlazador / Cargador"]
+    LNK --> MEM["Memoria / Simulador (CPU)"]
+    
+    %% Definiciones rápidas para el pipeline
+    subgraph DEFINICIONES[Definiciones]
+    D1["Preprocesador: transforma y normaliza el código fuente<br/>(p. ej. directivas, includes, limpieza)"]
+        D2["Lexer: convierte texto en tokens (IDs, números, operadores)"]
+        D3["Parser: aplica la gramática y construye el AST"]
+        D4["AST: representación en árbol de la estructura sintáctica"]
+        D5["IR: representación intermedia para análisis/optimización"]
+        D6["Optimizador: transforma IR para mejorar rendimiento/tamaño"]
+        D7["Assembler: genera instrucciones binarias desde IR/AST"]
+        D8["Linker/Loader: reubica y combina módulos, carga en memoria"]
+        D9["Memoria/Simulador: espacio donde se ejecuta el binario"]
+    end
+
+    %% Conexiones visuales (no parte del flujo principal)
+    D2 -.-> LEX
+    D3 -.-> PAR
+    D4 -.-> AST
+    D5 -.-> IR
+    D6 -.-> OPT
+    D7 -.-> ASM
+    D8 -.-> LNK
+    D9 -.-> MEM
+
+    classDef defs fill:#f9f,stroke:#333,stroke-width:1px;
+    class DEFINICIONES defs;
+```
+
+### 4.6.2 Flujo de tokens → árbol sintáctico → AST
+
+```mermaid
+flowchart TD
+        %% Entrada y análisis léxico
+    SRC["Fuente<br/>(líneas de texto)"] --> LEX["Analizador léxico<br/>(tokenizer)"]
+    LEX --> TOK["Tokens<br/>(ej: ID, NUMBER, %, OP, LABEL, ; )"]
+
+        %% Parsing: explica qué hace el parser
+    TOK --> PAR["Parsing<br/>(Analizador sintáctico)<br/>Aplica la gramática y construye nodos STMT/EXPR"]
+
+        %% Resultado: AST
+    PAR --> AST["AST<br/>(Árbol sintáctico)<br/>Nodo raíz: Program<br/>Nodos: Stmt, Expr, Literal, Ident"]
+
+        %% Ejemplos concretos de nodos AST
+    AST --> ST_ASSIGN["Stmt: Asignación<br/>(target: ID, value: Expr)"]
+    AST --> ST_IF["Stmt: Condicional<br/>(condition: Expr, then: Block, else: Block)"]
+
+    ST_ASSIGN --> EXPR_MOD["Expr: Operación módulo<br/>(op: '%', left: ID 'a', right: NUMBER '2')"]
+    ST_IF --> EXPR_CMP["Expr: Comparación<br/>(op: '==', left: Expr, right: Expr)"]
+
+        %% Leyenda / definiciones rápidas
+        subgraph DEFINICIONES[Definiciones]
+            A1["Parsing: proceso que toma tokens y aplica la gramática<br/>para reconocer construcciones (producciones) y crear nodos sintácticos"]
+            A2["Stmt (Statement): unidad ejecutable del programa<br/>ej: asignación, if, while, return"]
+            A3["AST: estructura de datos en forma de árbol que representa<br/>la estructura jerárquica del programa"]
+        end
+
+        %% Conectar leyenda visualmente (no al flujo principal)
+        A1 -.-> PAR
+        A2 -.-> ST_ASSIGN
+        A3 -.-> AST
+
+        classDef defs fill:#f9f,stroke:#333,stroke-width:1px;
+        class DEFINICIONES defs;
+```
+
+### 4.6.3 Optimización y generación final
+
+```mermaid
+flowchart LR
+    IR["Código intermedio"] --> PASS1["Análisis de flujo"]
+    PASS1 --> PASS2["Optimización local"]
+    PASS2 --> PASS3["Eliminación de código muerto"]
+    PASS3 --> CODEGEN["Generador de código (Ensamblador)"]
+    CODEGEN --> BINARY["Binario 64-bit por instrucción"]
+    BINARY --> LINKER["Enlazador/Cargador"]
+    
+    %% Definiciones rápidas para optimización y generación
+    subgraph DEFINICIONES[Definiciones]
+    R1["IR: formato intermedio entre parser y generador<br/>permite análisis y transformaciones"]
+    R2["Análisis de flujo: computa dependencias/alcances<br/>(p. ej. dominadores, live-variables)"]
+        R3["Optimización local: mejoras dentro de bloques (p. ej. const-fold)"]
+        R4["Eliminación de código muerto: borrar instrucciones no usadas"]
+        R5["Codegen/Assembler: genera instrucciones binarias finales"]
+        R6["Binario: secuencia de instrucciones lista para cargar/ejecutar"]
+        R7["Linker: reubica símbolos y combina módulos en ejecutable"]
+    end
+
+    R1 -.-> IR
+    R2 -.-> PASS1
+    R3 -.-> PASS2
+    R4 -.-> PASS3
+    R5 -.-> CODEGEN
+    R6 -.-> BINARY
+    R7 -.-> LINKER
+
+    classDef defs fill:#f9f,stroke:#333,stroke-width:1px;
+    class DEFINICIONES defs;
+```
+
+Descripción rápida de cómo esto encaja con el repositorio actual:
+
+- En esta entrega el ensamblador (`compiler/assembler.py`) implementa el generador de instrucción (CODEGEN) y el desensamblador. El `Loader` (`logic/Loader.py`) realiza la función del enlazador/cargador (reubicación simple, escritura a memoria y registro de programas cargados).
+
+---
 \newpage
 
 # 5. Manual Técnico y de Usuario
@@ -507,7 +650,6 @@ python --version  # Debe ser 3.8+
 
 3. **Ejecutar simulador**
 ```bash
-cd GUI
 python main.py
 ```
 
@@ -516,7 +658,7 @@ python main.py
 ### Inicio Rápido
 
 #### Primer Programa
-1. Abrir la aplicación ejecutando `python main.py` desde la carpeta GUI
+1. Abrir la aplicación ejecutando `python main.py` desde la raíz del repositorio (la misma carpeta que contiene `main.py`)
 2. En el editor, escribir:
 ```assembly
 LOADV R1, 10    ; Cargar 10 en registro R1
@@ -860,17 +1002,17 @@ MEMORY_LAYOUT = {
 ```
 0x0000 ┌─────────────────────────┐
        │   Código Programa       │
-       │        (16KB)           │
+       │        (16 KiB)         │
 0x4000 ├─────────────────────────┤
        │    Área de Datos        │
-       │        (8KB)            │
+       │        (8 KiB)          │
 0x6000 ├─────────────────────────┤
        │        Pila             │
-       │        (8KB)            │
+       │        (8 KiB)          │
 0x8000 ├─────────────────────────┤
        │    E/S Mapeada          │
-       │       (resto)           │
-0x61A8 └─────────────────────────┘
+       │  (resto hasta 64KiB)    │
+0xFFFF └─────────────────────────┘
 ```
 
 ## 6.3 Sistema de E/S
@@ -900,11 +1042,11 @@ SHOWIO 0x8000       # Mostrar contenido de IO[0x8000]
 ---
 \newpage
 
-## 7 Documentación de Experimentación y Resultados
+# 7. Documentación de Experimentación y Resultados
 
 Se presentan los experimentos realizados sobre el analizador lexico desarrollado, con el objetivo de probar y validar el correcto funcionamiento del analizador en la identificación de categorias lexicas y su clasificación en tokens. Para esto en cada escenario se procesa una cadena de caracteres correspondiente a un un programa en alto nivel, que debe ser aceptado por el analizador lexico.
 
-### 7.1 Escenario 1
+## 7.1 Escenario 1
 
 Para este escenario se toma la cadena de caracteres correspondiente al un codigo en alto nivel que determina si un entero es par o impar
 
@@ -971,7 +1113,7 @@ Retornando como resultado del analisis
     LexToken(LLAVEDER,'}',13,257)
 ```
 
-### 7.1 Escenario 2
+## 7.2 Escenario 2
 
 Para este escenario se toma la cadena de caracteres correspondiente al un codigo del algoritmo de euclides
 
@@ -1029,7 +1171,7 @@ Retornando como resultado del analisis
     LexToken(LLAVEDER,'}',10,215)
 ```
 
-### 7.1 Escenario 3
+## 7.3 Escenario 3
 
 Para este escenario se toma la cadena de caracteres correspondiente al un codigo que calcula el determinante de una matriz cuadrada 2x2
 
@@ -1081,7 +1223,7 @@ Retornando como resultado el analisis
     LexToken(LLAVEDER,'}',6,179)
 ```
 
-### 7.1 Escenario 4
+### 7.4 Escenario 4
 
 Para este escenario se toma la cadena de caracteres correspondiente al un codigo que calcula el determinante de una matriz cuadrada 2x2
 
@@ -1136,18 +1278,18 @@ Retornando como resultado el analisis
     LexToken(LLAVEDER,'}',11,223)
 ```
 
-### Analisis
+## Análisis
 Tras el análisis de los resultados obtenidos en los cuatro casos de prueba, se pudo comprobar que el analizador léxico identificó correctamente las categorías léxicas asociadas a cada una de las subcadenas en las cadenas de entrada. En todos los casos, los tokens generados coincidieron con los valores esperados de acuerdo con las reglas definidas en la gramática léxica del lenguaje.
 
 Esto demuestra que las expresiones regulares implementadas en las definiciones de tokens son adecuadas para reconocer las estructuras básicas del lenguaje, como identificadores, palabras reservadas, operadores y delimitadores.
 
 ---
 
-## Conclusiones
+# 8. Conclusiones
 
 El **Simulador Atlas CPU** representa una herramienta educativa completa que cumple exitosamente con los objetivos establecidos:
 
-### Logros Principales
+## Logros Principales
 
 1. **Funcionalidad Completa**: 47 instrucciones implementadas y validadas
 2. **Validación Exhaustiva**: Algoritmos clásicos verificados matemáticamente  
@@ -1155,7 +1297,7 @@ El **Simulador Atlas CPU** representa una herramienta educativa completa que cum
 4. **Interfaz Intuitiva**: GUI diseñada para facilitar el aprendizaje
 5. **Arquitectura Sólida**: Diseño modular y extensible
 
-### Impacto Educativo
+## Impacto Educativo
 
 - **Experimentación**: Ambiente seguro para pruebas y errores
 - **Comprensión**: Visualización directa de conceptos abstractos
