@@ -62,27 +62,21 @@ class SimuladorGUI:
         # Configurar grid para botones organizados
         buttons_container.grid_columnconfigure(0, weight=1)
         buttons_container.grid_columnconfigure(1, weight=1)
-        buttons_container.grid_columnconfigure(2, weight=1)
         
-        # FILA 1: Operaciones principales
-        ttk.Label(buttons_container, text="📝 Programa:", font=("Arial", 9, "bold")).grid(row=0, column=0, sticky="w", pady=(0, 5))
+        # FILA 1: Operaciones de programa
+        ttk.Label(buttons_container, text="📝 Programa:", font=("Arial", 9, "bold")).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 5))
         ttk.Button(buttons_container, text="🔄 Cargar Programa", 
                   command=self.cargar_programa, width=20).grid(row=1, column=0, padx=3, pady=2, sticky="ew")
         
-        ttk.Label(buttons_container, text="▶️ Ejecución:", font=("Arial", 9, "bold")).grid(row=0, column=1, sticky="w", pady=(0, 5))
-        ttk.Button(buttons_container, text="🚀 Ejecutar", 
-                  command=self.ejecutar_programa, width=20).grid(row=1, column=1, padx=3, pady=2, sticky="ew")
-        
-        ttk.Label(buttons_container, text="🎯 Control:", font=("Arial", 9, "bold")).grid(row=0, column=2, sticky="w", pady=(0, 5))
-        ttk.Button(buttons_container, text="👆 Paso Manual", 
-                  command=self.ejecutar_paso, width=20).grid(row=1, column=2, padx=3, pady=2, sticky="ew")
+        ttk.Button(buttons_container, text="� Reset CPU", 
+                  command=self.reset_cpu, width=20).grid(row=1, column=1, padx=3, pady=2, sticky="ew")
         
         # FILA 2: Dirección de carga
-        ttk.Label(buttons_container, text="📍 Dirección de carga:", font=("Arial", 9, "bold")).grid(row=2, column=0, sticky="w", pady=(10, 2))
+        ttk.Label(buttons_container, text="📍 Dirección de carga:", font=("Arial", 9, "bold")).grid(row=2, column=0, columnspan=2, sticky="w", pady=(10, 2))
         
         # Frame para dirección de carga
         direccion_frame = ttk.Frame(buttons_container)
-        direccion_frame.grid(row=3, column=0, columnspan=3, padx=3, pady=2, sticky="ew")
+        direccion_frame.grid(row=3, column=0, columnspan=2, padx=3, pady=2, sticky="ew")
         
         ttk.Label(direccion_frame, text="Cargar programa en dirección:").pack(side="left")
         self.entrada_direccion = ttk.Entry(direccion_frame, width=10)
@@ -97,16 +91,9 @@ class SimuladorGUI:
         ttk.Button(direccion_frame, text="Origen (0)", 
                   command=lambda: self.entrada_direccion.delete(0, 'end') or self.entrada_direccion.insert(0, "0")).pack(side="left", padx=2)
         
-        # FILA 4: Controles de estado
-        self.boton_parar = ttk.Button(buttons_container, text="⏹️ Parar", 
-                                     command=self.parar_ejecucion, state="disabled", width=20)
-        self.boton_parar.grid(row=4, column=0, padx=3, pady=2, sticky="ew")
-        
-        ttk.Button(buttons_container, text="🔄 Reset CPU", 
-                  command=self.reset_cpu, width=20).grid(row=4, column=1, padx=3, pady=2, sticky="ew")
-        
+        # FILA 3: Info Cargador
         ttk.Button(buttons_container, text="📊 Info Cargador", 
-                  command=self.mostrar_info_cargador, width=20).grid(row=4, column=2, padx=3, pady=2, sticky="ew")
+                  command=self.mostrar_info_cargador, width=20).grid(row=4, column=0, columnspan=2, padx=3, pady=(10, 2), sticky="ew")
 
         # ================ COLUMNA CENTRO: TRADUCCIÓN ================
         center_frame = ttk.LabelFrame(main_frame, text="Traducción Binaria")
@@ -197,9 +184,25 @@ class SimuladorGUI:
         mode_frame = ttk.LabelFrame(right_frame, text="Modo de Ejecución")
         mode_frame.pack(fill="x", pady=5)
         
+        # Frame para organizar en grid
+        mode_grid = ttk.Frame(mode_frame)
+        mode_grid.pack(fill="x", padx=5, pady=5)
+        
+        mode_grid.grid_columnconfigure(0, weight=1)
+        mode_grid.grid_columnconfigure(1, weight=1)
+        mode_grid.grid_columnconfigure(2, weight=1)
+        
+        # Selector de modo (primera columna)
         self.modo = tk.StringVar(value="automatico")
-        ttk.Radiobutton(mode_frame, text="Automático", variable=self.modo, value="automatico").pack(anchor="w", padx=5)
-        ttk.Radiobutton(mode_frame, text="Paso a paso", variable=self.modo, value="paso").pack(anchor="w", padx=5)
+        ttk.Radiobutton(mode_grid, text="Automático", variable=self.modo, value="automatico").grid(row=0, column=0, sticky="w", padx=2)
+        ttk.Radiobutton(mode_grid, text="Paso a paso", variable=self.modo, value="paso").grid(row=1, column=0, sticky="w", padx=2)
+        
+        # Botones de control (segunda y tercera columna)
+        ttk.Button(mode_grid, text="🚀 Ejecutar", command=self.ejecutar_programa, width=12).grid(row=0, column=1, padx=2, pady=1, sticky="ew")
+        ttk.Button(mode_grid, text="👆 Paso", command=self.ejecutar_paso, width=12).grid(row=0, column=2, padx=2, pady=1, sticky="ew")
+        
+        self.boton_parar = ttk.Button(mode_grid, text="⏹️ Parar", command=self.parar_ejecucion, state="disabled", width=12)
+        self.boton_parar.grid(row=1, column=1, columnspan=2, padx=2, pady=1, sticky="ew")
         
         # Salida
         output_frame = ttk.LabelFrame(right_frame, text="Salida")
@@ -319,6 +322,7 @@ PARAR            ; terminar programa"""
             print("SIA")
             self.set_salida("Ejecutando programa...\n")
             self.cpu.run(step_mode=False)
+            self.update_gui()  # Actualizar después de ejecutar todo el programa
             self.append_salida(
                 pformat(self.cpu.io_map, indent=4, width=40, sort_dicts=False)
                 )
@@ -330,7 +334,6 @@ PARAR            ; terminar programa"""
             self.boton_parar.config(state="normal")
             self.ejecutar_modo_paso_automatico()
             
-        self.update_gui()
         try: pass
         except Exception as e:
             messagebox.showerror("Error", f"Error durante la ejecución:\n{str(e)}")
@@ -343,6 +346,7 @@ PARAR            ; terminar programa"""
             self.append_salida("Programa terminado")
             self.ejecutando_paso_automatico = False
             self.boton_parar.config(state="disabled")
+            self.update_gui()  # Actualizar una última vez al terminar
             return
         
         try:
@@ -350,7 +354,9 @@ PARAR            ; terminar programa"""
             self.cpu.fetch()
             ins = self.cpu.decode()
             self.cpu.execute(ins)
-            #self.cpu.update_gui()
+            
+            # Actualizar la interfaz gráfica después de cada instrucción
+            self.update_gui()
             
             # Mostrar qué instrucción se ejecutó
             instr_info = self.assembler.disassemble_instruction(self.cpu.ir)
@@ -364,12 +370,14 @@ PARAR            ; terminar programa"""
                 self.append_salida("Programa terminado")
                 self.ejecutando_paso_automatico = False
                 self.boton_parar.config(state="disabled")
+                self.update_gui()  # Actualizar al terminar
                 
         except Exception as e:
             messagebox.showerror("Error", f"Error al ejecutar paso:\n{str(e)}")
             self.append_salida(f"Error: {str(e)}")
             self.ejecutando_paso_automatico = False
             self.boton_parar.config(state="disabled")
+            self.update_gui()  # Actualizar en caso de error
 
     def parar_ejecucion(self):
         """Para la ejecución paso a paso automática"""
