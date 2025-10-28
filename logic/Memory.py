@@ -1,5 +1,3 @@
-from typing import Union
-
 MASK64 = (1 << 64) - 1
 MASK32 = (1 << 32) - 1
 MASK16 = (1 << 16) - 1
