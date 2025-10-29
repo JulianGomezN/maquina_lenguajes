@@ -144,9 +144,14 @@ class SimuladorGUI:
             
             self.flags[flag] = valor
         
-                # ================ MEMORIA ================
+        # ================ MEMORIA ================
         mem_frame = ttk.LabelFrame(right_frame, text="Examinador de Memoria")
         mem_frame.pack(fill="x", pady=5)
+        # Hacer que las columnas centrales se expandan para aprovechar el ancho
+        mem_frame.grid_columnconfigure(0, weight=0)
+        mem_frame.grid_columnconfigure(1, weight=1)
+        mem_frame.grid_columnconfigure(2, weight=1)
+        mem_frame.grid_columnconfigure(3, weight=0)
 
         # Dirección de memoria
         ttk.Label(mem_frame, text="Dirección (dec):").grid(row=0, column=0, padx=5, pady=2, sticky="w")
@@ -178,7 +183,11 @@ class SimuladorGUI:
         # Resultado
         ttk.Label(mem_frame, text="Valor:").grid(row=4, column=0, padx=5, pady=2, sticky="w")
         self.mem_valor = ttk.Label(mem_frame, text="--", width=25, relief="solid", anchor="center")
-        self.mem_valor.grid(row=4, column=1, columnspan=3, padx=5, pady=2, sticky="ew")
+        # Expandir el valor a todo el ancho disponible
+        self.mem_valor.grid(row=4, column=1, columnspan=4, padx=5, pady=2, sticky="ew")
+
+        # Botón para visor de RAM (tabla dinámica)
+        ttk.Button(mem_frame, text="👁 Ver RAM", command=self.abrir_visor_ram).grid(row=5, column=0, columnspan=4, padx=5, pady=(6,2), sticky="ew")
 
         # Modo de ejecución
         mode_frame = ttk.LabelFrame(right_frame, text="Modo de Ejecución")
@@ -634,3 +643,127 @@ PARAR            ; terminar programa"""
 
     def mainloop(self):
         self.root.mainloop()
+
+    # ========== Visor de RAM (tabla dinámica) ==========
+    def abrir_visor_ram(self):
+        # Si ya existe, traer al frente
+        if hasattr(self, 'ram_window') and self.ram_window and tk.Toplevel.winfo_exists(self.ram_window):
+            self.ram_window.deiconify()
+            self.ram_window.lift()
+            return
+
+        self.ram_window = tk.Toplevel(self.root)
+        self.ram_window.title("Visor de RAM")
+        self.ram_window.geometry("950x600")
+
+        # Controles superiores
+        top_controls = ttk.Frame(self.ram_window)
+        top_controls.pack(fill="x", padx=8, pady=(8,4))
+
+        self.ram_auto = tk.BooleanVar(value=False)
+        self.ram_interval = tk.IntVar(value=1000)
+
+        ttk.Checkbutton(top_controls, text="Auto-actualizar", variable=self.ram_auto, command=self._programar_auto_refresco_ram).pack(side="left")
+        ttk.Label(top_controls, text="Intervalo (ms):").pack(side="left", padx=(10,4))
+        ttk.Entry(top_controls, textvariable=self.ram_interval, width=7).pack(side="left")
+        ttk.Button(top_controls, text="Refrescar", command=self.refrescar_visor_ram).pack(side="left", padx=8)
+        ttk.Button(top_controls, text="Cerrar", command=self._cerrar_visor_ram).pack(side="right")
+
+        # Tabla (Treeview) con scroll
+        table_frame = ttk.Frame(self.ram_window)
+        table_frame.pack(fill="both", expand=True, padx=8, pady=(0,8))
+
+        columns = ["Addr", "B0","B1","B2","B3","B4","B5","B6","B7"]
+        self.ram_tree = ttk.Treeview(table_frame, columns=columns, show="headings", height=20)
+        vsb = ttk.Scrollbar(table_frame, orient="vertical", command=self.ram_tree.yview)
+        hsb = ttk.Scrollbar(table_frame, orient="horizontal", command=self.ram_tree.xview)
+        self.ram_tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+
+        self.ram_tree.grid(row=0, column=0, sticky="nsew")
+        vsb.grid(row=0, column=1, sticky="ns")
+        hsb.grid(row=1, column=0, sticky="ew")
+        table_frame.grid_rowconfigure(0, weight=1)
+        table_frame.grid_columnconfigure(0, weight=1)
+
+        # Encabezados y anchuras
+        self.ram_tree.heading("Addr", text="Dirección")
+        self.ram_tree.column("Addr", width=90, anchor="center")
+        for bx in columns[1:]:
+            self.ram_tree.heading(bx, text=bx)
+            self.ram_tree.column(bx, width=60, anchor="center")
+
+        # Llenar tabla inicial
+        self._poblar_visor_ram_inicial()
+        self._programar_auto_refresco_ram()
+
+        # Manejar cierre de ventana
+        self.ram_window.protocol("WM_DELETE_WINDOW", self._cerrar_visor_ram)
+
+    def _poblar_visor_ram_inicial(self):
+        # Borrar existente
+        for iid in self.ram_tree.get_children():
+            self.ram_tree.delete(iid)
+
+        mem_len = len(self.cpu.memory)
+        getb = self.cpu.memory.get_bytes
+        for addr in range(0, mem_len, 8):
+            chunk = getb(addr, min(8, mem_len - addr))
+            if len(chunk) < 8:
+                chunk = bytes(chunk) + bytes(8 - len(chunk))
+            vals = [f"0x{addr:04X}"] + [f"{b:02X}" for b in chunk]
+            iid = f"{addr}"
+            self.ram_tree.insert("", "end", iid=iid, values=vals)
+
+    def refrescar_visor_ram(self):
+        # Actualizar valores por fila para minimizar parpadeos
+        mem_len = len(self.cpu.memory)
+        getb = self.cpu.memory.get_bytes
+        expected_rows = (mem_len + 7) // 8
+        current_rows = len(self.ram_tree.get_children(""))
+
+        if current_rows != expected_rows:
+            # Si cambia la cantidad, repoblar
+            self._poblar_visor_ram_inicial()
+            return
+
+        for addr in range(0, mem_len, 8):
+            chunk = getb(addr, min(8, mem_len - addr))
+            if len(chunk) < 8:
+                chunk = bytes(chunk) + bytes(8 - len(chunk))
+            vals = [f"0x{addr:04X}"] + [f"{b:02X}" for b in chunk]
+            iid = f"{addr}"
+            if self.ram_tree.exists(iid):
+                self.ram_tree.item(iid, values=vals)
+            else:
+                self.ram_tree.insert("", "end", iid=iid, values=vals)
+
+    def _programar_auto_refresco_ram(self):
+        # Cancelar programación previa
+        if hasattr(self, 'ram_after_id') and self.ram_after_id:
+            try:
+                self.ram_window.after_cancel(self.ram_after_id)
+            except Exception:
+                pass
+            self.ram_after_id = None
+
+        if hasattr(self, 'ram_window') and self.ram_window and tk.Toplevel.winfo_exists(self.ram_window) and self.ram_auto.get():
+            interval = max(200, int(self.ram_interval.get() or 1000))
+            def _tick():
+                if self.ram_window and tk.Toplevel.winfo_exists(self.ram_window):
+                    self.refrescar_visor_ram()
+                    self._programar_auto_refresco_ram()
+            self.ram_after_id = self.ram_window.after(interval, _tick)
+
+    def _cerrar_visor_ram(self):
+        if hasattr(self, 'ram_after_id') and self.ram_after_id:
+            try:
+                self.ram_window.after_cancel(self.ram_after_id)
+            except Exception:
+                pass
+            self.ram_after_id = None
+        if hasattr(self, 'ram_window') and self.ram_window:
+            try:
+                self.ram_window.destroy()
+            except Exception:
+                pass
+            self.ram_window = None

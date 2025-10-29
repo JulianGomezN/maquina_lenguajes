@@ -82,6 +82,18 @@ python main.py
 # 3. ¡Listo para programar!
 ```
 
+### Persistencia de RAM y visor de memoria
+
+- La RAM del simulador se persiste automáticamente en un archivo de texto `memory_ram.txt` en el directorio de trabajo.
+    - Al iniciar el programa, si existe `memory_ram.txt`, se carga su contenido en la RAM.
+    - Al cerrar el programa, la RAM completa se guarda de nuevo en `memory_ram.txt` (formato legible, 8 bytes por línea, con dirección base).
+- En la GUI, en la sección "Examinador de Memoria", hay un botón "👁 Ver RAM" que abre un visor en forma de tabla:
+    - Cada fila representa 8 bytes contiguos (alineados a 8), consistente con el tamaño de palabra/instrucción de 64 bits del simulador.
+    - Columnas: Dirección y los 8 bytes (B0..B7) en hexadecimal.
+    - Incluye opción de auto-actualización (intervalo configurable) o actualización manual con botón.
+
+Para cambiar la ruta del archivo de memoria, puede instanciar `Memory` con el parámetro `memory_file` en `main.py`.
+
 ### Primer Programa
 
 ```assembly
