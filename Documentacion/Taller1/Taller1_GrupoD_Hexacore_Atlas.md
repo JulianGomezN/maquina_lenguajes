@@ -542,7 +542,7 @@ def encode_instruction(self, opcode, operands):
 
 ## 4.5 Interfaz Gráfica (GUI)
 
-### Componentes de la UI
+### 4.5.1 Componentes de la UI
 
 1. **Visualizador de Estado**
    - Estado de registros R01-R15
@@ -560,6 +560,28 @@ def encode_instruction(self, opcode, operands):
    - Visualización de salidas
    - Entrada de datos
    - Log de operaciones
+
+### 4.5.2 Visor de RAM en tiempo real (novedad)
+
+Se incorporó un visor de RAM completo accesible desde la GUI mediante el botón "Ver RAM". Este abre una ventana con una tabla (Treeview) que muestra la memoria en filas de 8 bytes, alineada a la arquitectura de 64 bits. Características principales:
+
+- Visualización por filas de 8 bytes: columnas Addr, B0…B7.
+- Auto-actualización opcional con intervalo configurable (ms).
+- Scroll vertical y horizontal para navegar todo el espacio de memoria.
+- Botón "Refrescar" para actualización manual.
+
+Esta vista está conectada directamente a la RAM del simulador (self.cpu.memory), por lo que refleja en tiempo real los cambios que produce la ejecución del programa o las operaciones de memoria.
+
+### 4.5.2 Limpieza de RAM desde la interfaz (novedad)
+
+Se añadió el botón "Limpiar RAM" al examinador de memoria. Al activarlo:
+
+- Se solicita confirmación al usuario.
+- Se pone toda la RAM en cero de forma eficiente.
+- Se persiste inmediatamente al archivo de memoria (ver sección 6.2.1).
+- Si el visor de RAM está abierto, se refresca automáticamente para reflejar el estado limpio.
+
+Además, se mejoró el layout del examinador de memoria para aprovechar mejor el ancho disponible (campos expandibles y alineados), facilitando lectura y edición.
 
 ---
 
@@ -1084,6 +1106,61 @@ MEMORY_LAYOUT = {
        │    E/S Mapeada          │
        │  (resto hasta 64KiB)    │
 0xFFFF └─────────────────────────┘
+```
+
+### 6.2.1 Persistencia de la RAM en archivo de texto (novedad)
+
+La RAM del simulador ahora es persistente entre ejecuciones mediante un archivo de texto humanamente legible. Esto permite reanudar sesiones y depurar estados de memoria con facilidad.
+
+- Ubicación del archivo: junto a `main.py`, con nombre `memory_ram.txt`.
+- Ruta anclada de forma absoluta para evitar duplicados por cambios del directorio de trabajo.
+- Carga automática al iniciar la aplicación (si el archivo existe) y guardado automático al salir.
+
+Fragmento relevante en `main.py`:
+
+```python
+from GUI.GUI import SimuladorGUI
+from logic.Memory import Memory
+from logic.CPU import CPU
+import os
+
+# Usar una ruta explícita para evitar archivos duplicados de RAM
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+RAM_FILE = os.path.join(BASE_DIR, "memory_ram.txt")
+
+mem = Memory(2**16, memory_file=RAM_FILE)
+cpu = CPU(mem)
+app = SimuladorGUI(cpu)
+app.mainloop()
+```
+
+#### 6.2.1.1 Formato del archivo de memoria
+
+El archivo se escribe en líneas de 8 bytes (64 bits), alineado con el tamaño de palabra de la arquitectura. Ejemplo de línea:
+
+```
+0000: 00 00 00 00 00 00 00 00
+0008: 00 61 10 00 00 00 00 0A
+0010: 00 61 20 00 00 00 00 05
+```
+
+- La parte izquierda muestra la dirección base de la fila (en hex). Cada fila avanza de 8 en 8 bytes.
+- A la derecha se listan 8 bytes en hexadecimal, separados por espacio.
+- Se permiten comentarios con `#` o `;`, que se ignoran al leer.
+
+#### 6.2.1.2 Carga/guardado y API de memoria
+
+La clase `logic/Memory.py` expone operaciones para persistencia y mantenimiento:
+
+- `load_from_txt(path: str)`: carga el contenido del archivo a la RAM, ignorando comentarios y direcciones si están presentes.
+- `save_to_txt(path: str)`: vuelca toda la RAM al archivo en el formato anterior.
+- `clear()`: pone toda la memoria en cero de forma eficiente.
+
+Estas funciones se integran con la GUI: al limpiar la RAM desde el botón correspondiente, se ejecuta `clear()` y se guarda de inmediato en `memory_ram.txt`.
+
+#### 6.2.1.3 Alineamiento de direcciones en el visor
+
+En la tabla del visor, las direcciones avanzan como `0x0000, 0x0008, 0x0010, ...`. Esto se debe a que la arquitectura opera con palabras de 64 bits (8 bytes), por lo que la presentación por filas de 8 bytes facilita la lectura de instrucciones y datos alineados.
 ```
 
 ## 6.3 Sistema de E/S

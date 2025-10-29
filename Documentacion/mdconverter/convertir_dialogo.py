@@ -64,7 +64,7 @@ def main():
     base = os.path.splitext(os.path.basename(md_original))[0]
 
     md_limpio = os.path.join(dirpath, f"{base}_limpio.md")
-    pdf_salida = os.path.join(dirpath, f"{base}.pdf")
+    pdf_salida = os.path.join(dirpath, f"{base}_noportada.pdf")
 
     # 1) Limpiar unicode - llamar a la función si está disponible
     try:
