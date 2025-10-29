@@ -18,7 +18,9 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# Ignorar bibliotecas de Python pero permitir archivos .asm en lib/
+lib/*.py
+lib/__pycache__/
 lib64/
 parts/
 sdist/

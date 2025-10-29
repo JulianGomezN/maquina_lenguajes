@@ -10,7 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from logic.CPU import CPU
 #from disco_64bits import Disco
-from compiler.assembler import Assembler
+from compiler.ensamblador import Ensamblador
 from logic.Loader import Loader
 
 
@@ -29,7 +29,7 @@ class SimuladorGUI:
         
         # Inicializar componentes del simulador
         self.cpu = CPU
-        self.assembler = Assembler()
+        self.assembler = Ensamblador()
         self.loader = Loader(self.cpu.memory)
         self.programa_actual = []
 
@@ -204,9 +204,12 @@ class SimuladorGUI:
         mode_grid.grid_columnconfigure(2, weight=1)
         
         # Selector de modo (primera columna)
-        self.modo = tk.StringVar(value="automatico")
-        ttk.Radiobutton(mode_grid, text="Automático", variable=self.modo, value="automatico").grid(row=0, column=0, sticky="w", padx=2)
-        ttk.Radiobutton(mode_grid, text="Paso a paso", variable=self.modo, value="paso").grid(row=1, column=0, sticky="w", padx=2)
+        self.modo = tk.StringVar(value="completo")
+        rb1 = ttk.Radiobutton(mode_grid, text="⚡  Ejecución Completa", variable=self.modo, value="completo", width=25)
+        rb1.grid(row=0, column=0, sticky="w", padx=2, pady=1)
+        
+        rb2 = ttk.Radiobutton(mode_grid, text="🔍  Ejecución Detallada", variable=self.modo, value="detallado", width=25)
+        rb2.grid(row=1, column=0, sticky="w", padx=2, pady=1)
         
         # Botones de control (segunda y tercera columna)
         ttk.Button(mode_grid, text="🚀 Ejecutar", command=self.ejecutar_programa, width=12).grid(row=0, column=1, padx=2, pady=1, sticky="ew")
@@ -317,22 +320,29 @@ PARAR            ; terminar programa"""
             return 0
 
     def cargar_programa(self):
-        """Carga y ensambla el programa desde el área de texto"""
+        """Carga y ensambla el programa desde el área de texto o carga binario directamente"""
         texto = self.texto_programa.get("1.0", "end").strip()
         if not texto:
             messagebox.showwarning("Advertencia", "No hay código para cargar")
             return
         
-            
         try:
-           # Ensamblar el código
-            self.programa_actual = self.assembler.assemble(texto)
+            # Detectar si el texto es código binario hexadecimal
+            es_binario = self._es_codigo_binario(texto)
+            
+            if es_binario:
+                # Cargar código binario directamente
+                self.programa_actual = self._parsear_codigo_binario(texto)
+                tipo_carga = "binario"
+            else:
+                # Ensamblar el código assembly
+                self.programa_actual = self.assembler.assemble(texto)
+                tipo_carga = "assembly"
             
             # Mostrar la traducción
-
             start = self.obtener_direccion_carga()
 
-            traduccion = "Código ensamblado:\n\n"
+            traduccion = f"Código {'binario cargado' if es_binario else 'ensamblado'}:\n\n"
             for i, instr in enumerate(self.programa_actual):
                 addr = i * 8 + start
                 desasm = self.assembler.disassemble_instruction(instr)
@@ -341,7 +351,6 @@ PARAR            ; terminar programa"""
             self.set_traduccion(traduccion)
             
             # Cargar programa en la CPU
-            
             print(start)
             program_info = self.loader.load_program(
                     self.programa_actual, 
@@ -350,10 +359,70 @@ PARAR            ; terminar programa"""
                 )
             self.cpu.set_pc(start)
             self.update_gui()
-            self.set_salida("Programa cargado exitosamente. ¡Haz clic en 'Ejecutar'!")
+            self.set_salida(f"Programa cargado exitosamente desde {tipo_carga}. ¡Haz clic en 'Ejecutar'!")
         except Exception as e:
-            messagebox.showerror("Error", f"Error al ensamblar programa:\n{str(e)}")
-            self.set_traduccion(f"Error de ensamblado:\n{str(e)}")
+            messagebox.showerror("Error", f"Error al cargar programa:\n{str(e)}")
+            self.set_traduccion(f"Error de carga:\n{str(e)}")
+    
+    def _es_codigo_binario(self, texto):
+        """Detecta si el texto contiene código binario en formato hexadecimal"""
+        lineas = [l.strip() for l in texto.split('\n') if l.strip()]
+        
+        # Si todas las líneas son números hexadecimales de 16 dígitos, es binario
+        for linea in lineas:
+            # Ignorar comentarios y líneas vacías
+            if linea.startswith(';') or linea.startswith('#'):
+                continue
+            
+            # Extraer la parte hexadecimal
+            if ':' in linea:
+                # Formato "0000: 006110000000000a"
+                partes = linea.split(':')
+                if len(partes) >= 2:
+                    linea_limpia = partes[1].strip().split()[0]
+                else:
+                    return False
+            else:
+                # Remover prefijos comunes
+                linea_limpia = linea.replace('0x', '').strip().split()[0]
+            
+            # Verificar si es hexadecimal válido de 16 caracteres
+            if len(linea_limpia) == 16 and all(c in '0123456789ABCDEFabcdef' for c in linea_limpia):
+                continue
+            elif linea.strip():  # Si hay contenido no hexadecimal, no es binario
+                return False
+        
+        return len(lineas) > 0
+    
+    def _parsear_codigo_binario(self, texto):
+        """Convierte código binario hexadecimal a lista de instrucciones"""
+        instrucciones = []
+        lineas = texto.split('\n')
+        
+        for linea in lineas:
+            linea = linea.strip()
+            
+            # Ignorar líneas vacías y comentarios
+            if not linea or linea.startswith(';') or linea.startswith('#'):
+                continue
+            
+            # Extraer el código hexadecimal (puede tener formato "0x..." o "addr: code")
+            if ':' in linea:
+                # Formato "0000: 006110000000000a"
+                partes = linea.split(':')
+                hex_code = partes[1].strip().split()[0]
+            else:
+                # Formato directo "006110000000000a" o "0x006110000000000a"
+                hex_code = linea.replace('0x', '').strip().split()[0]
+            
+            # Convertir a entero
+            try:
+                instruccion = int(hex_code, 16)
+                instrucciones.append(instruccion)
+            except ValueError:
+                raise ValueError(f"Código hexadecimal inválido: {hex_code}")
+        
+        return instrucciones
 
     def ejecutar_programa(self):
         """Ejecuta el programa completo"""
@@ -363,19 +432,19 @@ PARAR            ; terminar programa"""
         
         modo = self.modo.get()
         
-        if modo == "automatico":
-            # Modo automático: ejecutar todo de una vez
+        if modo == "completo":
+            # Modo completo: ejecutar todo hasta el final de una vez
             print("SIA")
-            self.set_salida("Ejecutando programa...\n")
+            self.set_salida("Ejecutando programa completo hasta el final...\n")
             self.cpu.run(step_mode=False)
             self.update_gui()  # Actualizar después de ejecutar todo el programa
             self.append_salida(
                 pformat(self.cpu.io_map, indent=4, width=40, sort_dicts=False)
                 )
             self.append_salida("\nPrograma terminado")
-        elif modo == "paso":
-            # Modo paso a paso: ejecutar con pausas
-            self.set_salida("Ejecutando programa paso a paso...\n")
+        elif modo == "detallado":
+            # Modo detallado: ejecutar con pausas para ver el flujo y cambios
+            self.set_salida("Ejecutando programa en modo detallado (paso a paso)...\n")
             self.ejecutando_paso_automatico = True
             self.boton_parar.config(state="normal")
             self.ejecutar_modo_paso_automatico()

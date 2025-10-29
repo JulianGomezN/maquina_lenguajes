@@ -1,0 +1,24 @@
+; ============================================
+; EJEMPLO: Código binario directo
+; Programa que suma dos números y muestra el resultado
+; ============================================
+; Puedes copiar este código binario directamente en la UI
+; El sistema lo detectará automáticamente como código binario
+
+; LOADV R1, 10
+006110000000000a
+
+; LOADV R2, 5
+0061200000000005
+
+; ADD R1, R2
+0010000000000012
+
+; SVIO R1, 0x100
+00a0100000000100
+
+; SHOWIO 0x100
+00a2000000000100
+
+; PARAR
+0000000000000000

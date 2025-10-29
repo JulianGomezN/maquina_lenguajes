@@ -3,8 +3,13 @@ Ensamblador simple para el simulador de CPU
 Traduce código assembly a instrucciones binarias
 """
 
+import os
+from .preprocessor import Preprocessor
+
 class Assembler:
-    def __init__(self):
+    def __init__(self, use_preprocessor=True):
+        self.use_preprocessor = use_preprocessor
+        self.preprocessor = Preprocessor() if use_preprocessor else None
         # Mapa de instrucciones a opcodes
         self.opcodes = {
             # Control básico
@@ -257,8 +262,28 @@ class Assembler:
         else:
             raise ValueError(f"Formato desconocido: {fmt}")
 
-    def assemble(self, code):
-        """Ensambla código completo"""
+    def assemble(self, code, source_file=None):
+        """
+        Ensambla código completo
+        
+        Args:
+            code: Código fuente a ensamblar
+            source_file: Ruta del archivo fuente (opcional, para includes)
+        
+        Returns:
+            Lista de instrucciones en formato binario
+        """
+        # Preprocesar el código si está habilitado
+        if self.use_preprocessor and self.preprocessor:
+            # Determinar el directorio base para includes
+            if source_file:
+                base_path = os.path.dirname(os.path.abspath(source_file))
+            else:
+                base_path = os.getcwd()
+            
+            # Preprocesar
+            code = self.preprocessor.preprocess(code, base_path)
+        
         lines = code.split('\n')
         program = []
         self.labels = {}

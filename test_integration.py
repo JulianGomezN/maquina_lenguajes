@@ -9,7 +9,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from logic.CPU import CPU
 from logic.Memory import Memory 
 from logic.Loader import Loader
-from compiler.assembler import Assembler
+from compiler.ensamblador import Ensamblador
 
 def test_integration():
     """Prueba la integración entre CPU, Disco y Assembler"""
@@ -20,7 +20,7 @@ def test_integration():
     disco = Memory(2**16)
     loader = Loader(disco)
     cpu = CPU(disco)
-    assembler = Assembler()
+    assembler = Ensamblador()
     
     # Programa de prueba más complejo
     programa_texto = """

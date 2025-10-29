@@ -2,6 +2,8 @@
 
 # 1. Marco Teórico
 
+## 1.1 Arquitectura de Computadores y Modelo von Neumann
+
 El diseño de computadores parte de los principios establecidos por John von Neumann en 1945, quien propuso una arquitectura en la cual las instrucciones y los datos se almacenan en una memoria común y se ejecutan secuencialmente bajo el control de una unidad central de procesamiento (CPU). Esta estructura básica se compone de tres bloques principales: unidad de procesamiento (ALU y registros), memoria y dispositivos de entrada/salida, interconectados por buses de datos, direcciones y control.
 
 En particular, la CPU se organiza alrededor del ciclo de instrucción: búsqueda (fetch), decodificación (decode) y ejecución (execute). Cada instrucción se representa en código binario, y su formato especifica un opcode y los operandos (registros o direcciones de memoria). Los buses permiten la comunicación entre los módulos:
@@ -17,7 +19,159 @@ En el diseño de esta máquina se adoptaron varias decisiones claves:
 - Registros de propósito general (R01–R15) y un registro de estado con banderas de control (Z, N, C, V).
 - Conjunto de instrucciones que incluye operaciones aritméticas, lógicas, de control de flujo, carga/almacenamiento y manejo de E/S mapeada en memoria.
 
-El desarrollo de un simulador de esta arquitectura en un lenguaje de alto nivel permite aplicar de manera práctica los conceptos de organización y diseño de computadores, desde el nivel lógico hasta la ejecución de programas binarios.
+## 1.2 Análisis Léxico y Compiladores
+
+El análisis léxico constituye la primera fase en el proceso de compilación, siendo responsable de transformar una secuencia de caracteres (código fuente) en una secuencia de tokens que representan las unidades léxicas del lenguaje. Este proceso, también conocido como *scanning*, utiliza autómatas finitos y expresiones regulares para reconocer patrones que corresponden a identificadores, palabras reservadas, operadores, literales y delimitadores.
+
+### 1.2.1 PLY (Python Lex-Yacc)
+
+PLY es una implementación en Python de las herramientas clásicas de análisis léxico y sintáctico Lex y Yacc. Desarrollada por David Beazley, PLY permite definir analizadores léxicos mediante:
+
+- **Tokens**: Definidos como tuplas (tipo, valor, línea, posición)
+- **Expresiones regulares**: Especificadas como docstrings en funciones Python
+- **Reglas de precedencia**: Para resolver ambigüedades
+- **Acciones semánticas**: Código Python ejecutado al reconocer un patrón
+
+**Ventajas de PLY**:
+- Integración nativa con Python
+- No requiere compilación de archivos intermedios
+- Debugging facilitado mediante trazas y mensajes de error claros
+- Soporte completo para Unicode
+
+### 1.2.2 Categorías Léxicas
+
+En el contexto del ensamblador Atlas, las categorías léxicas incluyen:
+
+1. **Instrucciones**: Mnemónicos del conjunto de instrucciones (LOAD, ADD, JMP, etc.)
+2. **Registros**: Identificadores de registros (R00-R15)
+3. **Literales**: Valores inmediatos (decimales, hexadecimales, binarios)
+4. **Etiquetas**: Identificadores de direcciones simbólicas
+5. **Directivas**: Comandos para el preprocesador (#include, #define, .macro)
+6. **Delimitadores**: Comas, dos puntos, paréntesis
+7. **Comentarios**: Texto ignorado por el ensamblador
+
+## 1.3 Preprocesador
+
+El preprocesador es una herramienta que transforma el código fuente antes de que sea procesado por el ensamblador. Sus funciones principales incluyen:
+
+### 1.3.1 Directivas de Inclusión (#include)
+
+Permiten incorporar el contenido de archivos externos en el código fuente, facilitando la reutilización de código y la organización modular de programas. El preprocesador busca el archivo especificado, lee su contenido y lo inserta en el punto de la directiva.
+
+**Ejemplo**:
+```assembly
+#include "lib/io.asm"     ; Incluir biblioteca de E/S
+#include "lib/math.asm"   ; Incluir funciones matemáticas
+```
+
+### 1.3.2 Macros y Definiciones (#define)
+
+Las macros permiten definir sustituciones de texto que el preprocesador realiza antes del ensamblado. Esto incluye:
+
+- **Constantes simbólicas**: Nombres legibles para valores numéricos
+- **Macros simples**: Sustitución de texto sin parámetros
+- **Macros con parámetros**: Expansión de código con argumentos
+
+**Ejemplo**:
+```assembly
+#define IO_BASE 0x100
+#define MAX_SIZE 1024
+
+.macro PRINT_REG reg, addr
+    SVIO reg, addr
+    SHOWIO addr
+.endmacro
+```
+
+### 1.3.3 Ventajas del Preprocesamiento
+
+- **Modularidad**: Separación de código en bibliotecas reutilizables
+- **Mantenibilidad**: Cambios en constantes reflejados automáticamente
+- **Legibilidad**: Nombres simbólicos en lugar de valores mágicos
+- **Productividad**: Reducción de código repetitivo mediante macros
+
+## 1.4 Enlazador-Cargador (Linker-Loader)
+
+El enlazador-cargador es un componente crucial del sistema de procesamiento de lenguajes que conecta módulos compilados separadamente y los prepara para ejecución.
+
+### 1.4.1 Archivos Objeto (.o)
+
+Los archivos objeto contienen código ensamblado pero no ejecutable, con la siguiente estructura:
+
+- **Cabecera**: Identificador mágico (HEXAOBJ), metadata
+- **Tabla de símbolos**: Nombres y direcciones de funciones/variables
+  - Símbolos definidos: Exportados por este módulo
+  - Símbolos externos: Requeridos de otros módulos
+- **Tabla de relocaciones**: Direcciones que necesitan ajuste
+  - Relocación absoluta: Direcciones fijas
+  - Relocación relativa: Offsets desde posición actual
+- **Secciones de código**: Instrucciones ensambladas
+- **Secciones de datos**: Datos inicializados
+
+### 1.4.2 Proceso de Enlazado
+
+El enlazador realiza las siguientes operaciones:
+
+1. **Recolección de símbolos**: Construir tabla global de todos los símbolos
+2. **Resolución de símbolos**: Conectar referencias con definiciones
+3. **Reubicación**: Ajustar direcciones según posición final en memoria
+4. **Combinación de secciones**: Unir código y datos de múltiples módulos
+5. **Generación de ejecutable**: Crear archivo .exe con punto de entrada
+
+**Tipos de relocación**:
+- **ABSOLUTE**: Direcciones absolutas en memoria
+- **RELATIVE**: Desplazamientos relativos (para saltos)
+- **IMMEDIATE**: Valores inmediatos en instrucciones
+
+### 1.4.3 Ejecutables (.exe)
+
+El formato ejecutable contiene:
+
+- **Cabecera mágica**: HEXACORE
+- **Punto de entrada**: Dirección de inicio de ejecución
+- **Código relocado**: Instrucciones con direcciones resueltas
+- **Datos inicializados**: Variables globales y constantes
+
+### 1.4.4 Cargador (Loader)
+
+El cargador es responsable de:
+
+1. **Lectura del ejecutable**: Parsear formato .exe
+2. **Asignación de memoria**: Reservar espacio en memoria virtual
+3. **Carga de código**: Copiar instrucciones a memoria
+4. **Carga de datos**: Inicializar variables globales
+5. **Configuración de PC**: Establecer punto de entrada
+6. **Inicio de ejecución**: Transferir control al programa
+
+## 1.5 Pipeline de Compilación Completo
+
+El flujo completo del Sistema de Procesamiento del Lenguaje (SPL) integra:
+
+```
+Código Fuente (.asm)
+         ↓
+    PREPROCESADOR → Expansión de macros, includes, defines
+         ↓
+Código Preprocesado
+         ↓
+  ANALIZADOR LÉXICO (PLY) → Tokenización
+         ↓
+    Secuencia de Tokens
+         ↓
+     ENSAMBLADOR → Generación de código objeto
+         ↓
+  Archivos Objeto (.o)
+         ↓
+      ENLAZADOR → Resolución y reubicación
+         ↓
+   Ejecutable (.exe)
+         ↓
+       CARGADOR → Carga en memoria
+         ↓
+   Ejecución en CPU
+```
+
+El desarrollo de un simulador de esta arquitectura en un lenguaje de alto nivel permite aplicar de manera práctica los conceptos de organización y diseño de computadores, así como las fases de compilación, desde el análisis léxico hasta la ejecución de programas binarios
 
 ---
 
