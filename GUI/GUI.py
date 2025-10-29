@@ -188,6 +188,8 @@ class SimuladorGUI:
 
         # Botón para visor de RAM (tabla dinámica)
         ttk.Button(mem_frame, text="👁 Ver RAM", command=self.abrir_visor_ram).grid(row=5, column=0, columnspan=4, padx=5, pady=(6,2), sticky="ew")
+        # Botón para limpiar RAM completamente
+        ttk.Button(mem_frame, text="🧹 Limpiar RAM", command=self.limpiar_ram).grid(row=6, column=0, columnspan=4, padx=5, pady=(2,6), sticky="ew")
 
         # Modo de ejecución
         mode_frame = ttk.LabelFrame(right_frame, text="Modo de Ejecución")
@@ -767,3 +769,21 @@ PARAR            ; terminar programa"""
             except Exception:
                 pass
             self.ram_window = None
+
+    # ========== Acciones RAM ==========
+    def limpiar_ram(self):
+        """Limpia completamente la RAM (pone todos los bytes en 0) con confirmación."""
+        if not messagebox.askyesno("Confirmar", "¿Seguro que quieres limpiar TODA la RAM? Esta acción no se puede deshacer."):
+            return
+        try:
+            self.cpu.memory.clear()
+            # Persistir inmediatamente si existe archivo configurado
+            if hasattr(self.cpu.memory, 'save_to_txt') and hasattr(self.cpu.memory, 'memory_file'):
+                self.cpu.memory.save_to_txt(self.cpu.memory.memory_file)
+            self.mem_valor.config(text="--")
+            # Refrescar visor si está abierto
+            if hasattr(self, 'ram_window') and self.ram_window and tk.Toplevel.winfo_exists(self.ram_window):
+                self.refrescar_visor_ram()
+            self.set_salida("RAM limpiada correctamente.")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo limpiar la RAM:\n{str(e)}")

@@ -105,6 +105,10 @@ class Memory:
     def __setitem__(self, key, value):
         self.mem[key] = value
 
+    def clear(self):
+        """Limpia toda la RAM poniéndola en cero."""
+        self.mem[:] = b"\x00" * self.size
+
     # ---------- Persistencia en .txt ----------
     def save_to_txt(self, path: str):
         """
