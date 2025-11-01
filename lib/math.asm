@@ -31,7 +31,7 @@ skip_abs:
 
 ; Macro para swap de dos registros
 .macro SWAP reg1, reg2, temp
-    LOADV temp, reg1
-    LOADV reg1, reg2
-    LOADV reg2, temp
+    MOV8 temp, reg1
+    MOV8 reg1, reg2
+    MOV8 reg2, temp
 .endmacro

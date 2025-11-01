@@ -36,7 +36,7 @@
 
 ; Macro para copiar registro
 .macro COPY src, dst
-    LOADV dst, src
+    MOV8 dst, src
 .endmacro
 
 ; Macro NOP extendido (para timing)
