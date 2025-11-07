@@ -7,8 +7,8 @@ Puede generar archivos objeto para enlace posterior
 
 import ply.lex as lex
 import os
-from .preprocessor import Preprocessor
-from .object_file_generator import ObjectFileGenerator
+from compiler.preprocessor import Preprocessor
+from compiler.object_file_generator import ObjectFileGenerator
 
 # =============================================
 # ANALIZADOR LÉXICO (PLY Lex)

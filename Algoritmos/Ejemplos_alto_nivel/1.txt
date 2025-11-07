@@ -1,0 +1,15 @@
+funcion vacio principal() {
+    entero4 x = 10;
+    entero4 y = 20;
+    cadena saludo = "Hola mundo";
+
+    si (x < y) {
+        x = x + 1;
+        retornar;
+    } si_no {
+        caracter c = 'A';
+        x = x - 1;
+    }
+
+    romper;
+}

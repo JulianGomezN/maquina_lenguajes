@@ -5,28 +5,30 @@ import ply.lex as lex
 # Palabras reservadas (keywords)
 # -----------------------------
 reserved = {
-    'si': 'SI',
-    'si_no': 'SINO',
-    'mientras': 'MIENTRAS',
-    'para': 'PARA',
-    'romper': 'ROMPER',
-    'continuar': 'CONTINUAR',
-    'vacio': 'VACIO',
-    'constante': 'CONSTANTE',
-    'entero2': 'ENTERO2',
-    'entero4': 'ENTERO4',
-    'entero8': 'ENTERO8',
-    'caracter': 'CARACTER',
-    'cadena': 'CADENA_TIPO',
-    'con_signo': 'CON_SIGNO',
-    'sin_signo': 'SIN_SIGNO',
-    'flotante': 'FLOTANTE',
-    'doble': 'DOBLE',
-    'booleano': 'BOOLEANO',
-    'funcion': 'FUNCION',
-    'retornar': 'RETORNAR',
-    'nuevo': 'NUEVO',
-    'eliminar': 'ELIMINAR',
+    'si',
+    'si_no',
+    'mientras',
+    'para',
+    'romper',
+    'continuar',
+    'vacio',
+    'constante',
+    'entero2',
+    'entero4',
+    'entero8',
+    'caracter',
+    'cadena',
+    'con_signo',
+    'sin_signo',
+    'flotante',
+    'doble',
+    'booleano',
+    'funcion',
+    'retornar',
+    'estructura',
+    'externo',
+    'nuevo',
+    'eliminar',
 }
 
 # -----------------------------
@@ -37,8 +39,8 @@ tokens = [
     'ID',
     'ENTERO',
     'FLOT',
-    'CAR',
-    'CAD',
+    'CARACTER',
+    'CADENA',
 
     # Operadores compuestos (deben ir antes que operadores simples)
     'PLUSEQ', 'MINUSEQ', 'MULTEQ', 'DIVEQ', 'MODEQ',
@@ -66,7 +68,12 @@ tokens = [
     'CORCHIZQ', 'CORCHDER',
     'PUNTOCOMA', 'COMA',
 
-] + list(reserved.values())
+    # Reservadas
+    'KEYWORD',
+
+    # Acceso de miembros
+    'PUNTO'
+]
 
 # -----------------------------
 # Reglas (tokens simples por regex)
@@ -114,6 +121,8 @@ t_CORCHDER    = r'\]'
 t_PUNTOCOMA   = r';'
 t_COMA        = r','
 
+t_PUNTO       = r'.'
+
 # -----------------------------
 # Reglas con función (más complejas)
 # -----------------------------
@@ -121,7 +130,8 @@ t_COMA        = r','
 def t_ID(t):
     r'[a-zA-Z][a-zA-Z0-9_]*'
     # Verificar si es palabra reservada
-    t.type = reserved.get(t.value, 'ID')
+    if t.value in reserved:
+        t.type = 'KEYWORD'
     return t
 
 # Punto flotante: 123.456, 1.23e+10, 1.23E-10
@@ -145,7 +155,7 @@ def t_ENTERO(t):
     return t
 
 # Carácter: 'A' o '\n' (maneja escapes simples)
-def t_CAR(t):
+def t_CARACTER(t):
     r'\'(\\.|[^\\\'])\''
     # quitar las comillas y procesar escapes básicos
     raw = t.value[1:-1]
@@ -154,7 +164,7 @@ def t_CAR(t):
     return t
 
 # Cadena: "texto" con escapes
-def t_CAD(t):
+def t_CADENA(t):
     r'\"(\\.|[^\\"])*\"'
     raw = t.value[1:-1]
     t.value = bytes(raw, "utf-8").decode("unicode_escape")
@@ -184,32 +194,23 @@ def t_error(t):
 # -----------------------------
 # Construir el lexer
 # -----------------------------
-lexer = lex.lex(reflags=0)  # reflags puede ajustarse si quieres re.IGNORECASE, etc.
+lexer = lex.lex()
 
 # -----------------------------
-# Prueba
+# Prueba (Powershell)
+# run cat .\compiler\ejemplos\analizador_lex\1.txt | python .\compiler\lex_analizer.py 
 # -----------------------------
 if __name__ == "__main__":
-    test_input = r'''
-    // prueba de tokens
-    funcion entero4 sumar(entero4 a, entero4 b) {
-        entero4 c = a + b;
-        c += 10;
-        c--;
-        retornar c;
-    }
+    import sys
+    data = sys.stdin.read()
+    lexer.input(data)
 
-    constante entero4 X = 0xFF;
-    cadena s = "Hola\nmundo";
-    caracter ch = '\n';
-    mientras (X > 0 && X < 100) {
-       X -= 1;
-       si (X == 50) { romper; }
-    }
-    '''
-    lexer.input(test_input)
+    print(f"|{'TOKEN':^15}|{'VALOR / LEXEMA':^20}|{'LÍNEA':^10}|{'POSICIÓN':^10}|")
+    print("-" * 60)
+
     while True:
         tok = lexer.token()
         if not tok:
             break
-        print(tok)
+        print(f"|{tok.type:^15}|{str(tok.value):^20}|{tok.lineno:^10}|{tok.lexpos:^10}|")
+        print("-" * 60)
