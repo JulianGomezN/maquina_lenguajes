@@ -4,7 +4,7 @@ import ply.lex as lex
 # -----------------------------
 # Palabras reservadas (keywords)
 # -----------------------------
-reserved = {
+reserved = [
     'si',
     'si_no',
     'mientras',
@@ -29,7 +29,7 @@ reserved = {
     'externo',
     'nuevo',
     'eliminar',
-}
+]
 
 # -----------------------------
 # Lista de tokens
@@ -121,7 +121,7 @@ t_CORCHDER    = r'\]'
 t_PUNTOCOMA   = r';'
 t_COMA        = r','
 
-t_PUNTO       = r'.'
+t_PUNTO       = r'\.'
 
 # -----------------------------
 # Reglas con función (más complejas)
@@ -189,6 +189,8 @@ t_ignore  = ' \t\r'
 # Manejo de errores
 def t_error(t):
     print(f"Caracter ilegal '{t.value[0]}' en la linea {t.lineno}")
+    if t.value[0] == '#':print("Missing preprocesor ??")
+    exit(1)
     t.lexer.skip(1)
 
 # -----------------------------
@@ -198,7 +200,8 @@ lexer = lex.lex()
 
 # -----------------------------
 # Prueba (Powershell)
-# run cat .\compiler\ejemplos\analizador_lex\1.txt | python .\compiler\lex_analizer.py 
+# run cat .\compiler\ejemplos\analizador_lex\1.txt | python .\compiler\preproccessor.py   | python .\compiler\lex_analizer.py 
+# We must preproccess it firt
 # -----------------------------
 if __name__ == "__main__":
     import sys

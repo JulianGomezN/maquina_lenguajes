@@ -1,5 +1,5 @@
 from compiler.lex_analizer import lexer  
-
+from compiler.preprocessor import preprocess
 # Lee un archivo de prueba
 
 ## 1 to 3
@@ -8,6 +8,8 @@ file = "Algoritmos/Ejemplos_alto_nivel/1.txt"
 with open(file, "r", encoding="utf-8") as f:
     data = f.read()
 
+# Preprocesar primero
+data = preprocess(data)
 # Enviar el contenido al lexer
 lexer.input(data)
 

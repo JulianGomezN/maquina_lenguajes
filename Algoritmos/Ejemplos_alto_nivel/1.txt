@@ -1,15 +1,37 @@
-funcion vacio principal() {
-    entero4 x = 10;
-    entero4 y = 20;
-    cadena saludo = "Hola mundo";
+#include <math_utils.h>
 
-    si (x < y) {
-        x = x + 1;
-        retornar;
+/*
+ * Programa que calcula areas y volúmenes
+ * usando macros definidas
+ */
+
+funcion flotante area_circulo(flotante radio) {
+    retornar PI * CUADRADO(radio);
+}
+
+funcion flotante volumen_esfera(flotante radio) {
+    flotante temp = (4.0 / 3.0) * PI;
+    retornar temp * CUADRADO(radio) * radio;
+}
+
+funcion entero4 principal() {
+    flotante r = 5.0;
+    flotante area = area_circulo(r);
+    flotante volumen = volumen_esfera(r);
+    
+    flotante mayor;
+
+    si (area > volumen){
+        mayor = area;
     } si_no {
-        caracter c = 'A';
-        x = x - 1;
+        mayor = volumen;
+    } 
+    
+    si (mayor == area) {
+        cadena mensaje = "El area es mayor";
+    } si_no {
+        cadena mensaje = "El volumen es mayor";
     }
-
-    romper;
+    
+    retornar 0;
 }
