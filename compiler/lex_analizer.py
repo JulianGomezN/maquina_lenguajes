@@ -2,33 +2,33 @@
 import ply.lex as lex
 
 # -----------------------------
-# Palabras reservadas (keywords)
+# Palabras reservadas (keywords) con sus tokens
 # -----------------------------
 reserved = {
-    'si',
-    'si_no',
-    'mientras',
-    'para',
-    'romper',
-    'continuar',
-    'vacio',
-    'constante',
-    'entero2',
-    'entero4',
-    'entero8',
-    'caracter',
-    'cadena',
-    'con_signo',
-    'sin_signo',
-    'flotante',
-    'doble',
-    'booleano',
-    'funcion',
-    'retornar',
-    'estructura',
-    'externo',
-    'nuevo',
-    'eliminar',
+    'si': 'SI',
+    'si_no': 'SI_NO',
+    'mientras': 'MIENTRAS',
+    'para': 'PARA',
+    'romper': 'ROMPER',
+    'continuar': 'CONTINUAR',
+    'vacio': 'VACIO',
+    'constante': 'CONSTANTE',
+    'entero2': 'ENTERO2',
+    'entero4': 'ENTERO4',
+    'entero8': 'ENTERO8',
+    'caracter': 'TIPO_CARACTER',
+    'cadena': 'TIPO_CADENA',
+    'con_signo': 'CON_SIGNO',
+    'sin_signo': 'SIN_SIGNO',
+    'flotante': 'FLOTANTE',
+    'doble': 'DOBLE',
+    'booleano': 'BOOLEANO',
+    'funcion': 'FUNCION',
+    'retornar': 'RETORNAR',
+    'estructura': 'ESTRUCTURA',
+    'externo': 'EXTERNO',
+    'nuevo': 'NUEVO',
+    'eliminar': 'ELIMINAR',
 }
 
 # -----------------------------
@@ -68,12 +68,10 @@ tokens = [
     'CORCHIZQ', 'CORCHDER',
     'PUNTOCOMA', 'COMA',
 
-    # Reservadas
-    'KEYWORD',
-
     # Acceso de miembros
-    'PUNTO'
-]
+    'PUNTO',
+    'FLECHA'
+] + list(reserved.values())  # Agregar tokens de palabras reservadas
 
 # -----------------------------
 # Reglas (tokens simples por regex)
@@ -95,6 +93,7 @@ t_MAYORIGUAL  = r'>='
 
 t_ANDLOG      = r'&&'
 t_ORLOG       = r'\|\|'
+t_FLECHA      = r'->'
 
 # Operadores simples (debe venir después de los multicaracter)
 t_ASIGNAR     = r'='
@@ -130,8 +129,7 @@ t_PUNTO       = r'.'
 def t_ID(t):
     r'[a-zA-Z][a-zA-Z0-9_]*'
     # Verificar si es palabra reservada
-    if t.value in reserved:
-        t.type = 'KEYWORD'
+    t.type = reserved.get(t.value, 'ID')
     return t
 
 # Punto flotante: 123.456, 1.23e+10, 1.23E-10
