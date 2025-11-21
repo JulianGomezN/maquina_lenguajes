@@ -36,25 +36,32 @@ Usado en `ADD R, R'`, `SUB R, R'`.
 
 #### Formato RI (Registro-Inmediato)
 Usado en `LOADV R, v`, `ADDV R, v`.
+
+Ocupa dos palabras
+
 ```
  63    48 47  44 43             0
 ┌────────┬─────┬─────────────────┐
-│ OPCODE │ RD  │   INMEDIATO     │
-│16 bits │4bits│    44 bits      │
+│ OPCODE │ RD  │                 │
+│16 bits │4bits│                 │
 └────────┴─────┴─────────────────┘
+ ┌──────────────────────────────┐
+     INMEDIATO 64 bits
+ └──────────────────────────────┘
 ```
 
-#### Formato I (Solo Inmediato)  
+#### Formato I (Solo Inmediato)  se usa el RI (El registro no se altera)
 Usado en `JMP k`, `SHOWIO addr`.
 ```
- 63    48 47             0
-┌────────┬─────────────────┐
-│ OPCODE │   INMEDIATO     │
-│16 bits │    48 bits      │
-└────────┴─────────────────┘
+ 63    48 47  44 43             0
+┌────────┬─────┬─────────────────┐
+│ OPCODE │ RD  │                 │
+│16 bits │4bits│                 │
+└────────┴─────┴─────────────────┘
+ ┌──────────────────────────────┐
+     INMEDIATO 64 bits
+ └──────────────────────────────┘
 ```
-
----
 
 
 
@@ -121,7 +128,7 @@ Usado en `JMP k`, `SHOWIO addr`.
 | 0x0843 | CMPV8 Rd, v | Comparar Rd con valor inmediato (8 bytes) |
 
 ### Entrada/Salida
-
+La trasmision de datos es por byte
 | Opcode | Instrucción | Descripción |
 |--------|-------------|-------------|
 | 0x00A0 | SVIO Rd, addr | IO[addr] = Rd |

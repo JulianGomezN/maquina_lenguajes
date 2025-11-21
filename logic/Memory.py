@@ -74,8 +74,18 @@ class Memory:
 
         self._check_range(addr, size)
         # Convertir a bytes en little endian, siempre unsigned
-        self.mem[addr:addr+size] = int(val).to_bytes(size, byteorder="little", signed=False)
-
+        intval = int(val)
+    
+    # Rango signed para size bytes
+        signed_min = -(1 << (size*8 - 1))
+        signed_max = (1 << (size*8 - 1)) - 1
+        
+        # Si cabe en signed → signed=True
+        if signed_min <= intval <= signed_max:
+            self.mem[addr:addr+size] = intval.to_bytes(size, "little", signed=True)
+        else:
+            # Caso IEEE-754: no cabe en signed, así que va como unsigned
+            self.mem[addr:addr+size] = intval.to_bytes(size, "little", signed=False)
 
     # ---------- Utilidades ----------
     def dump(self, start: int = 0, end: int = 64):

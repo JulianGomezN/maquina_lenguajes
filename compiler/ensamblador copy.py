@@ -1,15 +1,83 @@
 """
-Ensamblador simple para el simulador de CPU
+Ensamblador con análisis léxico usando PLY
 Traduce código assembly a instrucciones binarias
+Integra preprocesador y generación de bytecode
+Puede generar archivos objeto para enlace posterior
 """
 
+import ply.lex as lex
 import os
-#from .preprocessor import Preprocessor
+##from compiler.preprocessor import Preprocessor
+##from compiler.object_file_generator import ObjectFileGenerator
 
-class Assembler:
-    def __init__(self, use_preprocessor=True):
-        self.use_preprocessor = use_preprocessor
-        self.preprocessor = Preprocessor() if use_preprocessor else None
+# =============================================
+# ANALIZADOR LÉXICO (PLY Lex)
+# =============================================
+
+tokens = (
+    'LABEL',
+    'INSTRUCTION',
+    'NUMBER',
+    'REGISTER',
+    'COMMA',
+    'NEWLINE',
+    'DATA',
+)
+
+# Tokens ignorados
+t_ignore = ' \t'
+t_ignore_COMMENT = r';[^\n]*'
+
+# Reglas de tokens
+
+def t_DATA(t):
+    r'\.[A-Za-z_][A-Za-z0-9_]*'
+    t.value = t.value[:-1]  # Remover el ':'
+
+def t_LABEL(t):
+    r'[A-Za-z_][A-Za-z0-9_]*:'
+    t.value = t.value[:-1]  # Remover el ':'
+    return t
+
+def t_REGISTER(t):
+    r'R[0-9]+'
+    return t
+
+def t_NUMBER(t):
+    r'0x[0-9A-Fa-f]+|0b[01]+|\d+'
+    return t
+
+def t_INSTRUCTION(t):
+    r'[A-Za-z_][A-Za-z0-9_]*'
+    return t
+
+def t_COMMA(t):
+    r','
+    return t
+
+def t_NEWLINE(t):
+    r'\n+'
+    t.lexer.lineno += len(t.value)
+    return t
+
+def t_error(t):
+    print(f"Carácter ilegal '{t.value[0]}' en línea {t.lexer.lineno}")
+    t.lexer.skip(1)
+
+# =============================================
+# ENSAMBLADOR PRINCIPAL
+# =============================================
+
+class Ensamblador:
+    """Ensamblador completo con PLY y generación de bytecode"""
+    
+    def __init__(self):
+        self.lexer = lex.lex()
+        
+        # Tabla de símbolos (etiquetas y direcciones)
+        self.labels = {}
+        self.current_address = 0
+        
         # Mapa de instrucciones a opcodes
         self.opcodes = {
             # Control básico
@@ -105,10 +173,10 @@ class Assembler:
             'ORV': 'RI', 'XOR': 'RR', 'XORV': 'RI',
             
             # Shifts
-            'SHL': 'R', 'SHR': 'R', 'SAL': 'R', 'SAR': 'R',
+            'SHL': 'RR', 'SHR': 'RR', 'SAL': 'RR', 'SAR': 'RR',
             
             # Memoria básica
-            'LOAD': 'RI', 'LOADV': 'RI', 'STORE': 'RR', 'STOREV': 'RI', 'CLEAR': 'R',
+            'LOAD': 'RI', 'LOADV': 'RI', 'STORE': 'RI', 'STOREV': 'RI', 'CLEAR': 'R',
             
             # Comparación
             'CMP': 'RR', 'CMPV': 'RI',
@@ -122,7 +190,7 @@ class Assembler:
             'JCS': 'I', 'JCC': 'I', 'JMI': 'I', 'JPL': 'I',
             
             # I/O
-            'SVIO': 'RI', 'LOADIO': 'RI', 'SHOWIO': 'I', 'CLRIO': 'OP', 'RESETIO': 'OP',
+            'SVIO': 'RI', 'LOADIO': 'RI', 'SHOWIO': 'I', 'CLRIO': 'I', 'RESETIO': 'OP',
             
             # Aritmética con tamaños específicos (1 byte)
             'ADD1': 'RR', 'SUB1': 'RR', 'MUL1': 'RR', 'MULS1': 'RR', 'DIV1': 'RR',
@@ -169,22 +237,31 @@ class Assembler:
             'CMP1': 'RR', 'CMP2': 'RR', 'CMP4': 'RR', 'CMP8': 'RR',
             'CMPV1': 'RI', 'CMPV2': 'RI', 'CMPV4': 'RI', 'CMPV8': 'RI',
         }
-        
-        self.labels = {}
-        self.current_address = 0
-
-    def parse_register(self, reg_str):
-        """Convierte 'R1' o 'R01' a número entero"""
+    
+    def tokenize_line(self, line):
+        """Tokeniza una línea usando PLY"""
+        self.lexer.input(line)
+        tokens_list = []
+        for tok in self.lexer:
+            if tok.type != 'NEWLINE':
+                tokens_list.append(tok)
+        return tokens_list
+    
+    def parse_register(self, reg_token):
+        """Convierte token de registro a número"""
+        reg_str = reg_token.value if hasattr(reg_token, 'value') else reg_token
         if not reg_str.startswith('R'):
             raise ValueError(f"Registro inválido: {reg_str}")
         return int(reg_str[1:])
-
-    def parse_immediate(self, imm_str):
-        """Convierte string a valor inmediato"""
-        imm_str = imm_str.lower()  # Convertir a minúsculas para 0x
-        if imm_str.startswith('0x'):
+    
+    def parse_immediate(self, imm_token):
+        """Convierte token de número a valor inmediato"""
+        imm_str = imm_token.value if hasattr(imm_token, 'value') else imm_token
+        imm_str_lower = imm_str.lower()
+        
+        if imm_str_lower.startswith('0x'):
             return int(imm_str, 16)
-        elif imm_str.startswith('0b'):
+        elif imm_str_lower.startswith('0b'):
             return int(imm_str, 2)
         elif imm_str.upper() in self.labels:
             return self.labels[imm_str.upper()]
@@ -192,37 +269,19 @@ class Assembler:
             try:
                 return int(imm_str)
             except ValueError:
-                # Si no es un número, debe ser una etiqueta
+                # Debe ser una etiqueta
                 imm_upper = imm_str.upper()
                 if imm_upper not in self.labels:
                     raise ValueError(f"Etiqueta no definida: {imm_str}")
                 return self.labels[imm_upper]
-
-    def assemble_line(self, line):
-        """Ensambla una línea de código"""
-        line = line.strip().upper()
-        if not line or line.startswith(';'):  # Comentario o línea vacía
+    
+    def assemble_tokens(self, tokens):
+        """Ensambla una lista de tokens a bytecode"""
+        if not tokens:
             return None
         
-        # Remover comentarios al final de la línea
-        if ';' in line:
-            line = line.split(';')[0].strip()
-            if not line:
-                return None
+        instruction = tokens[0].value.upper()
         
-        # Manejar etiquetas
-        if ':' in line and not line.startswith((' ', '\t')):
-            label = line.split(':')[0].strip()
-            self.labels[label] = self.current_address
-            line = line.split(':', 1)[1].strip()
-            if not line:
-                return None
-
-        parts = line.replace(',', ' ').split()
-        if not parts:
-            return None
-            
-        instruction = parts[0]
         if instruction not in self.opcodes:
             raise ValueError(f"Instrucción desconocida: {instruction}")
         
@@ -234,34 +293,42 @@ class Assembler:
             return (opcode << 48)
         
         elif fmt == 'R':
-            if len(parts) != 2:
-                raise ValueError(f"Formato R requiere 1 registro: {line}")
-            rd = self.parse_register(parts[1])
+            if len(tokens) < 2:
+                raise ValueError(f"Formato R requiere 1 registro: {instruction}")
+            rd = self.parse_register(tokens[1])
             return (opcode << 48) | (rd << 44)
         
         elif fmt == 'RR':
-            if len(parts) != 3:
-                raise ValueError(f"Formato RR requiere 2 registros: {line}")
-            rd = self.parse_register(parts[1])
-            rs = self.parse_register(parts[2])
+            if len(tokens) < 3:
+                raise ValueError(f"Formato RR requiere 2 registros: {instruction}")
+            # Saltar comas
+            reg_tokens = [t for t in tokens[1:] if t.type != 'COMMA']
+            if len(reg_tokens) < 2:
+                raise ValueError(f"Formato RR requiere 2 registros: {instruction}")
+            rd = self.parse_register(reg_tokens[0])
+            rs = self.parse_register(reg_tokens[1])
             return (opcode << 48) | (rd << 4) | rs
         
         elif fmt == 'RI':
-            if len(parts) != 3:
-                raise ValueError(f"Formato RI requiere registro e inmediato: {line}")
-            rd = self.parse_register(parts[1])
-            imm = self.parse_immediate(parts[2])
+            if len(tokens) < 3:
+                raise ValueError(f"Formato RI requiere registro e inmediato: {instruction}")
+            # Saltar comas
+            operands = [t for t in tokens[1:] if t.type != 'COMMA']
+            if len(operands) < 2:
+                raise ValueError(f"Formato RI requiere registro e inmediato: {instruction}")
+            rd = self.parse_register(operands[0])
+            imm = self.parse_immediate(operands[1])
             return (opcode << 48) | (rd << 44) | (imm & 0xFFFFFFFFFFF)
         
-        elif fmt == 'I':  # Solo inmediato (para SHOWIO)
-            if len(parts) != 2:
-                raise ValueError(f"Formato I requiere solo inmediato: {line}")
-            imm = self.parse_immediate(parts[1])
+        elif fmt == 'I':
+            if len(tokens) < 2:
+                raise ValueError(f"Formato I requiere inmediato: {instruction}")
+            imm = self.parse_immediate(tokens[1])
             return (opcode << 48) | (imm & 0xFFFFFFFFFFF)
         
         else:
             raise ValueError(f"Formato desconocido: {fmt}")
-
+    
     def assemble(self, code, source_file=None):
         """
         Ensambla código completo
@@ -275,50 +342,62 @@ class Assembler:
         """
         # Preprocesar el código si está habilitado
         if self.use_preprocessor and self.preprocessor:
-            # Determinar el directorio base para includes
             if source_file:
                 base_path = os.path.dirname(os.path.abspath(source_file))
             else:
                 base_path = os.getcwd()
-            
-            # Preprocesar
             code = self.preprocessor.preprocess(code, base_path)
         
         lines = code.split('\n')
-        program = []
         self.labels = {}
         self.current_address = 0
         
         # Primera pasada: recopilar etiquetas
         temp_address = 0
         for line in lines:
-            line = line.strip().upper()
+            line = line.strip()
             if not line or line.startswith(';'):
                 continue
             
-            # Remover comentarios
-            if ';' in line:
-                line = line.split(';')[0].strip()
-                if not line:
-                    continue
+            tokens = self.tokenize_line(line)
+            if not tokens:
+                continue
             
-            if ':' in line and not line.startswith((' ', '\t')):
-                label = line.split(':')[0].strip()
-                self.labels[label] = temp_address * 8  # Direcciones en bytes
-                line = line.split(':', 1)[1].strip()
-            if line:
+            # Si hay etiqueta, guardarla
+            if tokens[0].type == 'LABEL':
+                label_name = tokens[0].value.upper()
+                self.labels[label_name] = temp_address * 8  # Direcciones en bytes
+                tokens = tokens[1:]  # Remover la etiqueta
+            
+            # Si hay instrucción después de la etiqueta
+            if tokens and tokens[0].type == 'INSTRUCTION':
                 temp_address += 1
         
         # Segunda pasada: generar código
+        program = []
         self.current_address = 0
+        
         for line in lines:
-            instruction = self.assemble_line(line)
-            if instruction is not None:
-                program.append(instruction)
-                self.current_address += 8
+            line = line.strip()
+            if not line or line.startswith(';'):
+                continue
+            
+            tokens = self.tokenize_line(line)
+            if not tokens:
+                continue
+            
+            # Saltar etiquetas
+            if tokens[0].type == 'LABEL':
+                tokens = tokens[1:]
+            
+            if tokens and tokens[0].type == 'INSTRUCTION':
+                instruction = self.assemble_tokens(tokens)
+                if instruction is not None:
+                    program.append(instruction)
+                    self.current_address += 8
         
         return program
-
+    
     def disassemble_instruction(self, instr):
         """Desarma una instrucción a texto legible"""
         opcode = (instr >> 48) & 0xFFFF
@@ -353,65 +432,139 @@ class Assembler:
             return f"{instr_name} {imm}"
         
         return f"UNKNOWN FORMAT for {instr_name}"
+    
+    def assemble_to_object(self, source, module_name="module", global_symbols=None):
+        """
+        Ensambla código a archivo objeto para enlace posterior
+        
+        Args:
+            source: Código assembly
+            module_name: Nombre del módulo
+            global_symbols: Lista de símbolos a exportar como globales
+            
+        Returns:
+            ObjectFileGenerator: Generador con archivo objeto completo
+        """
+        if global_symbols is None:
+            global_symbols = []
+        
+        # Preprocesar
+        #if self.use_preprocessor:
+        #    source = self.preprocessor.preprocess(source)
+        
+        # Crear generador de archivo objeto
+        gen = ObjectFileGenerator(module_name)
+        
+        # Resetear estado
+        self.labels = {}
+        self.current_address = 0
+        
+        # Primera pasada: recolectar etiquetas y detectar directivas
+        current_section = '.text'
+        gen.set_section(current_section)
+        
+        lines = source.strip().split('\n')
+        
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith(';'):
+                continue
+            
+            # Detectar directivas de sección
+            if line.startswith('.'):
+                section = line.split()[0]
+                if section in ['.text', '.data', '.bss']:
+                    current_section = section
+                    gen.set_section(current_section)
+                continue
+            
+            # Detectar directivas de símbolos globales/externos
+            if line.upper().startswith('GLOBAL'):
+                parts = line.split()
+                if len(parts) >= 2:
+                    symbol = parts[1]
+                    if symbol not in global_symbols:
+                        global_symbols.append(symbol)
+                continue
+            
+            if line.upper().startswith('EXTERN'):
+                parts = line.split()
+                if len(parts) >= 2:
+                    symbol = parts[1]
+                    gen.add_external_reference(symbol)
+                continue
+            
+            # Detectar etiquetas
+            if ':' in line:
+                label_name = line.split(':')[0].strip()
+                is_global = label_name in global_symbols
+                gen.add_label(label_name, is_global)
+                self.labels[label_name] = self.current_address
+                
+                # Si hay instrucción después de la etiqueta
+                rest = ':'.join(line.split(':')[1:]).strip()
+                if rest:
+                    line = rest
+                else:
+                    continue
+            
+            # Procesar instrucción
+            if current_section == '.text':
+                tokens = self.tokenize_line(line)
+                if tokens:
+                    instruction = self.build_instruction(tokens)
+                    gen.add_instruction(instruction)
+                    self.current_address += 8
+            elif current_section == '.data':
+                # Procesar datos (simplificado por ahora)
+                pass
+            elif current_section == '.bss':
+                # Procesar reserva de espacio
+                pass
+        
+        return gen
 
-# Ejemplo de uso
+
+# =============================================
+# EJEMPLO DE USO
+# =============================================
+
 if __name__ == "__main__":
-    assembler = Assembler()
-    
-    sample_code = """
-    ; Programa de ejemplo - demostración de nuevas instrucciones
-    ; Usando operaciones de diferentes tamaños y stack
-    
-    ; Test de operaciones de diferentes tamaños
-    MOVV1 R1, 0xFF   ; R1 = 0xFF (1 byte)
-    MOVV2 R2, 0x1234 ; R2 = 0x1234 (2 bytes)
-    MOVV4 R3, 0x12345678 ; R3 = 0x12345678 (4 bytes)
-    MOVV8 R4, 0x123456789ABCDEF0 ; R4 = 0x123456789ABCDEF0 (8 bytes)
-    
-    ; Test de operaciones aritméticas por tamaño
-    ADD1 R1, R1      ; R1 = R1 + R1 (1 byte)
-    ADD2 R2, R2      ; R2 = R2 + R2 (2 bytes)
-    ADD4 R3, R3      ; R3 = R3 + R3 (4 bytes)
-    ADD R4, R4       ; R4 = R4 + R4 (8 bytes)
-    
-    ; Test de operaciones de pila
-    PUSH8 R4         ; Push R4 (8 bytes) a la pila
-    PUSH4 R3         ; Push R3 (4 bytes) a la pila
-    PUSH2 R2         ; Push R2 (2 bytes) a la pila
-    PUSH1 R1         ; Push R1 (1 byte) a la pila
-    
-    ; Pop en orden inverso
-    POP1 R5          ; Pop 1 byte a R5
-    POP2 R6          ; Pop 2 bytes a R6
-    POP4 R7          ; Pop 4 bytes a R7
-    POP8 R8          ; Pop 8 bytes a R8
-    
-    ; Mostrar resultados
-    SVIO R1, 0x100   ; Mostrar R1
-    SHOWIO 0x100
-    SVIO R2, 0x101   ; Mostrar R2
-    SHOWIO 0x101
-    SVIO R3, 0x102   ; Mostrar R3
-    SHOWIO 0x102
-    SVIO R4, 0x103   ; Mostrar R4
-    SHOWIO 0x103
-    
-    SVIO R5, 0x200   ; Mostrar POP1 resultado
-    SHOWIO 0x200
-    SVIO R6, 0x201   ; Mostrar POP2 resultado
-    SHOWIO 0x201
-    SVIO R7, 0x202   ; Mostrar POP4 resultado
-    SHOWIO 0x202
-    SVIO R8, 0x203   ; Mostrar POP8 resultado
-    SHOWIO 0x203
-    
-    PARAR            ; terminar programa
-    """
-    
-    try:
-        program = assembler.assemble(sample_code)
-        print("Programa ensamblado:")
-        for i, instr in enumerate(program):
-            print(f"{i*8:04x}: {instr:016x} ; {assembler.disassemble_instruction(instr)}")
-    except Exception as e:
-        print(f"Error de ensamblado: {e}")
+    source = """
+LOADV R1, 1071
+LOADV R2, 462
+
+MIENTRAS:
+CMP R1, R2
+JEQ FIN_MIENTRAS
+CMP R1, R2
+JLT CASO_B_MAYOR
+SUB R1, R2
+JMP MIENTRAS
+
+CASO_B_MAYOR:
+SUB R2, R1
+JMP MIENTRAS
+
+FIN_MIENTRAS:
+SVIO R1, 0x100
+SHOWIO 0x100
+PARAR
+"""
+
+    assembler = Ensamblador()
+    program = assembler.assemble(source)
+
+    print("=" * 60)
+    print("Tabla de simbolos (etiquetas):")
+    print("=" * 60)
+    for k, v in assembler.labels.items():
+        print(f"  {k:20s} -> 0x{v:04X}")
+
+    print("\n" + "=" * 60)
+    print("Codigo ensamblado (bytecode):")
+    print("=" * 60)
+    for i, instr in enumerate(program):
+        addr = i * 8
+        disasm = assembler.disassemble_instruction(instr)
+        print(f"{addr:04X}: {instr:016X}  {disasm}")

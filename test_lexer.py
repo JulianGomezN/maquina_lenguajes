@@ -1,5 +1,5 @@
-from compiler.lex_analizer import lexer  
-from compiler.preprocessor import preprocess
+from compiler.Lex_analizer import lexer  
+from compiler.Preprocessor import preprocess
 # Lee un archivo de prueba
 
 ## 1 to 3

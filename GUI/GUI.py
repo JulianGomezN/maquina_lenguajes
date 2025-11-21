@@ -326,40 +326,33 @@ PARAR            ; terminar programa"""
             messagebox.showwarning("Advertencia", "No hay código para cargar")
             return
         
-        try:
-            # Detectar si el texto es código binario hexadecimal
-            es_binario = self._es_codigo_binario(texto)
-            
-            if es_binario:
-                # Cargar código binario directamente
-                self.programa_actual = self._parsear_codigo_binario(texto)
-                tipo_carga = "binario"
-            else:
-                # Ensamblar el código assembly
-                self.programa_actual = self.assembler.assemble(texto)
-                tipo_carga = "assembly"
-            
-            # Mostrar la traducción
-            start = self.obtener_direccion_carga()
+     
+        self.programa_actual = self.assembler.assemble(texto)
+        tipo_carga = "assembly"
+        
+        # Mostrar la traducción
+        start = self.obtener_direccion_carga()
 
-            traduccion = f"Código {'binario cargado' if es_binario else 'ensamblado'}:\n\n"
-            for i, instr in enumerate(self.programa_actual):
-                addr = i * 8 + start
-                desasm = self.assembler.disassemble_instruction(instr)
-                traduccion += f"{addr:04x}: {instr:016x}\n      {desasm}\n\n"
-            
-            self.set_traduccion(traduccion)
-            
-            # Cargar programa en la CPU
-            print(start)
-            program_info = self.loader.load_program(
-                    self.programa_actual, 
-                    start_address=start, 
-                    program_name="program_name"
-                )
-            self.cpu.set_pc(start)
-            self.update_gui()
-            self.set_salida(f"Programa cargado exitosamente desde {tipo_carga}. ¡Haz clic en 'Ejecutar'!")
+        traduccion = f"Código { 'ensamblado'}:\n\n"
+        for i, instr in enumerate(self.programa_actual):
+            addr = i * 8 + start
+            desasm = self.assembler.disassemble_instruction(instr)
+            traduccion += f"{addr:04x}: {instr:016x}\n      {desasm}\n\n"
+        
+        self.set_traduccion(traduccion)
+        
+        # Cargar programa en la CPU
+        print(start)
+        program_info = self.loader.load_program(
+                self.programa_actual, 
+                start_address=start, 
+                program_name="program_name"
+            )
+        self.cpu.set_pc(start)
+        self.update_gui()
+        self.set_salida(f"Programa cargado exitosamente desde {tipo_carga}. ¡Haz clic en 'Ejecutar'!")
+        try:
+            pass
         except Exception as e:
             messagebox.showerror("Error", f"Error al cargar programa:\n{str(e)}")
             self.set_traduccion(f"Error de carga:\n{str(e)}")
@@ -434,12 +427,11 @@ PARAR            ; terminar programa"""
         
         if modo == "completo":
             # Modo completo: ejecutar todo hasta el final de una vez
-            print("SIA")
             self.set_salida("Ejecutando programa completo hasta el final...\n")
             self.cpu.run(step_mode=False)
             self.update_gui()  # Actualizar después de ejecutar todo el programa
             self.append_salida(
-                pformat(self.cpu.io_map, indent=4, width=40, sort_dicts=False)
+                self.cpu.io.devices.get(1).buffer
                 )
             self.append_salida("\nPrograma terminado")
         elif modo == "detallado":
@@ -586,7 +578,7 @@ PARAR            ; terminar programa"""
         self.boton_parar.config(state="disabled")
         
         # Reiniciar componentes
-        self.cpu = CPU(self.cpu.memory)
+        #self.cpu = CPU(self.cpu.memory)
         ##self.disco = Disco()  # También reiniciar el disco
         self.programa_actual = []  # Limpiar programa actual
         
