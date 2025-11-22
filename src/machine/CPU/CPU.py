@@ -1,11 +1,11 @@
 from ast import List
 from typing import Optional, Dict
-from logic.Memory import Memory
-from logic.Register import Register
-from logic.Units import ALU, FPU
+from machine.Memory.Memory import Memory
+from machine.IO.IOsystem import IOSystem
+from machine.CPU.Register import Register
+from machine.CPU.Units import ALU, FPU
 
 MASK64 = (1 << 64) - 1
-MASK44 = (1 << 44) - 1
 
 # Formatos 
 RR = 1
@@ -38,15 +38,15 @@ class Instruction:
                 f"rd={self.rd} rs={self.rs} imm={self.imm}>")
 
 class CPU:
-    def __init__(self, memory:Memory):
+    def __init__(self, memory:Memory, io_sytem : IOSystem):
         self.registers: List[Register] = [Register(f"R{i}") for i in range(16)]
         self.flags: Dict[str, int] = {"Z": 0, "N": 0, "C": 0, "V": 0}
         self.memory = memory
         self.pc = 0
         self.ir = 0
-        self.sp = self.registers[15]
+        self.sp:Register = self.registers[15]
         self.running = True
-        self.io_map: Dict[int, int] = {}
+        self.io = io_sytem
         self.alu = ALU()
         self.fpu = FPU()
 
@@ -55,7 +55,7 @@ class CPU:
             # Control
             0x0000: OP, 0x0001: OP,
             # Aritmética RR (8 bytes)
-            0x0010: RR, 0x0011: RR, 0x0012: RR, 0x0013: RR, 0x0014: RR,
+            0x0010: RR, 0x0011: RR, 0x0012: RR, 0x0013: RR, 0x0014: RR, 0x0015: RR,
             # Aritmética RI (8 bytes)
             0x0020: RI, 0x0021: RI,
             # R (inc/dec/clear)
@@ -168,7 +168,7 @@ class CPU:
             raise IndexError(f"PC fuera de rango: {self.pc:#x}")
         # little-endian: byte bajo primero
         word = int.from_bytes(self.memory.get_bytes(self.pc,8), "little")
-        self.ir = word
+        self.ir = word 
         self.pc += 8
         
 
@@ -182,9 +182,13 @@ class CPU:
             rs = instr & 0xF
             return Instruction(opcode, fmt, rd=rd, rs=rs)
 
+
+        ### pasar inmediato en siguiente palabra
         elif fmt == RI:
             rd = (instr >> 44) & 0xF
-            imm = instr & MASK44
+            #imm = instr & MASK64
+            self.fetch()
+            imm = self.ir
             return Instruction(opcode, fmt, rd=rd, imm=imm)
 
         elif fmt == R:
@@ -246,7 +250,12 @@ class CPU:
                 self.flags["V"] = 1
                 self.registers[ins.rd].write(0, 8)
             return
-
+        
+        if op ==  0x0015: # MOD
+            a, b = self.registers[ins.rd].read(8), self.registers[ins.rs].read(8)
+            r = a % b
+            self.registers[ins.rd].write(r, 8)
+           
         # -------- Aritmética RI --------
         if op == 0x0020:  # ADDV (8 bytes)
             a, b = self.registers[ins.rd].read(8), ins.imm
@@ -371,7 +380,7 @@ class CPU:
             return
 
         if op == 0x0062:  # LOADR R, R'
-            addr = self.registers[ins.rs].read(8) & MASK44
+            addr = self.registers[ins.rs].read(8) & MASK64
             self.registers[ins.rd].write(self.memory[addr], 8)
             self.update_ZN(self.registers[ins.rd].read(8))
             return
@@ -491,21 +500,15 @@ class CPU:
 
          # -------- I/O --------
         if op == 0x00A0:  # SVIO
-            self.io_map[ins.imm] = self.registers[ins.rd].read(8)
+            value = self.registers[ins.rd].read(8)
+            self.io.write(ins.imm,value)
             return
         if op == 0x00A1:  # LOADIO
-            self.registers[ins.rd].write(self.io_map.get(ins.imm, 0), 8)
+            value = self.io.read(ins.imm)
+            self.registers[ins.rd].write(value, 8)
             self.update_ZN(self.registers[ins.rd].read(8))
             return
-        if op == 0x00A2:  # SHOWIO
-            output_text = f"[IO {ins.imm:#x}] = {self.io_map.get(ins.imm, 0)}"
-            print(output_text)
-            #if self.gui:
-            #    self.gui.append_salida(output_text)
-            return
-        if op in (0x00A3, 0x00A4):
-            self.io_map.clear()
-            return
+    
 
         # -------- Size-suffixed Arithmetic Instructions (1 byte) --------
         if op == 0x0100:  # ADD1
@@ -740,19 +743,19 @@ class CPU:
             self.registers[ins.rd].write(self.memory.read(ins.imm, 8), 8)
             return
         if op == 0x0510:  # LOADR1
-            addr = self.registers[ins.rs].read(8) & MASK44
+            addr = self.registers[ins.rs].read(8) & MASK64
             self.registers[ins.rd].write(self.memory.read(addr, 1), 1)
             return
         if op == 0x0511:  # LOADR2
-            addr = self.registers[ins.rs].read(8) & MASK44
+            addr = self.registers[ins.rs].read(8) & MASK64
             self.registers[ins.rd].write(self.memory.read(addr, 2), 2)
             return
         if op == 0x0512:  # LOADR4
-            addr = self.registers[ins.rs].read(8) & MASK44
+            addr = self.registers[ins.rs].read(8) & MASK64
             self.registers[ins.rd].write(self.memory.read(addr, 4), 4)
             return
         if op == 0x0513:  # LOADR8
-            addr = self.registers[ins.rs].read(8) & MASK44
+            addr = self.registers[ins.rs].read(8) & MASK64
             self.registers[ins.rd].write(self.memory.read(addr, 8), 8)
             return
 
@@ -770,19 +773,19 @@ class CPU:
             self.memory.write(ins.imm, self.registers[ins.rd].read(8), 8)
             return
         if op == 0x0610:  # STORER1
-            addr = self.registers[ins.rs].read(8) & MASK44
+            addr = self.registers[ins.rs].read(8) & MASK64
             self.memory.write(addr, self.registers[ins.rd].read(1), 1)
             return
         if op == 0x0611:  # STORER2
-            addr = self.registers[ins.rs].read(8) & MASK44
+            addr = self.registers[ins.rs].read(8) & MASK64
             self.memory.write(addr, self.registers[ins.rd].read(2), 2)
             return
         if op == 0x0612:  # STORER4
-            addr = self.registers[ins.rs].read(8) & MASK44
+            addr = self.registers[ins.rs].read(8) & MASK64
             self.memory.write(addr, self.registers[ins.rd].read(4), 4)
             return
         if op == 0x0613:  # STORER8
-            addr = self.registers[ins.rs].read(8) & MASK44
+            addr = self.registers[ins.rs].read(8) & MASK64
             self.memory.write(addr, self.registers[ins.rd].read(8), 8)
             return
 
@@ -881,7 +884,7 @@ class CPU:
                 raise IndexError("Stack overflow: cannot push return address")
             self.memory.write(self.sp.value, self.pc, 8)
             self.sp.value += 8
-            self.pc = ins.imm & MASK44
+            self.pc = ins.imm & MASK64
             return
 
         if op == 0x0800:  # RET (return from subroutine)
@@ -890,7 +893,7 @@ class CPU:
                 raise IndexError("Stack underflow: cannot pop return address")
             return_addr = self.memory.read(self.sp.value - 8, 8)
             self.sp.value -= 8
-            self.pc = return_addr & MASK44
+            self.pc = return_addr & MASK64
             return
 
         if op == 0x0810:  # POP1
@@ -961,95 +964,41 @@ class CPU:
             self.sp.value += 8
             return
 
-    
+    def tick(self):
+        """ Emulates excecution of one instrucction
+        """
+        self.fetch()
+        #print(f"Executing: {self.ir:016X}")
+        ins = self.decode()
+        self.execute(ins)
+
 
     # ---------------- Main Loop ----------------
-    def run(self, max_cycles=1_000_000_000, step_mode=False):
+    def run(self, max_cycles=10_000_000_000):
+        self.running = 1
         cycles = 0
       
         while self.running and cycles < max_cycles:
-            self.fetch()
-            ins = self.decode()
-            self.execute(ins)
+            self.tick()
             cycles += 1
-            
         if cycles >= max_cycles:
             raise RuntimeError("Max cycles reached")
         
-        # Actualizar GUI al final de la ejecución
-        #if self.gui:
-         #   #self.update_gui()
-    
     def set_pc(self,pc):
         self.pc = pc
-    
 
-    def load_program(self, program, start=0, program_name="main"):
-        """
-        Carga un programa usando el cargador
-        
-        Args:
-            program: Lista de instrucciones binarias
-            start: Dirección de inicio (0 por defecto)
-            program_name: Nombre del programa
-        """
-        try:
-            # Usar el cargador para cargar el programa
-            program_info = self.loader.load_program(
-                program, 
-                start_address=start, 
-                program_name=program_name
-            )
-            
-            # Establecer PC al inicio del programa
-            self.pc = program_info['start_address']
-            
-            # Si hay GUI, mostrar información de carga
-            ##if self.gui:
-            ##    message = f"Programa '{program_name}' cargado en 0x{program_info['start_address']:04x}"
-            ##    # self.gui.append_salida(message)  # Comentado para no saturar la salida
-            
-            return program_info
-            
-        except Exception as e:
-            if self.gui:
-                self.gui.append_salida(f"Error al cargar programa: {str(e)}")
-            raise
-
-    def load_program_legacy(self, program, start=0):
-        """
-        Método legacy para compatibilidad con código existente
-        DEPRECATED: Usar load_program() en su lugar
-        """
-        # Método anterior para compatibilidad
-        for i, instr in enumerate(program):
-            # convert intruction 64 bits to 8 bytes little-endian to load into memory
-            bytes_instr = to_uint64(instr).to_bytes(8, "little")
-            offset = start + (i * 8)
-            self.memory[offset:offset+8] = bytes_instr
-        self.pc = start
-
-    def get_loader_info(self):
-        """Obtiene información del cargador"""
-        return self.loader.get_memory_map()
-    
-    def list_loaded_programs(self):
-        """Lista programas cargados"""
-        return self.loader.list_loaded_programs()
-    
-    def unload_program(self, program_name):
-        """Descarga un programa"""
-        return self.loader.unload_program(program_name)
+    def set_sp(self, value):
+        self.sp.write(value,8)
 
     def dump_state(self):
         print("=== ESTADO DEL CPU ===")
         print("PC:", self.pc)
-        print("SP:", self.sp)
+        print("SP:", self.sp.read(8))
         for i, reg in enumerate(self.registers):
             v = reg.read(8)
             print(f"R{i:02d}: {v:#018x} ({to_int64(v)})")
         print("FLAGS:", self.flags)
-        print("IO:", self.io_map)
+
 
 if __name__ == "__main__":
     memoria = Memory(1024)

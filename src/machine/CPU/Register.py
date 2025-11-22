@@ -15,6 +15,7 @@ class Register:
         self.value = value & ((1 << 8*size) - 1)
 
     def read(self,size):
+        """Reads the register and returns its value in size of bytes"""
         value = self.value & ((1 << 8*size) - 1)
         return value
 

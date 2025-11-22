@@ -1,0 +1,11 @@
+funcion vacio ciclo() {
+    entero2 i = 0;
+    mientras (i < 10 && i != 5) {
+        i += 1;
+        si (i == 3 || i == 7) {
+            continuar;
+        }
+        imprimir("Iteración:", i);
+    }
+    retornar;
+}

@@ -1,0 +1,20 @@
+estructura Persona {
+    cadena nombre;
+    entero4 edad;
+    flotante altura;
+};
+
+funcion vacio crear_persona() {
+    constante entero4 MAX = 100;
+    Persona* p = nuevo Persona;
+    p->nombre = "Juan";
+    p->edad = 25;
+    p->altura = 1.75;
+
+    si (p->edad >= MAX) {
+        eliminar p;
+        retornar;
+    }
+
+    p.altura
+}

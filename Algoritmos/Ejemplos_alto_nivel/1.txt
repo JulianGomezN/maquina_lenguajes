@@ -1,0 +1,37 @@
+#include <math_utils.h>
+
+/*
+ * Programa que calcula areas y volúmenes
+ * usando macros definidas
+ */
+
+funcion flotante area_circulo(flotante radio) {
+    retornar PI * CUADRADO(radio);
+}
+
+funcion flotante volumen_esfera(flotante radio) {
+    flotante temp = (4.0 / 3.0) * PI;
+    retornar temp * CUADRADO(radio) * radio;
+}
+
+funcion entero4 principal() {
+    flotante r = 5.0;
+    flotante area = area_circulo(r);
+    flotante volumen = volumen_esfera(r);
+    
+    flotante mayor;
+
+    si (area > volumen){
+        mayor = area;
+    } si_no {
+        mayor = volumen;
+    } 
+    
+    si (mayor == area) {
+        cadena mensaje = "El area es mayor";
+    } si_no {
+        cadena mensaje = "El volumen es mayor";
+    }
+    
+    retornar 0;
+}
