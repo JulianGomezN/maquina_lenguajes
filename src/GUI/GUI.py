@@ -1,22 +1,18 @@
 import tkinter as tk
-<<<<<<< HEAD:GUI/GUI.py
 from tkinter import ttk, messagebox
 
 import sys
-=======
-from tkinter import ttk
-from tkinter import messagebox
->>>>>>> 31440bfe66dd45841684741507707af455a1231b:src/GUI/GUI.py
 import os
+from pprint import pformat
+
+# Añadir el directorio padre al path para importar los módulos
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from machine.CPU.CPU import CPU
+#from disco_64bits import Disco
 from compiler.ensamblador import Ensamblador
-<<<<<<< HEAD:GUI/GUI.py
-from logic.Loader import Loader
-
-=======
 from compiler.Loader import Loader
->>>>>>> 31440bfe66dd45841684741507707af455a1231b:src/GUI/GUI.py
+
 class SimuladorGUI:
     def __init__(self, CPU:CPU):
 
@@ -252,69 +248,7 @@ class SimuladorGUI:
             self.root.state('zoomed')  # Maximizar en Windows
         else:
             self.root.state('normal')  # Ventana normal
-<<<<<<< HEAD:GUI/GUI.py
             self.root.geometry("1400x900")  # Tamaño por defecto   
-=======
-            self.root.geometry("1400x900")  # Tamaño por defecto
-
-    def cargar_ejemplo(self):
-        """Carga un programa de ejemplo"""
-        ejemplo = """MOVV8 R2, 1000
-CALL READ_CHAR_LINE
-CALL PRINT_CHAR_LINE
-PARAR
-
-; leer cadena y ponerla en memoria
-
-READ_CHAR_LINE:
-    PUSH8 R1
-    PUSH8 R2
-    PUSH8 R3
-
-WAIT_INPUT:
-    LOADIO R3 0x200
-    CMPV R3 0xFF
-    JEQ WAIT_INPUT    ; esperar carácter valido
-
-    CMPV R3 0
-    JEQ FIN_INPUT_LINE     ; caracter null
-
-    STORER1 R3, R2         ; buffer[i] = char
-    ADDV R2 1
-    JMP WAIT_INPUT
-
-FIN_INPUT_LINE:
-    LOADV R3, 0
-    STORER1 R3, R2          ; terminar cadena
-    POP8 R3
-    POP8 R2
-    POP8 R1
-    RET
-
-
-; imprimir cadena
-; R1 apunta a donde empieza
-
-PRINT_CHAR_LINE:
-    PUSH8 R1
-    PUSH8 R2
-
-PRINT_NEXT_CHAR:
-    LOADR1 R1 R2 ; R1 = mem[R2]
-    CMPV R1 0
-    JEQ FIN_PRINT_CHAR_LINE
-    SVIO R1 0x100
-    ADDV R2, 1
-    JMP PRINT_NEXT_CHAR
-
-FIN_PRINT_CHAR_LINE:
-    POP8 R2
-    POP8 R1
-    RET"""
-        
-        self.texto_programa.insert("1.0", ejemplo)
-        self.set_salida("¡Simulador listo! Haz clic en 'Cargar Programa' y luego 'Ejecutar'")     
->>>>>>> 31440bfe66dd45841684741507707af455a1231b:src/GUI/GUI.py
 
 
     # ========== Metodos ==========
@@ -384,7 +318,6 @@ FIN_PRINT_CHAR_LINE:
             messagebox.showwarning("Advertencia", "No hay código para cargar")
             return
         
-<<<<<<< HEAD:GUI/GUI.py
         try:
             # Detectar si el texto es código binario hexadecimal
             es_binario = self._es_codigo_binario(texto)
@@ -440,33 +373,6 @@ FIN_PRINT_CHAR_LINE:
             self.cpu.set_pc(start)
             self.update_gui()
             self.set_salida(f"Programa cargado exitosamente desde binario. ¡Haz clic en 'Ejecutar'!")
-=======
-     
-        self.programa_actual = self.assembler.assemble(texto)
-        tipo_carga = "assembly"
-        
-
-        # Mostrar la traducción
-        start = self.obtener_direccion_carga()
-        """
-        traduccion = f"Código { 'ensamblado'}:\n\n"
-        for i, instr in enumerate(self.programa_actual):
-            addr = i * 8 + start
-            desasm = self.assembler.disassemble_instruction(instr)
-            traduccion += f"{addr:04x}: {instr:016x}\n      {desasm}\n\n"
-        
-        self.set_traduccion(traduccion)"""
-        
-        # Cargar programa en la CPU
-        print(start)
-        program_abs = self.loader.load_in_memory(self.programa_actual,start)
-        self.set_traduccion(program_abs)
-        self.cpu.set_pc(start)
-        self.update_gui()
-        self.set_salida(f"Programa cargado exitosamente desde {tipo_carga}. ¡Haz clic en 'Ejecutar'!")
-        try:
-            pass
->>>>>>> 31440bfe66dd45841684741507707af455a1231b:src/GUI/GUI.py
         except Exception as e:
             messagebox.showerror("Error", f"Error al cargar programa:\n{str(e)}")
     
@@ -535,7 +441,6 @@ FIN_PRINT_CHAR_LINE:
         if not self.programa_actual:
             messagebox.showwarning("Advertencia", "Primero carga un programa")
             return
-<<<<<<< HEAD:GUI/GUI.py
 
         # Modo completo: ejecutar todo hasta el final de una vez
         print("SIA")
@@ -547,26 +452,6 @@ FIN_PRINT_CHAR_LINE:
             )
         self.append_salida("\nPrograma terminado")
 
-=======
-        
-        modo = self.modo.get()
-        
-        if modo == "completo":
-            # Modo completo: ejecutar todo hasta el final de una vez
-            self.set_salida("Ejecutando programa completo hasta el final...\n")
-            self.cpu.run()
-            self.update_gui()  # Actualizar después de ejecutar todo el programa
-            self.append_salida(
-                self.cpu.io.devices.get(0x100).buffer
-                )
-            self.append_salida("\nPrograma terminado")
-        elif modo == "detallado":
-            # Modo detallado: ejecutar con pausas para ver el flujo y cambios
-            self.set_salida("Ejecutando programa en modo detallado (paso a paso)...\n")
-            self.ejecutando_paso_automatico = True
-            self.boton_parar.config(state="normal")
-            self.ejecutar_modo_paso_automatico()
->>>>>>> 31440bfe66dd45841684741507707af455a1231b:src/GUI/GUI.py
             
         try: pass
         except Exception as e:
@@ -725,7 +610,7 @@ FIN_PRINT_CHAR_LINE:
         #self.boton_parar.config(state="disabled")
         
         # Reiniciar componentes
-        #self.cpu = CPU(self.cpu.memory)
+        self.cpu = CPU(self.cpu.memory)
         ##self.disco = Disco()  # También reiniciar el disco
         self.programa_actual = []  # Limpiar programa actual
         
