@@ -14,12 +14,11 @@ def test_include_basico():
     print("=" * 80)
     
     code = """
-#include "lib/io.asm"
+    #include "lib/io.asm"
 
-MAIN:
-    LOADV R1, 42
-    PRINT_REG R1, IO_OUTPUT_1
-    PARAR
+    funcion mcm(){
+
+    }
 """
     
     print("\nCódigo original:")

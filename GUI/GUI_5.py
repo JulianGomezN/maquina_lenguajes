@@ -40,13 +40,13 @@ class SimuladorGUI:
     def _crear_columnas(self):
         cont = ttk.Frame(self.root)
         cont.pack(fill="both", expand=True, padx=10, pady=10)
-        cont.pack_propagate(False) 
 
+        
+        cont.grid_columnconfigure(3, weight=1, uniform="cols")
         cont.grid_columnconfigure(0, weight=1, uniform="cols")
         cont.grid_columnconfigure(1, weight=1, uniform="cols")
         cont.grid_columnconfigure(2, weight=1, uniform="cols")
-        cont.grid_columnconfigure(3, weight=1, uniform="cols")
-        cont.grid_rowconfigure(0, weight=1)
+        
 
         col1 = ttk.Frame(cont)
         col2 = ttk.Frame(cont)
@@ -57,12 +57,14 @@ class SimuladorGUI:
         col2.grid(row=0, column=1, sticky="nsew", padx=4)
         col3.grid(row=0, column=2, sticky="nsew", padx=4)
         col4.grid(row=0, column=3, sticky="nsew", padx=4)
-                
+        
+        
         self._columna_codigo_alto_nivel(col1)
         self._columna_codigo_assembler(col2)
         self._columna_codigo_relocalizable(col3)
         self._columna_ram_flags_registros(col4)
             
+
     # ======================================================================
     #   COLUMNA 1 – CÓDIGO ALTO NIVEL
     # ======================================================================
@@ -102,41 +104,39 @@ class SimuladorGUI:
 
         ttk.Button(parent, text="Ensamblar", command=self.ensamblar).pack(fill="x", pady=10)
 
-        # =================================
-        # ============ Botones ============
-        # =================================
-
         ttk.Button(parent, text="Siguiente instrucción", command=self.ejecutar_paso).pack(fill="x", pady=2)
         ttk.Button(parent, text="Ejecutar todo", command=self.ejecutar_programa_completo).pack(fill="x", pady=2)        
         ttk.Button(parent, text="Ejecutar todo paso a paso", command=self.ejecutar_programa_detallado).pack(fill="x", pady=2) 
 
-        self.boton_parar = ttk.Button(parent, text="Parar ejecución", command=self.parar_ejecucion, state="normal").pack(fill="x", pady=2) 
+        self.boton_parar = ttk.Button(parent, text="Parar ejecución", command=self.parar_ejecucion, state="disabled")#.pack(fill="x", pady=2)  
 
     # ======================================================================
     #   COLUMNA 3 – RELOCALIZABLE + SALIDA
     # ======================================================================
-
     def _columna_codigo_relocalizable(self, parent):
 
-        parent.pack_propagate(False)
+        #cont.rowconfigure(0, weight=1)
+        #cont.columnconfigure(0, weight=1)
 
-        for r in range(9):
-            parent.grid_rowconfigure(r, weight=0)
+        #parent = ttk.Frame(cont)
+        #parent.grid(row=0, column=0, sticky="nsew", padx=2, pady=2)
 
-        # ==== CONFIGURAR FILAS ====
-        parent.grid_rowconfigure(1, weight=2)       # Text relocalizable
-        parent.grid_rowconfigure(6, weight=3)       # Text salida
-        parent.grid_rowconfigure(8, weight=4)       # Text entrada 
-        parent.grid_columnconfigure(0, weight=1)
+        parent.rowconfigure(0, weight=1)   # Código relocalizable
+        parent.rowconfigure(1, weight=1)   # Salida
+        parent.rowconfigure(2, weight=1)   # Entrada
+        parent.columnconfigure(0, weight=1)
 
-        # ================================
-        # ===== Codigo relocalizable =====
-        # ================================
+        # =====================================
+        #   Bloque 1 - Codigo relocalizable
+        # =====================================
 
-        ttk.Label(parent, text="Código Relocalizable", font=("Arial", 13, "bold")).grid(row=0, column=0, sticky="w", pady=(0,5))
-        
-        frame = ttk.Frame(parent)
-        frame.grid(row=1, column=0, sticky="nsew")
+        bloque1 = ttk.Frame(parent)
+        bloque1.grid(row=0, column=0, sticky="nsew")
+
+        ttk.Label(bloque1, text="Código Relocalizable", font=("Arial", 13, "bold")).pack()
+
+        frame = ttk.Frame(bloque1)
+        frame.pack(fill="both", expand=True)                
 
         self.texto_relo = tk.Text(frame, wrap="none")
         self.texto_relo.pack(side="left", fill="both", expand=True)
@@ -145,47 +145,52 @@ class SimuladorGUI:
         sy.pack(side="right", fill="y")
         self.texto_relo.configure(yscrollcommand=sy.set)
 
-        # ================================
-        # ====== Dirección de carga ======
-        # ================================
-        ttk.Label(parent, text="Dirección de carga (hex):").grid(row=2, column=0, sticky="w")
-        self.entrada_direccion = ttk.Entry(parent)
-        self.entrada_direccion.grid(row=3, column=0, sticky="ew", pady=5)
+        ttk.Label(bloque1, text="Dirección de carga (hex):").pack()
+        self.entrada_direccion = ttk.Entry(bloque1)
+        self.entrada_direccion.pack(fill="x", pady=5)
 
-        ttk.Button(parent, text="Enlazar y Cargar", command=self.enlazar_y_cargar).grid(row=4, column=0, sticky="ew", pady=10)
+        ttk.Button(bloque1, text="Enlazar y Cargar", command=self.enlazar_y_cargar).pack(fill="x", pady=10)
+
+        # =====================================
+        #   Bloque 2 - Salida
+        # =====================================
+
+        bloque2 = ttk.Frame(parent)
+        bloque2.grid(row=1, column=0, sticky="nsew")
         
-        # ================================
-        # =========== Entrada ============
-        # ================================
+        ttk.Label(bloque2, text="Salida", font=("Arial", 12, "bold")).pack(pady=5)
 
-        ttk.Label(parent, text="Entrada", font=("Arial", 12, "bold")).grid(row=5, column=0, sticky="w")        
-
-        frame_e = ttk.Frame(parent)
-        frame_e.grid(row=6, column=0, sticky="nsew")
-
-        self.texto_entrada = tk.Text(frame_e, wrap="word")
-        self.texto_entrada.pack(side="left", fill="both", expand=True)
-
-        sy = ttk.Scrollbar(frame_e, orient="vertical", command=self.texto_entrada.yview)
-        sy.pack(side="right", fill="y")
-        self.texto_entrada.configure(yscrollcommand=sy.set)
-
-        # ================================
-        # =========== Salida =============
-        # ================================
-
-        ttk.Label(parent, text="Salida", font=("Arial", 12, "bold")).grid(row=7, column=0, sticky="w")
-
-        frame_s = ttk.Frame(parent)
-        frame_s.grid(row=8, column=0, sticky="nsew")
+        frame_s = ttk.Frame(bloque2)
+        frame_s.pack(fill="both", expand=True)
 
         self.texto_salida = tk.Text(frame_s, wrap="word")
         self.texto_salida.pack(side="left", fill="both", expand=True)
 
         sy = ttk.Scrollbar(frame_s, orient="vertical", command=self.texto_salida.yview)
-        sy.pack(side="right", fill="y")
+        sy.pack(side="right", fill="both")
         self.texto_salida.configure(yscrollcommand=sy.set)
+        
+        # =====================================
+        #   Bloque 3 - Entrada
+        # =====================================
 
+        bloque3 = ttk.Frame(parent)
+        bloque3.grid(row=2, column=0, sticky="nsew")
+
+        ttk.Label(bloque3, text="Entrada", font=("Arial", 12, "bold")).pack(pady=5)
+
+        frame_e = ttk.Frame(bloque3)
+        frame_e.pack(fill="both", expand=True)
+
+        self.texto_entrada = tk.Text(frame_e, wrap="word")
+        self.texto_entrada.pack(side="left", fill="both", expand=True)
+
+        sy = ttk.Scrollbar(frame_e, orient="vertical", command=self.texto_entrada.yview)
+        sy.pack(side="right", fill="both")
+        self.texto_entrada.configure(yscrollcommand=sy.set)
+     
+
+        
 
     # ======================================================================
     #   COLUMNA 4 – RAM + FLAGS + REGISTROS
@@ -235,6 +240,13 @@ class SimuladorGUI:
             
             self.registros[reg_name] = valor
         
+    # ======================================================================
+    #   BOTONES 
+    # ======================================================================
+    def compilar(self):
+        codigo = self.texto_alto.get("1.0", "end")
+        self.set_traduccion(codigo)
+        self.texto_asm.insert("1.0", codigo)
 
 
     # ======================================================================
@@ -305,13 +317,6 @@ class SimuladorGUI:
             self.entrada_direccion.insert(0, "0")
             return 0
 
-    def compilar(self):
-        codigo = self.texto_alto.get("1.0", "end")
-        #
-        # Aqui va la logica de traduccion de alto nivel a assembler
-        #
-        self.texto_asm.insert("1.0", codigo)
-
     def ensamblar(self):
         texto = self.texto_asm.get("1.0", "end").strip()
         if not texto:
@@ -335,8 +340,9 @@ class SimuladorGUI:
 
                 print(self.programa_actual)
 
-            traduccion = ""
-            #traduccion = f"Código {'binario cargado' if es_binario else 'ensamblado'}:\n\n"
+            #start = self.obtener_direccion_carga()
+
+            traduccion = f"Código {'binario cargado' if es_binario else 'ensamblado'}:\n\n"
             for i, instr in enumerate(self.programa_actual):
                 addr = i * 8 #+ start
                 desasm = self.assembler.disassemble_instruction(instr)
@@ -360,6 +366,19 @@ class SimuladorGUI:
         try:
             # Mostrar la traducción
             self.programa_actual = self.assembler.assemble(self.texto_relo.get("1.0", "end"))
+
+            """
+            es_binario = self._es_codigo_binario(self.texto_relo.get("1.0", "end"))
+            print("es binario:", es_binario)
+            if es_binario:
+                # Cargar código binario directamente
+                self.programa_actual = self._parsear_codigo_binario(self.texto_relo.get("1.0", "end"))
+                messagebox.showwarning("Parsea")
+            else:
+                # Ensamblar el código assembly
+                self.programa_actual = self.assembler.assemble(self.texto_relo.get("1.0", "end"))
+                messagebox.showwarning("Ensambla")
+            """
 
             start = self.obtener_direccion_carga()
 
@@ -467,7 +486,7 @@ class SimuladorGUI:
         # Modo detallado: ejecutar con pausas para ver el flujo y cambios
         self.set_salida("Ejecutando programa en modo detallado (paso a paso)...\n")
         self.ejecutando_paso_automatico = True
-        #self.boton_parar.config(state="normal")
+        self.boton_parar.config(state="normal")
         self.ejecutar_modo_paso_automatico()
             
         try: pass
@@ -481,7 +500,7 @@ class SimuladorGUI:
         #if not self.cpu.running:
             self.append_salida(f"Programa terminado, con ejectutando paso automatico {self.ejecutando_paso_automatico}, y cpu.running {self.cpu.running}")
             self.ejecutando_paso_automatico = False
-            #self.boton_parar.config(state="disabled")
+            self.boton_parar.config(state="disabled")
             self.update_gui()  # Actualizar una última vez al terminar
             return
         
@@ -503,24 +522,22 @@ class SimuladorGUI:
                 # Pausa de 1 segundo y continúa automáticamente
                 self.root.after(1000, self.ejecutar_modo_paso_automatico)
             else:
-                self.append_salida(pformat(self.cpu.io_map, indent=4, width=40, sort_dicts=False))
-
                 self.append_salida("Programa terminado")
                 self.ejecutando_paso_automatico = False
-                #self.boton_parar.config(state="disabled")
+                self.boton_parar.config(state="disabled")
                 self.update_gui()  # Actualizar al terminar
                 
         except Exception as e:
             messagebox.showerror("Error", f"Error al ejecutar paso:\n{str(e)}")
             self.append_salida(f"Error: {str(e)}")
             self.ejecutando_paso_automatico = False
-            #self.boton_parar.config(state="disabled")
+            self.boton_parar.config(state="disabled")
             self.update_gui()  # Actualizar en caso de error
 
     def parar_ejecucion(self):
         """Para la ejecución paso a paso automática"""
         self.ejecutando_paso_automatico = False
-        #self.boton_parar.config(state="disabled")
+        self.boton_parar.config(state="disabled")
         self.append_salida("Ejecución pausada")
 
     def mostrar_info_cargador(self):
@@ -584,7 +601,6 @@ class SimuladorGUI:
             return
         
         if not self.cpu.running:
-            self.append_salida(pformat(self.cpu.io_map, indent=4, width=40, sort_dicts=False))
             messagebox.showinfo("Info", "El programa ya terminó")
             return
         
@@ -607,7 +623,7 @@ class SimuladorGUI:
         """Reinicia el estado del CPU"""
         # Parar cualquier ejecución paso a paso en curso
         self.ejecutando_paso_automatico = False
-        #self.boton_parar.config(state="disabled")
+        self.boton_parar.config(state="disabled")
         
         # Reiniciar componentes
         self.cpu = CPU(self.cpu.memory)
@@ -615,9 +631,9 @@ class SimuladorGUI:
         self.programa_actual = []  # Limpiar programa actual
         
         # Limpiar interfaz
-        self.clear_all_text()
         self.update_gui()
         self.set_salida("CPU y memoria reiniciados. ¡Carga un nuevo programa!")
+        self.set_traduccion("Traducción aparecerá aquí después de cargar un programa...")
 
     def leer_memoria(self, direccion):
         """Lee una celda de memoria del disco"""
@@ -648,7 +664,10 @@ class SimuladorGUI:
         if reg in self.registros:
             self.registros[reg].config(text=str(valor))
 
-
+    def set_traduccion(self, texto):
+        """Actualizar la traducción"""
+        self.label_traduccion.delete("1.0", "end")
+        self.label_traduccion.insert("1.0", texto)
 
     def set_salida(self, texto):
         """Actualizar el contenido del frame de salida"""
@@ -670,14 +689,6 @@ class SimuladorGUI:
         
         #PC
         self.set_flag("PC",self.CPU.pc)
-
-    def clear_all_text(self):
-        self.texto_alto.delete("1.0", "end")
-        self.texto_asm.delete("1.0", "end")
-        self.texto_relo.delete("1.0", "end")
-        self.texto_entrada.delete("1.0", "end")
-        self.texto_salida.delete("1.0", "end")
-        self.limpiar_ram()
 
     def correr_programa(self):
 
@@ -732,9 +743,6 @@ class SimuladorGUI:
         self.set_flag("C (Carry)", self.cpu.flags["C"])
         self.set_flag("V (Overflow)", self.cpu.flags["V"])
         self.set_flag("PC (Program Counter)", self.cpu.pc)
-
-        # Actualizar visor de RAM
-        self.refrescar_visor_ram()
 
     def mainloop(self):
         self.root.mainloop()
@@ -890,7 +898,10 @@ class SimuladorGUI:
             # Persistir inmediatamente si existe archivo configurado
             if hasattr(self.cpu.memory, 'save_to_txt') and hasattr(self.cpu.memory, 'memory_file'):
                 self.cpu.memory.save_to_txt(self.cpu.memory.memory_file)
-
+            # Refrescar visor si está abierto
+            #if hasattr(self, 'ram_window') and self.ram_window and tk.Toplevel.winfo_exists(self.ram_window):
+            #    self.refrescar_visor_ram()
+            #self.set_salida("RAM limpiada correctamente.")
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo limpiar la RAM:\n{str(e)}")
 
