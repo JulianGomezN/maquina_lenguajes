@@ -1,6 +1,6 @@
 import tkinter as tk
-from tkinter import ttk
-from tkinter import messagebox
+from tkinter import ttk, messagebox
+
 import sys
 import os
 from pprint import pformat
@@ -13,109 +13,217 @@ from logic.CPU import CPU
 from compiler.ensamblador import Ensamblador
 from logic.Loader import Loader
 
-
 class SimuladorGUI:
+    def __init__(self, CPU:CPU):
 
-    def __init__(self , CPU:CPU):
-        self.root = tk.Tk()
-        self.root.title("Simulador - Atlas")
-        
-        # Configurar pantalla completa
-        self.root.state('zoomed')  # Para Windows - maximiza la ventana
-        
-        # Permitir salir de pantalla completa con ESC
-        self.root.bind('<Escape>', self.toggle_fullscreen)
-        self.root.bind('<F11>', self.toggle_fullscreen)
-        
         # Inicializar componentes del simulador
         self.cpu = CPU
+
         self.assembler = Ensamblador()
         self.loader = Loader(self.cpu.memory)
         self.programa_actual = []
+        self.ejecutando_paso_automatico = False
 
-        self.create_widgets()
-        
-    def create_widgets(self):
-        # Frame principal
-        main_frame = ttk.Frame(self.root)
-        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
-        
-        # ================ COLUMNA IZQUIERDA: PROGRAMA ================
-        left_frame = ttk.LabelFrame(main_frame, text="Programa Assembly")
-        left_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
-        
-        # Área de texto
-        text_frame = ttk.Frame(left_frame)
-        text_frame.pack(fill="both", expand=True, padx=5, pady=5)
-        
-        self.texto_programa = tk.Text(text_frame, height=25, width=50, font=("Consolas", 10))
-        self.texto_programa.pack(side="left", fill="both", expand=True)
-        
-        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=self.texto_programa.yview)
-        scrollbar.pack(side="right", fill="y")
-        self.texto_programa.config(yscrollcommand=scrollbar.set)
-        
-        # Marco principal para botones
-        buttons_container = ttk.LabelFrame(left_frame, text="Controles", padding=10)
-        buttons_container.pack(fill="x", padx=5, pady=5)
-        
-        # Configurar grid para botones organizados
-        buttons_container.grid_columnconfigure(0, weight=1)
-        buttons_container.grid_columnconfigure(1, weight=1)
-        
-        # FILA 1: Operaciones de programa
-        ttk.Label(buttons_container, text="📝 Programa:", font=("Arial", 9, "bold")).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 5))
-        ttk.Button(buttons_container, text="🔄 Cargar Programa", 
-                  command=self.cargar_programa, width=20).grid(row=1, column=0, padx=3, pady=2, sticky="ew")
-        
-        ttk.Button(buttons_container, text="📂 Cargar Archivo", 
-                  command=self.cargar_archivo, width=20).grid(row=1, column=1, padx=3, pady=2, sticky="ew")
-        
-        # FILA 2: Dirección de carga
-        ttk.Label(buttons_container, text="📍 Dirección de carga:", font=("Arial", 9, "bold")).grid(row=2, column=0, columnspan=2, sticky="w", pady=(10, 2))
-        
-        # Frame para dirección de carga
-        direccion_frame = ttk.Frame(buttons_container)
-        direccion_frame.grid(row=3, column=0, columnspan=2, padx=3, pady=2, sticky="ew")
-        
-        ttk.Label(direccion_frame, text="Cargar programa en dirección:").pack(side="left")
-        self.entrada_direccion = ttk.Entry(direccion_frame, width=10)
-        self.entrada_direccion.pack(side="left", padx=(5, 5))
-        self.entrada_direccion.insert(0, "0")  # Valor por defecto
-        
-        # Botones de dirección rápida
-        ttk.Button(direccion_frame, text="Euclides (2500)", 
-                  command=lambda: self.entrada_direccion.delete(0, 'end') or self.entrada_direccion.insert(0, "2500")).pack(side="left", padx=2)
-        ttk.Button(direccion_frame, text="Matrices (3700)", 
-                  command=lambda: self.entrada_direccion.delete(0, 'end') or self.entrada_direccion.insert(0, "3700")).pack(side="left", padx=2)
-        ttk.Button(direccion_frame, text="Origen (0)", 
-                  command=lambda: self.entrada_direccion.delete(0, 'end') or self.entrada_direccion.insert(0, "0")).pack(side="left", padx=2)
-        
-        # FILA 3: Info Cargador
-        ttk.Button(buttons_container, text="📊 Info Cargador", 
-                  command=self.mostrar_info_cargador, width=20).grid(row=4, column=0, columnspan=2, padx=3, pady=(10, 2), sticky="ew")
+        # GUI base
+        self.root = tk.Tk()
+        self.root.title("Simulador Atlas")
+        self.root.state("zoomed")
+        self.root.bind('<Escape>', self.toggle_fullscreen)
+        self.root.bind('<F11>', self.toggle_fullscreen)        
 
-        # ================ COLUMNA CENTRO: TRADUCCIÓN ================
-        center_frame = ttk.LabelFrame(main_frame, text="Traducción Binaria")
-        center_frame.pack(side="left", fill="both", expand=True, padx=5)
+        self._crear_columnas()
+        self.update_gui()
+
+    # ======================================================================
+    #   CREACIÓN DE LAS CUATRO COLUMNAS
+    # ======================================================================
+    def _crear_columnas(self):
+        cont = ttk.Frame(self.root)
+        cont.pack(fill="both", expand=True, padx=10, pady=10)
+        cont.pack_propagate(False) 
+
+        cont.grid_columnconfigure(0, weight=1, uniform="cols")
+        cont.grid_columnconfigure(1, weight=1, uniform="cols")
+        cont.grid_columnconfigure(2, weight=1, uniform="cols")
+        cont.grid_columnconfigure(3, weight=1, uniform="cols")
+        cont.grid_rowconfigure(0, weight=1)
+
+        col1 = ttk.Frame(cont)
+        col2 = ttk.Frame(cont)
+        col3 = ttk.Frame(cont)
+        col4 = ttk.Frame(cont)
+
+        col1.grid(row=0, column=0, sticky="nsew", padx=4)
+        col2.grid(row=0, column=1, sticky="nsew", padx=4)
+        col3.grid(row=0, column=2, sticky="nsew", padx=4)
+        col4.grid(row=0, column=3, sticky="nsew", padx=4)
+                
+        self._columna_codigo_alto_nivel(col1)
+        self._columna_codigo_assembler(col2)
+        self._columna_codigo_relocalizable(col3)
+        self._columna_ram_flags_registros(col4)
+            
+    # ======================================================================
+    #   COLUMNA 1 – CÓDIGO ALTO NIVEL
+    # ======================================================================
+    def _columna_codigo_alto_nivel(self, parent):
+        ttk.Label(parent, text="Código Alto Nivel", font=("Arial", 13, "bold")).pack()
+
+        frame = ttk.Frame(parent)
+        frame.pack(fill="both", expand=True)
+
+        self.texto_alto = tk.Text(frame, wrap="none")
+        self.texto_alto.pack(side="left", fill="both", expand=True)
+
+        sy = ttk.Scrollbar(frame, orient="vertical", command=self.texto_alto.yview)
+        sy.pack(side="right", fill="y")
+        self.texto_alto.configure(yscrollcommand=sy.set)
+
+        ttk.Button(parent, text="Compilar", command=self.compilar).pack(fill="x", pady=10)
+
+        ttk.Button(parent, text="Cargar Archivo", command=self.cargar_archivo).pack(fill="x", pady=2)
+        ttk.Button(parent, text="Reset", command=self.reset_cpu).pack(fill="x", pady=2)
+
+    # ======================================================================
+    #   COLUMNA 2 – CÓDIGO ASSEMBLER
+    # ======================================================================
+    def _columna_codigo_assembler(self, parent):
+        ttk.Label(parent, text="Código Assembler", font=("Arial", 13, "bold")).pack()
+
+        frame = ttk.Frame(parent)
+        frame.pack(fill="both", expand=True)
+
+        self.texto_asm = tk.Text(frame, wrap="none")
+        self.texto_asm.pack(side="left", fill="both", expand=True)
+
+        sy = ttk.Scrollbar(frame, orient="vertical", command=self.texto_asm.yview)
+        sy.pack(side="right", fill="y")
+        self.texto_asm.configure(yscrollcommand=sy.set)
+
+        ttk.Button(parent, text="Ensamblar", command=self.ensamblar).pack(fill="x", pady=10)
+
+        # =================================
+        # ============ Botones ============
+        # =================================
+
+        ttk.Button(parent, text="Siguiente instrucción", command=self.ejecutar_paso).pack(fill="x", pady=2)
+        ttk.Button(parent, text="Ejecutar todo", command=self.ejecutar_programa_completo).pack(fill="x", pady=2)        
+        ttk.Button(parent, text="Ejecutar todo paso a paso", command=self.ejecutar_programa_detallado).pack(fill="x", pady=2) 
+
+        self.boton_parar = ttk.Button(parent, text="Parar ejecución", command=self.parar_ejecucion, state="normal").pack(fill="x", pady=2) 
+
+    # ======================================================================
+    #   COLUMNA 3 – RELOCALIZABLE + SALIDA
+    # ======================================================================
+
+    def _columna_codigo_relocalizable(self, parent):
+
+        parent.pack_propagate(False)
+
+        for r in range(9):
+            parent.grid_rowconfigure(r, weight=0)
+
+        # ==== CONFIGURAR FILAS ====
+        parent.grid_rowconfigure(1, weight=2)       # Text relocalizable
+        parent.grid_rowconfigure(6, weight=3)       # Text salida
+        parent.grid_rowconfigure(8, weight=4)       # Text entrada 
+        parent.grid_columnconfigure(0, weight=1)
+
+        # ================================
+        # ===== Codigo relocalizable =====
+        # ================================
+
+        ttk.Label(parent, text="Código Relocalizable", font=("Arial", 13, "bold")).grid(row=0, column=0, sticky="w", pady=(0,5))
         
-        self.label_traduccion = tk.Text(center_frame, height=25, width=40, font=("Consolas", 9))
-        self.label_traduccion.pack(fill="both", expand=True, padx=5, pady=5)
+        frame = ttk.Frame(parent)
+        frame.grid(row=1, column=0, sticky="nsew")
+
+        self.texto_relo = tk.Text(frame, wrap="none")
+        self.texto_relo.pack(side="left", fill="both", expand=True)
+
+        sy = ttk.Scrollbar(frame, orient="vertical", command=self.texto_relo.yview)
+        sy.pack(side="right", fill="y")
+        self.texto_relo.configure(yscrollcommand=sy.set)
+
+        # ================================
+        # ====== Dirección de carga ======
+        # ================================
+        ttk.Label(parent, text="Dirección de carga (hex):").grid(row=2, column=0, sticky="w")
+        self.entrada_direccion = ttk.Entry(parent)
+        self.entrada_direccion.grid(row=3, column=0, sticky="ew", pady=5)
+
+        ttk.Button(parent, text="Enlazar y Cargar", command=self.enlazar_y_cargar).grid(row=4, column=0, sticky="ew", pady=10)
         
-        # ================ COLUMNA DERECHA: ESTADO CPU ================
-        right_frame = ttk.Frame(main_frame)
-        right_frame.pack(side="right", fill="both", padx=(5, 0))
-        
-        # Registros
-        reg_frame = ttk.LabelFrame(right_frame, text="Registros")
+        # ================================
+        # =========== Entrada ============
+        # ================================
+
+        ttk.Label(parent, text="Entrada", font=("Arial", 12, "bold")).grid(row=5, column=0, sticky="w")        
+
+        frame_e = ttk.Frame(parent)
+        frame_e.grid(row=6, column=0, sticky="nsew")
+
+        self.texto_entrada = tk.Text(frame_e, wrap="word")
+        self.texto_entrada.pack(side="left", fill="both", expand=True)
+
+        sy = ttk.Scrollbar(frame_e, orient="vertical", command=self.texto_entrada.yview)
+        sy.pack(side="right", fill="y")
+        self.texto_entrada.configure(yscrollcommand=sy.set)
+
+        # ================================
+        # =========== Salida =============
+        # ================================
+
+        ttk.Label(parent, text="Salida", font=("Arial", 12, "bold")).grid(row=7, column=0, sticky="w")
+
+        frame_s = ttk.Frame(parent)
+        frame_s.grid(row=8, column=0, sticky="nsew")
+
+        self.texto_salida = tk.Text(frame_s, wrap="word")
+        self.texto_salida.pack(side="left", fill="both", expand=True)
+
+        sy = ttk.Scrollbar(frame_s, orient="vertical", command=self.texto_salida.yview)
+        sy.pack(side="right", fill="y")
+        self.texto_salida.configure(yscrollcommand=sy.set)
+
+
+    # ======================================================================
+    #   COLUMNA 4 – RAM + FLAGS + REGISTROS
+    # ======================================================================
+    def _columna_ram_flags_registros(self, parent):
+
+        #RAM
+        ttk.Label(parent, text="RAM", font=("Arial", 13, "bold")).pack()
+
+        frame_ram = ttk.Frame(parent, borderwidth=2, relief="solid")
+        frame_ram.pack(side="right", fill="both")
+
+        self.abrir_visor_ram(parent)        
+  
+        # FLAGS
+        ttk.Label(parent, text="Flags", font=("Arial", 12, "bold")).pack(pady=5)
+        self.flags = {}
+
+        for flag in ["Z (Zero)", "N (Negative)", "C (Carry)", "V (Overflow)", "PC (Program Counter)"]:
+            f = ttk.Frame(parent)
+            f.pack(fill="x", padx=5, pady=2)
+            
+            ttk.Label(f, text=flag, width=20).pack(side="left")
+            self.flags[flag] = ttk.Label(f, text="0", width=8, relief="solid", anchor="center")
+            self.flags[flag].pack(side="left")
+
+
+        # REGISTROS
+        ttk.Label(parent, text="Registros", font=("Arial", 12, "bold")).pack(pady=5)
+
+        reg_frame = ttk.Label(parent)
         reg_frame.pack(fill="both", expand=True, pady=(0, 5))
-        
-        # Crear registros en grid
         self.registros = {}
+
         for i in range(16):
             row = i // 4
             col = i % 4
-            
+
             frame = ttk.Frame(reg_frame)
             frame.grid(row=row, column=col, padx=2, pady=1, sticky="w")
             
@@ -127,114 +235,11 @@ class SimuladorGUI:
             
             self.registros[reg_name] = valor
         
-        # Flags
-        flags_frame = ttk.LabelFrame(right_frame, text="Flags y PC")
-        flags_frame.pack(fill="x", pady=5)
-        
-        self.flags = {}
-        flag_names = ["Z (Zero)", "N (Negative)", "C (Carry)", "V (Overflow)", "PC (Program Counter)"]
-        
-        for i, flag in enumerate(flag_names):
-            frame = ttk.Frame(flags_frame)
-            frame.pack(fill="x", padx=5, pady=2)
-            
-            ttk.Label(frame, text=flag, width=20).pack(side="left")
-            valor = ttk.Label(frame, text="0", width=8, relief="solid", anchor="center")
-            valor.pack(side="right")
-            
-            self.flags[flag] = valor
-        
-        # ================ MEMORIA ================
-        mem_frame = ttk.LabelFrame(right_frame, text="Examinador de Memoria")
-        mem_frame.pack(fill="x", pady=5)
-        # Hacer que las columnas centrales se expandan para aprovechar el ancho
-        mem_frame.grid_columnconfigure(0, weight=0)
-        mem_frame.grid_columnconfigure(1, weight=1)
-        mem_frame.grid_columnconfigure(2, weight=1)
-        mem_frame.grid_columnconfigure(3, weight=0)
 
-        # Dirección de memoria
-        ttk.Label(mem_frame, text="Dirección (dec):").grid(row=0, column=0, padx=5, pady=2, sticky="w")
-        self.mem_address = ttk.Entry(mem_frame, width=10)
-        self.mem_address.grid(row=0, column=1, padx=5, pady=2, sticky="w")
 
-        # Tamaño de lectura
-        ttk.Label(mem_frame, text="Tamaño:").grid(row=1, column=0, padx=5, pady=2, sticky="w")
-        self.mem_size = tk.StringVar(value="1")
-        size_combo = ttk.Combobox(mem_frame, textvariable=self.mem_size, 
-                                  values=["1", "2", "4", "8"], width=5, state="readonly")
-        size_combo.grid(row=1, column=1, padx=5, pady=2, sticky="w")
-
-        # Formato de salida (hex/dec)
-        ttk.Label(mem_frame, text="Formato:").grid(row=2, column=0, padx=5, pady=2, sticky="w")
-        self.mem_format = tk.StringVar(value="hex")
-        ttk.Radiobutton(mem_frame, text="Hex", variable=self.mem_format, value="hex").grid(row=2, column=1, sticky="w")
-        ttk.Radiobutton(mem_frame, text="Dec", variable=self.mem_format, value="dec").grid(row=2, column=2, sticky="w")
-
-        # Signo
-        ttk.Label(mem_frame, text="Interpretación:").grid(row=3, column=0, padx=5, pady=2, sticky="w")
-        self.mem_signed = tk.StringVar(value="unsigned")
-        ttk.Radiobutton(mem_frame, text="Sin signo", variable=self.mem_signed, value="unsigned").grid(row=3, column=1, sticky="w")
-        ttk.Radiobutton(mem_frame, text="Con signo", variable=self.mem_signed, value="signed").grid(row=3, column=2, sticky="w")
-
-        # Botón leer
-        ttk.Button(mem_frame, text="Leer", command=self.leer_memoria_gui).grid(row=0, column=3, rowspan=4, padx=5, pady=2, sticky="ns")
-
-        # Resultado
-        ttk.Label(mem_frame, text="Valor:").grid(row=4, column=0, padx=5, pady=2, sticky="w")
-        self.mem_valor = ttk.Label(mem_frame, text="--", width=25, relief="solid", anchor="center")
-        # Expandir el valor a todo el ancho disponible
-        self.mem_valor.grid(row=4, column=1, columnspan=4, padx=5, pady=2, sticky="ew")
-
-        # Botón para visor de RAM (tabla dinámica)
-        ttk.Button(mem_frame, text="👁 Ver RAM", command=self.abrir_visor_ram).grid(row=5, column=0, columnspan=4, padx=5, pady=(6,2), sticky="ew")
-        # Botón para limpiar RAM completamente
-        ttk.Button(mem_frame, text="🧹 Limpiar RAM", command=self.limpiar_ram).grid(row=6, column=0, columnspan=4, padx=5, pady=(2,6), sticky="ew")
-
-        # Modo de ejecución
-        mode_frame = ttk.LabelFrame(right_frame, text="Modo de Ejecución")
-        mode_frame.pack(fill="x", pady=5)
-        
-        # Frame para organizar en grid
-        mode_grid = ttk.Frame(mode_frame)
-        mode_grid.pack(fill="x", padx=5, pady=5)
-        
-        mode_grid.grid_columnconfigure(0, weight=1)
-        mode_grid.grid_columnconfigure(1, weight=1)
-        mode_grid.grid_columnconfigure(2, weight=1)
-        
-        # Selector de modo (primera columna)
-        self.modo = tk.StringVar(value="completo")
-        rb1 = ttk.Radiobutton(mode_grid, text="⚡  Ejecución Completa", variable=self.modo, value="completo", width=25)
-        rb1.grid(row=0, column=0, sticky="w", padx=2, pady=1)
-        
-        rb2 = ttk.Radiobutton(mode_grid, text="🔍  Ejecución Detallada", variable=self.modo, value="detallado", width=25)
-        rb2.grid(row=1, column=0, sticky="w", padx=2, pady=1)
-        
-        # Botones de control (segunda y tercera columna)
-        ttk.Button(mode_grid, text="🚀 Ejecutar", command=self.ejecutar_programa, width=12).grid(row=0, column=1, padx=2, pady=1, sticky="ew")
-        ttk.Button(mode_grid, text="👆 Paso", command=self.ejecutar_paso, width=12).grid(row=0, column=2, padx=2, pady=1, sticky="ew")
-        
-        self.boton_parar = ttk.Button(mode_grid, text="⏹️ Parar", command=self.parar_ejecucion, state="disabled", width=12)
-        self.boton_parar.grid(row=1, column=1, padx=2, pady=1, sticky="ew")
-        
-        ttk.Button(mode_grid, text="🔄 Reset", command=self.reset_cpu, width=12).grid(row=1, column=2, padx=2, pady=1, sticky="ew")
-        
-        # Salida
-        output_frame = ttk.LabelFrame(right_frame, text="Salida")
-        output_frame.pack(fill="both", expand=True, pady=(5, 0))
-        
-        self.texto_salida = tk.Text(output_frame, height=10, width=40, font=("Consolas", 9))
-        self.texto_salida.pack(fill="both", expand=True, padx=5, pady=5)
-        
-        # Variable para controlar ejecución paso a paso
-        self.ejecutando_paso_automatico = False
-        
-        # Variable para controlar estado de pantalla completa
-        self.fullscreen = True
-        
-        # Cargar programa de ejemplo
-        self.cargar_ejemplo()
+    # ======================================================================
+    #   TUS FUNCIONES EXACTAS PEGADAS E INTEGRADAS
+    # ======================================================================
 
     def toggle_fullscreen(self, event=None):
         """Alternar entre pantalla completa y ventana normal"""
@@ -243,30 +248,11 @@ class SimuladorGUI:
             self.root.state('zoomed')  # Maximizar en Windows
         else:
             self.root.state('normal')  # Ventana normal
-            self.root.geometry("1400x900")  # Tamaño por defecto
-
-    def cargar_ejemplo(self):
-        """Carga un programa de ejemplo"""
-        ejemplo = """; Programa de ejemplo - suma de los primeros 5 enteros
-LOADV R1, 5      ; n = 5
-CLEAR R2         ; acumulador = 0
-
-LOOP:
-ADD R2, R1       ; acumulador += n
-DEC R1           ; n--
-CMPV R1, 0       ; comparar n con 0
-JNE LOOP         ; si n != 0, saltar al loop
-
-; Mostrar resultado
-SVIO R2, 0x30    ; guardar resultado en IO[0x30]  
-SHOWIO 0x30      ; mostrar resultado
-PARAR            ; terminar programa"""
-        
-        self.texto_programa.insert("1.0", ejemplo)
-        self.set_salida("¡Simulador listo! Haz clic en 'Cargar Programa' y luego 'Ejecutar'")     
+            self.root.geometry("1400x900")  # Tamaño por defecto   
 
 
     # ========== Metodos ==========
+
     def cargar_archivo(self):
         """Carga un archivo de texto externo en el área de programa"""
         from tkinter import filedialog
@@ -289,8 +275,8 @@ PARAR            ; terminar programa"""
                     contenido = f.read()
                 
                 # Limpiar y cargar en el área de texto
-                self.texto_programa.delete("1.0", "end")
-                self.texto_programa.insert("1.0", contenido)
+                self.texto_alto.delete("1.0", "end")
+                self.texto_alto.insert("1.0", contenido)
                 
                 # Mostrar mensaje de éxito
                 nombre_archivo = os.path.basename(archivo)
@@ -319,9 +305,15 @@ PARAR            ; terminar programa"""
             self.entrada_direccion.insert(0, "0")
             return 0
 
-    def cargar_programa(self):
-        """Carga y ensambla el programa desde el área de texto o carga binario directamente"""
-        texto = self.texto_programa.get("1.0", "end").strip()
+    def compilar(self):
+        codigo = self.texto_alto.get("1.0", "end")
+        #
+        # Aqui va la logica de traduccion de alto nivel a assembler
+        #
+        self.texto_asm.insert("1.0", codigo)
+
+    def ensamblar(self):
+        texto = self.texto_asm.get("1.0", "end").strip()
         if not texto:
             messagebox.showwarning("Advertencia", "No hay código para cargar")
             return
@@ -334,22 +326,43 @@ PARAR            ; terminar programa"""
                 # Cargar código binario directamente
                 self.programa_actual = self._parsear_codigo_binario(texto)
                 tipo_carga = "binario"
+                print("Cargando binario")
             else:
                 # Ensamblar el código assembly
                 self.programa_actual = self.assembler.assemble(texto)
                 tipo_carga = "assembly"
-            
+                print("Ensamblando codigo")
+
+                print(self.programa_actual)
+
+            traduccion = ""
+            #traduccion = f"Código {'binario cargado' if es_binario else 'ensamblado'}:\n\n"
+            for i, instr in enumerate(self.programa_actual):
+                addr = i * 8 #+ start
+                desasm = self.assembler.disassemble_instruction(instr)
+                traduccion += f"{addr:04x}: {instr:016x}\n      {desasm}\n\n"   
+
+            self.texto_relo.delete("1.0", "end")
+            self.texto_relo.insert("1.0", traduccion)
+
+            self.set_salida(f"Programa cargado exitosamente desde {tipo_carga}. ¡Haz clic en 'Ejecutar'!")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al cargar programa:\n{str(e)}")
+
+    def enlazar_y_cargar(self):
+        """enlazar_y_cargar el programa desde el área de codigo relocalizable a la memoria RAM"""
+        texto = self.texto_relo.get("1.0", "end").strip()
+        if not texto:
+            messagebox.showwarning("Advertencia", "No hay código para cargar")
+            return
+        
+        try:
             # Mostrar la traducción
+            self.programa_actual = self.assembler.assemble(self.texto_relo.get("1.0", "end"))
+
             start = self.obtener_direccion_carga()
 
-            traduccion = f"Código {'binario cargado' if es_binario else 'ensamblado'}:\n\n"
-            for i, instr in enumerate(self.programa_actual):
-                addr = i * 8 + start
-                desasm = self.assembler.disassemble_instruction(instr)
-                traduccion += f"{addr:04x}: {instr:016x}\n      {desasm}\n\n"
-            
-            self.set_traduccion(traduccion)
-            
             # Cargar programa en la CPU
             print(start)
             program_info = self.loader.load_program(
@@ -359,10 +372,9 @@ PARAR            ; terminar programa"""
                 )
             self.cpu.set_pc(start)
             self.update_gui()
-            self.set_salida(f"Programa cargado exitosamente desde {tipo_carga}. ¡Haz clic en 'Ejecutar'!")
+            self.set_salida(f"Programa cargado exitosamente desde binario. ¡Haz clic en 'Ejecutar'!")
         except Exception as e:
             messagebox.showerror("Error", f"Error al cargar programa:\n{str(e)}")
-            self.set_traduccion(f"Error de carga:\n{str(e)}")
     
     def _es_codigo_binario(self, texto):
         """Detecta si el texto contiene código binario en formato hexadecimal"""
@@ -424,43 +436,52 @@ PARAR            ; terminar programa"""
         
         return instrucciones
 
-    def ejecutar_programa(self):
+    def ejecutar_programa_completo(self):
         """Ejecuta el programa completo"""
         if not self.programa_actual:
             messagebox.showwarning("Advertencia", "Primero carga un programa")
             return
-        
-        modo = self.modo.get()
-        
-        if modo == "completo":
-            # Modo completo: ejecutar todo hasta el final de una vez
-            print("SIA")
-            self.set_salida("Ejecutando programa completo hasta el final...\n")
-            self.cpu.run(step_mode=False)
-            self.update_gui()  # Actualizar después de ejecutar todo el programa
-            self.append_salida(
-                pformat(self.cpu.io_map, indent=4, width=40, sort_dicts=False)
-                )
-            self.append_salida("\nPrograma terminado")
-        elif modo == "detallado":
-            # Modo detallado: ejecutar con pausas para ver el flujo y cambios
-            self.set_salida("Ejecutando programa en modo detallado (paso a paso)...\n")
-            self.ejecutando_paso_automatico = True
-            self.boton_parar.config(state="normal")
-            self.ejecutar_modo_paso_automatico()
+
+        # Modo completo: ejecutar todo hasta el final de una vez
+        print("SIA")
+        self.set_salida("Ejecutando programa completo hasta el final...\n")
+        self.cpu.run(step_mode=False)
+        self.update_gui()  # Actualizar después de ejecutar todo el programa
+        self.append_salida(
+            pformat(self.cpu.io_map, indent=4, width=40, sort_dicts=False)
+            )
+        self.append_salida("\nPrograma terminado")
+
             
         try: pass
         except Exception as e:
             messagebox.showerror("Error", f"Error durante la ejecución:\n{str(e)}")
             self.append_salida(f"\nError: {str(e)}")
+
+    def ejecutar_programa_detallado(self):
+        """Ejecuta el programa completo"""
+        if not self.programa_actual:
+            messagebox.showwarning("Advertencia", "Primero carga un programa")
+            return
+        
+        # Modo detallado: ejecutar con pausas para ver el flujo y cambios
+        self.set_salida("Ejecutando programa en modo detallado (paso a paso)...\n")
+        self.ejecutando_paso_automatico = True
+        #self.boton_parar.config(state="normal")
+        self.ejecutar_modo_paso_automatico()
             
+        try: pass
+        except Exception as e:
+            messagebox.showerror("Error", f"Error durante la ejecución:\n{str(e)}")
+            self.append_salida(f"\nError: {str(e)}")            
 
     def ejecutar_modo_paso_automatico(self):
         """Ejecuta el programa paso a paso con pausas automáticas"""
         if not self.ejecutando_paso_automatico or not self.cpu.running:
-            self.append_salida("Programa terminado")
+        #if not self.cpu.running:
+            self.append_salida(f"Programa terminado, con ejectutando paso automatico {self.ejecutando_paso_automatico}, y cpu.running {self.cpu.running}")
             self.ejecutando_paso_automatico = False
-            self.boton_parar.config(state="disabled")
+            #self.boton_parar.config(state="disabled")
             self.update_gui()  # Actualizar una última vez al terminar
             return
         
@@ -482,22 +503,24 @@ PARAR            ; terminar programa"""
                 # Pausa de 1 segundo y continúa automáticamente
                 self.root.after(1000, self.ejecutar_modo_paso_automatico)
             else:
+                self.append_salida(pformat(self.cpu.io_map, indent=4, width=40, sort_dicts=False))
+
                 self.append_salida("Programa terminado")
                 self.ejecutando_paso_automatico = False
-                self.boton_parar.config(state="disabled")
+                #self.boton_parar.config(state="disabled")
                 self.update_gui()  # Actualizar al terminar
                 
         except Exception as e:
             messagebox.showerror("Error", f"Error al ejecutar paso:\n{str(e)}")
             self.append_salida(f"Error: {str(e)}")
             self.ejecutando_paso_automatico = False
-            self.boton_parar.config(state="disabled")
+            #self.boton_parar.config(state="disabled")
             self.update_gui()  # Actualizar en caso de error
 
     def parar_ejecucion(self):
         """Para la ejecución paso a paso automática"""
         self.ejecutando_paso_automatico = False
-        self.boton_parar.config(state="disabled")
+        #self.boton_parar.config(state="disabled")
         self.append_salida("Ejecución pausada")
 
     def mostrar_info_cargador(self):
@@ -561,6 +584,7 @@ PARAR            ; terminar programa"""
             return
         
         if not self.cpu.running:
+            self.append_salida(pformat(self.cpu.io_map, indent=4, width=40, sort_dicts=False))
             messagebox.showinfo("Info", "El programa ya terminó")
             return
         
@@ -583,7 +607,7 @@ PARAR            ; terminar programa"""
         """Reinicia el estado del CPU"""
         # Parar cualquier ejecución paso a paso en curso
         self.ejecutando_paso_automatico = False
-        self.boton_parar.config(state="disabled")
+        #self.boton_parar.config(state="disabled")
         
         # Reiniciar componentes
         self.cpu = CPU(self.cpu.memory)
@@ -591,9 +615,9 @@ PARAR            ; terminar programa"""
         self.programa_actual = []  # Limpiar programa actual
         
         # Limpiar interfaz
+        self.clear_all_text()
         self.update_gui()
         self.set_salida("CPU y memoria reiniciados. ¡Carga un nuevo programa!")
-        self.set_traduccion("Traducción aparecerá aquí después de cargar un programa...")
 
     def leer_memoria(self, direccion):
         """Lee una celda de memoria del disco"""
@@ -614,14 +638,6 @@ PARAR            ; terminar programa"""
         valor_bin = format(valor & 0xF, '04b')
         self.disco.escribir(f"R{reg_num:02d}", valor_bin)
 
-    def set_traduccion(self, texto):
-        """Actualizar la traducción en el label central"""
-        PC = self.CPU.pc
-        for i, text in enumerate(texto.splitlines()):
-            ##Load into real memory
-            self.memory.write64(PC+i*8,int(text,16))
-        self.memoria_viewer.redibujar()
-
     def set_flag(self, flag, valor):
         """Asignar valor a una bandera"""
         if flag in self.flags:
@@ -632,10 +648,7 @@ PARAR            ; terminar programa"""
         if reg in self.registros:
             self.registros[reg].config(text=str(valor))
 
-    def set_traduccion(self, texto):
-        """Actualizar la traducción"""
-        self.label_traduccion.delete("1.0", "end")
-        self.label_traduccion.insert("1.0", texto)
+
 
     def set_salida(self, texto):
         """Actualizar el contenido del frame de salida"""
@@ -657,6 +670,14 @@ PARAR            ; terminar programa"""
         
         #PC
         self.set_flag("PC",self.CPU.pc)
+
+    def clear_all_text(self):
+        self.texto_alto.delete("1.0", "end")
+        self.texto_asm.delete("1.0", "end")
+        self.texto_relo.delete("1.0", "end")
+        self.texto_entrada.delete("1.0", "end")
+        self.texto_salida.delete("1.0", "end")
+        self.limpiar_ram()
 
     def correr_programa(self):
 
@@ -699,7 +720,7 @@ PARAR            ; terminar programa"""
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo leer memoria:\n{str(e)}")
 
-
+    
     def update_gui(self):
         # Actualizar registros
         for i in range(16):
@@ -712,63 +733,83 @@ PARAR            ; terminar programa"""
         self.set_flag("V (Overflow)", self.cpu.flags["V"])
         self.set_flag("PC (Program Counter)", self.cpu.pc)
 
+        # Actualizar visor de RAM
+        self.refrescar_visor_ram()
+
     def mainloop(self):
         self.root.mainloop()
 
     # ========== Visor de RAM (tabla dinámica) ==========
-    def abrir_visor_ram(self):
-        # Si ya existe, traer al frente
-        if hasattr(self, 'ram_window') and self.ram_window and tk.Toplevel.winfo_exists(self.ram_window):
-            self.ram_window.deiconify()
-            self.ram_window.lift()
-            return
+    def abrir_visor_ram(self, parent):
+        """Crea un visor RAM incrustado en la columna 4"""
+        
+        # Si ya existe, no lo vuelvas a crear
+        if hasattr(self, "ram_frame") and self.ram_frame:
+            return  
 
-        self.ram_window = tk.Toplevel(self.root)
-        self.ram_window.title("Visor de RAM")
-        self.ram_window.geometry("950x600")
+        # Frame que contiene todo
+        self.ram_frame = ttk.Frame(parent)
+        self.ram_frame.pack(fill="both", expand=True)
 
+        # ------------------------
         # Controles superiores
-        top_controls = ttk.Frame(self.ram_window)
-        top_controls.pack(fill="x", padx=8, pady=(8,4))
+        # ------------------------
+        top_controls = ttk.Frame(self.ram_frame)
+        top_controls.pack(fill="x", padx=4, pady=(4,4))
 
         self.ram_auto = tk.BooleanVar(value=False)
         self.ram_interval = tk.IntVar(value=1000)
 
-        ttk.Checkbutton(top_controls, text="Auto-actualizar", variable=self.ram_auto, command=self._programar_auto_refresco_ram).pack(side="left")
-        ttk.Label(top_controls, text="Intervalo (ms):").pack(side="left", padx=(10,4))
-        ttk.Entry(top_controls, textvariable=self.ram_interval, width=7).pack(side="left")
-        ttk.Button(top_controls, text="Refrescar", command=self.refrescar_visor_ram).pack(side="left", padx=8)
-        ttk.Button(top_controls, text="Cerrar", command=self._cerrar_visor_ram).pack(side="right")
+        ttk.Checkbutton(
+            top_controls,
+            text="Auto",
+            variable=self.ram_auto,
+            command=self._programar_auto_refresco_ram
+        ).pack(side="left")
 
-        # Tabla (Treeview) con scroll
-        table_frame = ttk.Frame(self.ram_window)
-        table_frame.pack(fill="both", expand=True, padx=8, pady=(0,8))
+        ttk.Label(top_controls, text="ms:").pack(side="left", padx=4)
+        ttk.Entry(top_controls, textvariable=self.ram_interval, width=6).pack(side="left")
+
+        ttk.Button(
+            top_controls,
+            text="Refrescar",
+            command=self.refrescar_visor_ram
+        ).pack(side="left", padx=4)
+
+        ttk.Button(top_controls, text="Limpiar RAM", command=self.limpiar_ram).pack(side="left", padx=4)
+
+        # ------------------------
+        # Tabla Treeview
+        # ------------------------
+        table_frame = ttk.Frame(self.ram_frame)
+        table_frame.pack(fill="both", expand=True)
 
         columns = ["Addr", "B0","B1","B2","B3","B4","B5","B6","B7"]
         self.ram_tree = ttk.Treeview(table_frame, columns=columns, show="headings", height=20)
+
+        # Scrollbars
         vsb = ttk.Scrollbar(table_frame, orient="vertical", command=self.ram_tree.yview)
         hsb = ttk.Scrollbar(table_frame, orient="horizontal", command=self.ram_tree.xview)
         self.ram_tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
 
+        # Layout
         self.ram_tree.grid(row=0, column=0, sticky="nsew")
         vsb.grid(row=0, column=1, sticky="ns")
         hsb.grid(row=1, column=0, sticky="ew")
-        table_frame.grid_rowconfigure(0, weight=1)
         table_frame.grid_columnconfigure(0, weight=1)
+        table_frame.grid_rowconfigure(0, weight=1)
 
-        # Encabezados y anchuras
-        self.ram_tree.heading("Addr", text="Dirección")
-        self.ram_tree.column("Addr", width=90, anchor="center")
+        # Encabezados
+        self.ram_tree.heading("Addr", text="Addr")
+        self.ram_tree.column("Addr", width=70, anchor="center")
+
         for bx in columns[1:]:
             self.ram_tree.heading(bx, text=bx)
-            self.ram_tree.column(bx, width=60, anchor="center")
+            self.ram_tree.column(bx, width=40, anchor="center")
 
-        # Llenar tabla inicial
+        # Poblar inicialmente
         self._poblar_visor_ram_inicial()
-        self._programar_auto_refresco_ram()
 
-        # Manejar cierre de ventana
-        self.ram_window.protocol("WM_DELETE_WINDOW", self._cerrar_visor_ram)
 
     def _poblar_visor_ram_inicial(self):
         # Borrar existente
@@ -849,10 +890,11 @@ PARAR            ; terminar programa"""
             # Persistir inmediatamente si existe archivo configurado
             if hasattr(self.cpu.memory, 'save_to_txt') and hasattr(self.cpu.memory, 'memory_file'):
                 self.cpu.memory.save_to_txt(self.cpu.memory.memory_file)
-            self.mem_valor.config(text="--")
-            # Refrescar visor si está abierto
-            if hasattr(self, 'ram_window') and self.ram_window and tk.Toplevel.winfo_exists(self.ram_window):
-                self.refrescar_visor_ram()
-            self.set_salida("RAM limpiada correctamente.")
+
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo limpiar la RAM:\n{str(e)}")
+
+    # ======================================================================
+
+    def run(self):
+        self.root.mainloop()
