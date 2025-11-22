@@ -9,6 +9,7 @@ INSTRUCTION_SET = {
     'MULS': {'opcode': 0x0012, 'format': 'RR', 'requiresAddress': False},
     'MUL':  {'opcode': 0x0013, 'format': 'RR', 'requiresAddress': False},
     'DIV':  {'opcode': 0x0014, 'format': 'RR', 'requiresAddress': False},
+    'MOD' :  {'opcode': 0x0015, 'format': 'RR', 'requiresAddress': False},
     'ADDV': {'opcode': 0x0020, 'format': 'RI', 'requiresAddress': False},
     'SUBV': {'opcode': 0x0021, 'format': 'RI', 'requiresAddress': False},
     'INC':  {'opcode': 0x0030, 'format': 'R',  'requiresAddress': False},
@@ -155,10 +156,13 @@ INSTRUCTION_SET = {
     'POP2': {'opcode': 0x0811, 'format': 'R',  'requiresAddress': False},
     'POP4': {'opcode': 0x0812, 'format': 'R',  'requiresAddress': False},
     'POP8': {'opcode': 0x0813, 'format': 'R',  'requiresAddress': False},
+    'POP': {'opcode': 0x0813, 'format': 'R',  'requiresAddress': False},
     'PUSH1':{'opcode': 0x0820, 'format': 'R',  'requiresAddress': False},
     'PUSH2':{'opcode': 0x0821, 'format': 'R',  'requiresAddress': False},
     'PUSH4':{'opcode': 0x0822, 'format': 'R',  'requiresAddress': False},
     'PUSH8':{'opcode': 0x0823, 'format': 'R',  'requiresAddress': False},
+    'PUSH':{'opcode': 0x0823, 'format': 'R',  'requiresAddress': False},
+
 }
 
 

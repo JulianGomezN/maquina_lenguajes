@@ -1,3 +1,5 @@
+import time
+
 class Device:
     def read(self):
         raise NotImplementedError("read() no implementado")
@@ -19,6 +21,7 @@ class Keyboard(Device):
 
     def read(self):
         if len(self.buffer) == 0 :
+            time.sleep(0.00001) ## Para evitar consumo de CPU
             return 0xFF
         ch = self.buffer[0]
         self.buffer.remove(ch)

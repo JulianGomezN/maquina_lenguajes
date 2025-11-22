@@ -35,7 +35,7 @@ def t_LABEL(t):
     return t
 
 def t_REGISTER(t):
-    r'R[0-9]+'
+    r'R[0-9]+|SP'
     return t
 
 def t_NUMBER(t):
@@ -133,6 +133,8 @@ class Ensamblador:
     def parse_register(self, reg_token):
         """Convierte token de registro a número"""
         reg_str = reg_token.value if hasattr(reg_token, 'value') else reg_token
+        if reg_str == "SP":
+            return 15 ## SP in CPU
         if not reg_str.startswith('R'):
             raise ValueError(f"Registro inválido: {reg_str}")
         return int(reg_str[1:])
@@ -164,7 +166,12 @@ class Ensamblador:
             return ord(char)
         
         else:
-            try:
+            ## Entero
+            try:   
+                # Si negativo parsear a equivalente entero
+                if(imm_str_lower.startswith('-')):
+                    max64 = 1 << 64
+                    return(max64 + int(imm_str))
                 return int(imm_str)
             except ValueError:
                 # Debe ser una etiqueta

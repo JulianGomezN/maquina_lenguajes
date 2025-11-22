@@ -55,7 +55,7 @@ class CPU:
             # Control
             0x0000: OP, 0x0001: OP,
             # Aritmética RR (8 bytes)
-            0x0010: RR, 0x0011: RR, 0x0012: RR, 0x0013: RR, 0x0014: RR,
+            0x0010: RR, 0x0011: RR, 0x0012: RR, 0x0013: RR, 0x0014: RR, 0x0015: RR,
             # Aritmética RI (8 bytes)
             0x0020: RI, 0x0021: RI,
             # R (inc/dec/clear)
@@ -250,7 +250,12 @@ class CPU:
                 self.flags["V"] = 1
                 self.registers[ins.rd].write(0, 8)
             return
-
+        
+        if op ==  0x0015: # MOD
+            a, b = self.registers[ins.rd].read(8), self.registers[ins.rs].read(8)
+            r = a % b
+            self.registers[ins.rd].write(r, 8)
+           
         # -------- Aritmética RI --------
         if op == 0x0020:  # ADDV (8 bytes)
             a, b = self.registers[ins.rd].read(8), ins.imm
@@ -970,6 +975,7 @@ class CPU:
 
     # ---------------- Main Loop ----------------
     def run(self, max_cycles=10_000_000_000):
+        self.running = 1
         cycles = 0
       
         while self.running and cycles < max_cycles:

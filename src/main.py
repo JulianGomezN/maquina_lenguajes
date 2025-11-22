@@ -21,15 +21,15 @@ keyboard = Keyboard()
 io.register(0x100,screen)
 io.register(0x200,keyboard)
 
-### Esto emula el input falta implementarlo en la GUI
-s = "Hello World!"
-for i in s:
-    keyboard.write(ord(i))
-keyboard.write(0)
+# ### Esto emula el input falta implementarlo en la GUI
+# s = "Hello World!"
+# for i in s:
+#     keyboard.write(ord(i))
+# keyboard.write(0)
 
 
 
 cpu = CPU(mem,io)
-app = SimuladorGUI(cpu)
+app = SimuladorGUI(cpu,screen,keyboard)
 
 app.mainloop()
