@@ -1,417 +1,747 @@
 """
-Ensamblador simple para el simulador de CPU
-Traduce código assembly a instrucciones binarias
+Generador de Código para el compilador SPL -> Atlas Assembly
+Traduce el Árbol de Sintaxis Abstracta (AST) a código ensamblador Atlas
 """
 
-import os
-from .preprocessor import Preprocessor
+from .ast_nodes import *
+from .symbol_table import SymbolTable
 
-class Assembler:
-    def __init__(self, use_preprocessor=True):
-        self.use_preprocessor = use_preprocessor
-        self.preprocessor = Preprocessor() if use_preprocessor else None
-        # Mapa de instrucciones a opcodes
-        self.opcodes = {
-            # Control básico
-            'PARAR': 0x0000, 'NOP': 0x0001,
-            
-            # Aritmética básica (8 bytes)
-            'ADD': 0x0010, 'SUB': 0x0011, 'MULS': 0x0012, 'MUL': 0x0013, 'DIV': 0x0014,
-            'ADDV': 0x0020, 'SUBV': 0x0021,
-            'INC': 0x0030, 'DEC': 0x0031,
-            
-            # Lógicas
-            'NOT': 0x0040, 'AND': 0x0041, 'ANDV': 0x0042, 'OR': 0x0043,
-            'ORV': 0x0044, 'XOR': 0x0045, 'XORV': 0x0046,
-            
-            # Shifts
-            'SHL': 0x0050, 'SHR': 0x0051, 'SAL': 0x0052, 'SAR': 0x0053,
-            
-            # Memoria básica
-            'LOAD': 0x0060, 'LOADV': 0x0061, 'STORE': 0x0062, 'STOREV': 0x0063, 'CLEAR': 0x0064,
-            
-            # Comparación
-            'CMP': 0x0070, 'CMPV': 0x0071,
-            
-            # Flags
-            'CLRZ': 0x0080, 'CLRN': 0x0081, 'CLRC': 0x0082, 'CLRV': 0x0083,
-            'SETZ': 0x0084, 'SETN': 0x0085, 'SETC': 0x0086, 'SETV': 0x0087,
-            
-            # Saltos
-            'JMP': 0x0090, 'JEQ': 0x0091, 'JNE': 0x0092, 'JLT': 0x0093, 'JGE': 0x0094,
-            'JCS': 0x0095, 'JCC': 0x0096, 'JMI': 0x0097, 'JPL': 0x0098,
-            
-            # I/O
-            'SVIO': 0x00A0, 'LOADIO': 0x00A1, 'SHOWIO': 0x00A2, 'CLRIO': 0x00A3, 'RESETIO': 0x00A4,
-            
-            # Aritmética con tamaños específicos (1 byte)
-            'ADD1': 0x0100, 'SUB1': 0x0101, 'MUL1': 0x0102, 'MULS1': 0x0103, 'DIV1': 0x0104,
-            'ADDV1': 0x0110, 'SUBV1': 0x0111,
-            
-            # Aritmética con tamaños específicos (2 bytes)
-            'ADD2': 0x0200, 'SUB2': 0x0201, 'MUL2': 0x0202, 'MULS2': 0x0203, 'DIV2': 0x0204,
-            'ADDV2': 0x0210, 'SUBV2': 0x0211,
-            
-            # Aritmética con tamaños específicos (4 bytes)
-            'ADD4': 0x0300, 'SUB4': 0x0301, 'MUL4': 0x0302, 'MULS4': 0x0303, 'DIV4': 0x0304,
-            'ADDV4': 0x0310, 'SUBV4': 0x0311,
 
-            # Aritmética con tamaños específicos (8 bytes)
-            'ADD8': 0x0312, 'SUB8': 0x0313, 'MUL8': 0x0314, 'MULS8': 0x0315, 'DIV8': 0x0316,
-            'ADDV8': 0x0317, 'SUBV8': 0x0318,
-            
-            # MOV instructions
-            'MOV1': 0x0400, 'MOV2': 0x0401, 'MOV4': 0x0402, 'MOV8': 0x0403,
-            'MOVV1': 0x0410, 'MOVV2': 0x0411, 'MOVV4': 0x0412, 'MOVV8': 0x0413,
-            
-            # LOAD instructions
-            'LOAD1': 0x0500, 'LOAD2': 0x0501, 'LOAD4': 0x0502, 'LOAD8': 0x0503,
-            'LOADR1': 0x0510, 'LOADR2': 0x0511, 'LOADR4': 0x0512, 'LOADR8': 0x0513,
-            
-            # STORE instructions
-            'STORE1': 0x0600, 'STORE2': 0x0601, 'STORE4': 0x0602, 'STORE8': 0x0603,
-            'STORER1': 0x0610, 'STORER2': 0x0611, 'STORER4': 0x0612, 'STORER8': 0x0613,
-            
-            # FPU instructions (4 bytes)
-            'FADD4': 0x0700, 'FSUB4': 0x0701, 'FMUL4': 0x0702, 'FDIV4': 0x0703,
-            'FSQRT4': 0x0720, 'FSIN4': 0x0722, 'FCOS4': 0x0723,
-            
-            # FPU instructions (8 bytes)
-            'FADD8': 0x0710, 'FSUB8': 0x0711, 'FMUL8': 0x0712, 'FDIV8': 0x0713,
-            'FSQRT8': 0x0721, 'FSIN8': 0x0724, 'FCOS8': 0x0725,
-         
-            # Stack instructions
-            'RET': 0x0800,'CALL': 0x0099,
-            'POP1': 0x0810, 'POP2': 0x0811, 'POP4': 0x0812, 'POP8': 0x0813,
-            'PUSH1': 0x0820, 'PUSH2': 0x0821, 'PUSH4': 0x0822, 'PUSH8': 0x0823,
-            
-            # Size-specific CMP instructions
-            'CMP1': 0x0830, 'CMP2': 0x0831, 'CMP4': 0x0832, 'CMP8': 0x0833,
-            'CMPV1': 0x0840, 'CMPV2': 0x0841, 'CMPV4': 0x0842, 'CMPV8': 0x0843,
-        }
-        
-        # Formatos de instrucción
-        self.formats = {
-            # Control básico
-            'PARAR': 'OP', 'NOP': 'OP',
-            
-            # Aritmética básica (8 bytes)
-            'ADD': 'RR', 'SUB': 'RR', 'MULS': 'RR', 'MUL': 'RR', 'DIV': 'RR',
-            'ADDV': 'RI', 'SUBV': 'RI',
-            'INC': 'R', 'DEC': 'R',
-            
-            # Lógicas
-            'NOT': 'R', 'AND': 'RR', 'ANDV': 'RI', 'OR': 'RR',
-            'ORV': 'RI', 'XOR': 'RR', 'XORV': 'RI',
-            
-            # Shifts
-            'SHL': 'R', 'SHR': 'R', 'SAL': 'R', 'SAR': 'R',
-            
-            # Memoria básica
-            'LOAD': 'RI', 'LOADV': 'RI', 'STORE': 'RR', 'STOREV': 'RI', 'CLEAR': 'R',
-            
-            # Comparación
-            'CMP': 'RR', 'CMPV': 'RI',
-            
-            # Flags
-            'CLRZ': 'OP', 'CLRN': 'OP', 'CLRC': 'OP', 'CLRV': 'OP',
-            'SETZ': 'OP', 'SETN': 'OP', 'SETC': 'OP', 'SETV': 'OP',
-            
-            # Saltos
-            'JMP': 'I', 'JEQ': 'I', 'JNE': 'I', 'JLT': 'I', 'JGE': 'I',
-            'JCS': 'I', 'JCC': 'I', 'JMI': 'I', 'JPL': 'I',
-            
-            # I/O
-            'SVIO': 'RI', 'LOADIO': 'RI', 'SHOWIO': 'I', 'CLRIO': 'OP', 'RESETIO': 'OP',
-            
-            # Aritmética con tamaños específicos (1 byte)
-            'ADD1': 'RR', 'SUB1': 'RR', 'MUL1': 'RR', 'MULS1': 'RR', 'DIV1': 'RR',
-            'ADDV1': 'RI', 'SUBV1': 'RI',
-            
-            # Aritmética con tamaños específicos (2 bytes)
-            'ADD2': 'RR', 'SUB2': 'RR', 'MUL2': 'RR', 'MULS2': 'RR', 'DIV2': 'RR',
-            'ADDV2': 'RI', 'SUBV2': 'RI',
-            
-            # Aritmética con tamaños específicos (4 bytes)
-            'ADD4': 'RR', 'SUB4': 'RR', 'MUL4': 'RR', 'MULS4': 'RR', 'DIV4': 'RR',
-            'ADDV4': 'RI', 'SUBV4': 'RI',
-
-            # Aritmética con tamaños específicos (8 bytes)
-            'ADD8': 'RR', 'SUB8': 'RR', 'MUL8': 'RR', 'MULS8': 'RR', 'DIV8': 'RR',
-            'ADDV8': 'RI', 'SUBV8': 'RI',
-            
-            # MOV instructions
-            'MOV1': 'RR', 'MOV2': 'RR', 'MOV4': 'RR', 'MOV8': 'RR',
-            'MOVV1': 'RI', 'MOVV2': 'RI', 'MOVV4': 'RI', 'MOVV8': 'RI',
-            
-            # LOAD instructions
-            'LOAD1': 'RI', 'LOAD2': 'RI', 'LOAD4': 'RI', 'LOAD8': 'RI',
-            'LOADR1': 'RR', 'LOADR2': 'RR', 'LOADR4': 'RR', 'LOADR8': 'RR',
-            
-            # STORE instructions
-            'STORE1': 'RI', 'STORE2': 'RI', 'STORE4': 'RI', 'STORE8': 'RI',
-            'STORER1': 'RR', 'STORER2': 'RR', 'STORER4': 'RR', 'STORER8': 'RR',
-            
-            # FPU instructions (4 bytes)
-            'FADD4': 'RR', 'FSUB4': 'RR', 'FMUL4': 'RR', 'FDIV4': 'RR',
-            'FSQRT4': 'R', 'FSIN4': 'R', 'FCOS4': 'R',
-            
-            # FPU instructions (8 bytes)
-            'FADD8': 'RR', 'FSUB8': 'RR', 'FMUL8': 'RR', 'FDIV8': 'RR',
-            'FSQRT8': 'R', 'FSIN8': 'R', 'FCOS8': 'R',
-            
-            # Stack instructions
-            'RET': 'OP', 'CALL': 'I',
-            'POP1': 'R', 'POP2': 'R', 'POP4': 'R', 'POP8': 'R',
-            'PUSH1': 'R', 'PUSH2': 'R', 'PUSH4': 'R', 'PUSH8': 'R',
-            
-            # Size-specific CMP instructions
-            'CMP1': 'RR', 'CMP2': 'RR', 'CMP4': 'RR', 'CMP8': 'RR',
-            'CMPV1': 'RI', 'CMPV2': 'RI', 'CMPV4': 'RI', 'CMPV8': 'RI',
-        }
-        
-        self.labels = {}
-        self.current_address = 0
-
-    def parse_register(self, reg_str):
-        """Convierte 'R1' o 'R01' a número entero"""
-        if not reg_str.startswith('R'):
-            raise ValueError(f"Registro inválido: {reg_str}")
-        return int(reg_str[1:])
-
-    def parse_immediate(self, imm_str):
-        """Convierte string a valor inmediato"""
-        imm_str = imm_str.lower()  # Convertir a minúsculas para 0x
-        if imm_str.startswith('0x'):
-            return int(imm_str, 16)
-        elif imm_str.startswith('0b'):
-            return int(imm_str, 2)
-        elif imm_str.upper() in self.labels:
-            return self.labels[imm_str.upper()]
-        else:
-            try:
-                return int(imm_str)
-            except ValueError:
-                # Si no es un número, debe ser una etiqueta
-                imm_upper = imm_str.upper()
-                if imm_upper not in self.labels:
-                    raise ValueError(f"Etiqueta no definida: {imm_str}")
-                return self.labels[imm_upper]
-
-    def assemble_line(self, line):
-        """Ensambla una línea de código"""
-        line = line.strip().upper()
-        if not line or line.startswith(';'):  # Comentario o línea vacía
-            return None
-        
-        # Remover comentarios al final de la línea
-        if ';' in line:
-            line = line.split(';')[0].strip()
-            if not line:
-                return None
-        
-        # Manejar etiquetas
-        if ':' in line and not line.startswith((' ', '\t')):
-            label = line.split(':')[0].strip()
-            self.labels[label] = self.current_address
-            line = line.split(':', 1)[1].strip()
-            if not line:
-                return None
-
-        parts = line.replace(',', ' ').split()
-        if not parts:
-            return None
-            
-        instruction = parts[0]
-        if instruction not in self.opcodes:
-            raise ValueError(f"Instrucción desconocida: {instruction}")
-        
-        opcode = self.opcodes[instruction]
-        fmt = self.formats[instruction]
-        
-        # Construir la instrucción según el formato
-        if fmt == 'OP':
-            return (opcode << 48)
-        
-        elif fmt == 'R':
-            if len(parts) != 2:
-                raise ValueError(f"Formato R requiere 1 registro: {line}")
-            rd = self.parse_register(parts[1])
-            return (opcode << 48) | (rd << 44)
-        
-        elif fmt == 'RR':
-            if len(parts) != 3:
-                raise ValueError(f"Formato RR requiere 2 registros: {line}")
-            rd = self.parse_register(parts[1])
-            rs = self.parse_register(parts[2])
-            return (opcode << 48) | (rd << 4) | rs
-        
-        elif fmt == 'RI':
-            if len(parts) != 3:
-                raise ValueError(f"Formato RI requiere registro e inmediato: {line}")
-            rd = self.parse_register(parts[1])
-            imm = self.parse_immediate(parts[2])
-            return (opcode << 48) | (rd << 44) | (imm & 0xFFFFFFFFFFF)
-        
-        elif fmt == 'I':  # Solo inmediato (para SHOWIO)
-            if len(parts) != 2:
-                raise ValueError(f"Formato I requiere solo inmediato: {line}")
-            imm = self.parse_immediate(parts[1])
-            return (opcode << 48) | (imm & 0xFFFFFFFFFFF)
-        
-        else:
-            raise ValueError(f"Formato desconocido: {fmt}")
-
-    def assemble(self, code, source_file=None):
-        """
-        Ensambla código completo
-        
-        Args:
-            code: Código fuente a ensamblar
-            source_file: Ruta del archivo fuente (opcional, para includes)
-        
-        Returns:
-            Lista de instrucciones en formato binario
-        """
-        # Preprocesar el código si está habilitado
-        if self.use_preprocessor and self.preprocessor:
-            # Determinar el directorio base para includes
-            if source_file:
-                base_path = os.path.dirname(os.path.abspath(source_file))
-            else:
-                base_path = os.getcwd()
-            
-            # Preprocesar
-            code = self.preprocessor.preprocess(code, base_path)
-        
-        lines = code.split('\n')
-        program = []
-        self.labels = {}
-        self.current_address = 0
-        
-        # Primera pasada: recopilar etiquetas
-        temp_address = 0
-        for line in lines:
-            line = line.strip().upper()
-            if not line or line.startswith(';'):
-                continue
-            
-            # Remover comentarios
-            if ';' in line:
-                line = line.split(';')[0].strip()
-                if not line:
-                    continue
-            
-            if ':' in line and not line.startswith((' ', '\t')):
-                label = line.split(':')[0].strip()
-                self.labels[label] = temp_address * 8  # Direcciones en bytes
-                line = line.split(':', 1)[1].strip()
-            if line:
-                temp_address += 1
-        
-        # Segunda pasada: generar código
-        self.current_address = 0
-        for line in lines:
-            instruction = self.assemble_line(line)
-            if instruction is not None:
-                program.append(instruction)
-                self.current_address += 8
-        
-        return program
-
-    def disassemble_instruction(self, instr):
-        """Desarma una instrucción a texto legible"""
-        opcode = (instr >> 48) & 0xFFFF
-        
-        # Buscar el nombre de la instrucción
-        instr_name = None
-        for name, op in self.opcodes.items():
-            if op == opcode:
-                instr_name = name
-                break
-        
-        if not instr_name:
-            return f"UNKNOWN {opcode:#06x}"
-        
-        fmt = self.formats[instr_name]
-        
-        if fmt == 'OP':
-            return instr_name
-        elif fmt == 'R':
-            rd = (instr >> 44) & 0xF
-            return f"{instr_name} R{rd:02d}"
-        elif fmt == 'RR':
-            rd = (instr >> 4) & 0xF
-            rs = instr & 0xF
-            return f"{instr_name} R{rd:02d}, R{rs:02d}"
-        elif fmt == 'RI':
-            rd = (instr >> 44) & 0xF
-            imm = instr & 0xFFFFFFFFFFF
-            return f"{instr_name} R{rd:02d}, {imm}"
-        elif fmt == 'I':
-            imm = instr & 0xFFFFFFFFFFF
-            return f"{instr_name} {imm}"
-        
-        return f"UNKNOWN FORMAT for {instr_name}"
-
-# Ejemplo de uso
-if __name__ == "__main__":
-    assembler = Assembler()
+class CodeGenerator:
+    """
+    Generador de código que traduce AST + Tabla de Símbolos a código ensamblador Atlas.
     
-    sample_code = """
-    ; Programa de ejemplo - demostración de nuevas instrucciones
-    ; Usando operaciones de diferentes tamaños y stack
-    
-    ; Test de operaciones de diferentes tamaños
-    MOVV1 R1, 0xFF   ; R1 = 0xFF (1 byte)
-    MOVV2 R2, 0x1234 ; R2 = 0x1234 (2 bytes)
-    MOVV4 R3, 0x12345678 ; R3 = 0x12345678 (4 bytes)
-    MOVV8 R4, 0x123456789ABCDEF0 ; R4 = 0x123456789ABCDEF0 (8 bytes)
-    
-    ; Test de operaciones aritméticas por tamaño
-    ADD1 R1, R1      ; R1 = R1 + R1 (1 byte)
-    ADD2 R2, R2      ; R2 = R2 + R2 (2 bytes)
-    ADD4 R3, R3      ; R3 = R3 + R3 (4 bytes)
-    ADD R4, R4       ; R4 = R4 + R4 (8 bytes)
-    
-    ; Test de operaciones de pila
-    PUSH8 R4         ; Push R4 (8 bytes) a la pila
-    PUSH4 R3         ; Push R3 (4 bytes) a la pila
-    PUSH2 R2         ; Push R2 (2 bytes) a la pila
-    PUSH1 R1         ; Push R1 (1 byte) a la pila
-    
-    ; Pop en orden inverso
-    POP1 R5          ; Pop 1 byte a R5
-    POP2 R6          ; Pop 2 bytes a R6
-    POP4 R7          ; Pop 4 bytes a R7
-    POP8 R8          ; Pop 8 bytes a R8
-    
-    ; Mostrar resultados
-    SVIO R1, 0x100   ; Mostrar R1
-    SHOWIO 0x100
-    SVIO R2, 0x101   ; Mostrar R2
-    SHOWIO 0x101
-    SVIO R3, 0x102   ; Mostrar R3
-    SHOWIO 0x102
-    SVIO R4, 0x103   ; Mostrar R4
-    SHOWIO 0x103
-    
-    SVIO R5, 0x200   ; Mostrar POP1 resultado
-    SHOWIO 0x200
-    SVIO R6, 0x201   ; Mostrar POP2 resultado
-    SHOWIO 0x201
-    SVIO R7, 0x202   ; Mostrar POP4 resultado
-    SHOWIO 0x202
-    SVIO R8, 0x203   ; Mostrar POP8 resultado
-    SHOWIO 0x203
-    
-    PARAR            ; terminar programa
+    Estrategia de generación:
+    1. Variables globales: Se asignan a direcciones absolutas de memoria
+    2. Variables locales: Se acceden mediante desplazamiento desde el Frame Pointer (R14)
+    3. Expresiones: Se evalúan usando registros temporales (R00-R13)
+    4. Funciones: Usan convención de llamada con prólogo/epílogo estándar
+    5. Tipos: Se generan instrucciones con sufijos de tamaño según el tipo (1/2/4/8 bytes)
     """
     
-    try:
-        program = assembler.assemble(sample_code)
-        print("Programa ensamblado:")
-        for i, instr in enumerate(program):
-            print(f"{i*8:04x}: {instr:016x} ; {assembler.disassemble_instruction(instr)}")
-    except Exception as e:
-        print(f"Error de ensamblado: {e}")
+    def __init__(self, ast, symbol_table):
+        """
+        Inicializa el generador de código.
+        
+        Args:
+            ast: Nodo raíz del AST (Program)
+            symbol_table: Tabla de símbolos generada por el análisis semántico
+        """
+        self.ast = ast
+        self.symbol_table = symbol_table
+        self.code = []  # Lista de líneas de código ensamblador generadas
+        
+        # Gestión de registros temporales (R00-R13, reservando R14=BP y R15=SP)
+        self.temp_counter = 0  # Contador para asignar registros temporales
+        self.max_temps = 14  # Máximo número de registros disponibles (R00-R13)
+        
+        # Gestión de etiquetas
+        self.label_counter = 0  # Contador para generar etiquetas únicas
+        
+        # Stack de contexto para bucles (para break/continue)
+        self.loop_stack = []  # [(label_start, label_end), ...]
+        
+        # Función actual (para validar returns)
+        self.current_function = None
+        
+        # Dirección base para variables globales
+        self.global_data_base = 0x1000  # Las globales empiezan en dirección 0x1000
+    
+    def generate(self):
+        """
+        Punto de entrada principal: genera el código completo.
+        
+        Returns:
+            String con el código ensamblador Atlas completo
+        """
+        self.emit("; Código generado por el compilador SPL -> Atlas")
+        self.emit("; Arquitectura: Atlas CPU (64-bit)")
+        self.emit("")
+        
+        # Generar código para el programa
+        self.visit_program(self.ast)
+        
+        # Asegurar que el programa termine con PARAR
+        self.emit("")
+        self.emit("; Fin del programa")
+        self.emit("PARAR")
+        
+        return "\n".join(self.code)
+    
+    # ==================== MÉTODOS AUXILIARES ====================
+    
+    def emit(self, line):
+        """Añade una línea de código al resultado."""
+        self.code.append(line)
+    
+    def new_temp(self):
+        """
+        Asigna un nuevo registro temporal.
+        
+        Returns:
+            Integer con el número del registro (ej: 0, 1, 2, ...)
+        """
+        if self.temp_counter >= self.max_temps:
+            # Si nos quedamos sin registros, reutilizamos desde R00
+            self.temp_counter = 0
+        
+        reg = self.temp_counter
+        self.temp_counter += 1
+        return reg
+    
+    def reset_temps(self):
+        """Resetea el contador de temporales (útil al inicio de funciones/bloques)."""
+        self.temp_counter = 0
+    
+    def new_label(self, prefix="L"):
+        """
+        Genera una etiqueta única.
+        
+        Args:
+            prefix: Prefijo para la etiqueta (ej: "IF", "WHILE", "L")
+        
+        Returns:
+            String con el nombre de la etiqueta
+        """
+        label = f"{prefix}{self.label_counter}"
+        self.label_counter += 1
+        return label
+    
+    def get_type_size(self, type_name):
+        """
+        Obtiene el tamaño en bytes de un tipo.
+        
+        Args:
+            type_name: Nombre del tipo (ej: "entero4", "flotante", "doble")
+        
+        Returns:
+            Tamaño en bytes (1, 2, 4, u 8)
+        """
+        if type_name == "entero1" or type_name == "caracter" or type_name == "booleano":
+            return 1
+        elif type_name == "entero2":
+            return 2
+        elif type_name == "entero4" or type_name == "flotante":
+            return 4
+        elif type_name == "entero8" or type_name == "doble" or type_name == "puntero":
+            return 8
+        else:
+            return 8  # Por defecto, asumir 8 bytes
+    
+    def get_sized_instruction(self, base_instr, type_name):
+        """
+        Genera el nombre de instrucción con sufijo de tamaño.
+        
+        Args:
+            base_instr: Instrucción base (ej: "ADD", "LOAD", "STORE", "FADD")
+            type_name: Tipo de dato
+        
+        Returns:
+            Instrucción con sufijo (ej: "ADD4", "LOAD8", "FADD8")
+        """
+        size = self.get_type_size(type_name)
+        
+        # Instrucciones de punto flotante usan prefijo F
+        if type_name in ["flotante", "doble"]:
+            if base_instr in ["ADD", "SUB", "MUL", "DIV"]:
+                return f"F{base_instr}{size}"
+        
+        # Instrucciones enteras usan sufijo de tamaño
+        return f"{base_instr}{size}"
+    
+    def is_float_type(self, type_name):
+        """Determina si un tipo es de punto flotante."""
+        return type_name in ["flotante", "doble"]
+    
+    # ==================== VISITANTES DEL AST ====================
+    
+    def visit_program(self, node):
+        """
+        Genera código para el nodo Program (raíz del AST).
+        
+        Estructura generada:
+        1. Sección de datos globales (variables globales)
+        2. Código de inicialización (setup del stack)
+        3. Llamada a la función principal
+        4. Funciones definidas por el usuario
+        """
+        self.emit("; === SECCIÓN DE DATOS GLOBALES ===")
+        self.emit("")
+        
+        # Generar declaraciones globales
+        for decl in node.declarations:
+            if isinstance(decl, VarDecl):
+                self.visit_global_var_decl(decl)
+        
+        self.emit("")
+        self.emit("; === CÓDIGO DE INICIALIZACIÓN ===")
+        self.emit("")
+        
+        # Configurar el stack pointer (R15) y frame pointer (R14)
+        self.emit("; Inicializar Stack Pointer (R15) y Frame Pointer (R14)")
+        self.emit("MOVV8 R15, 0xFFFF  ; SP apunta al final de la memoria (64KB)")
+        self.emit("MOV8 R14, R15      ; BP = SP (frame inicial)")
+        self.emit("")
+        
+        # Buscar la función principal y llamarla
+        self.emit("; Llamar a la función principal")
+        main_func = self.symbol_table.lookup("principal")
+        if main_func and main_func.kind == "function":
+            self.emit("CALL principal")
+        else:
+            self.emit("; ADVERTENCIA: No se encontró la función 'principal'")
+        
+        self.emit("JMP END_PROGRAM")
+        self.emit("")
+        
+        # Generar código para todas las funciones
+        self.emit("; === FUNCIONES ===")
+        self.emit("")
+        for decl in node.declarations:
+            if isinstance(decl, FunctionDecl):
+                self.visit_function_decl(decl)
+        
+        self.emit("")
+        self.emit("END_PROGRAM:")
+    
+    def visit_global_var_decl(self, node):
+        """
+        Genera código para una declaración de variable global.
+        
+        Las variables globales se asignan a direcciones absolutas de memoria
+        comenzando desde self.global_data_base.
+        """
+        symbol = self.symbol_table.lookup(node.name)
+        if not symbol:
+            return
+        
+        # La dirección ya fue asignada por el análisis semántico en symbol.offset
+        address = self.global_data_base + symbol.offset
+        type_name = symbol.type.name if hasattr(symbol.type, 'name') else str(symbol.type)
+        size = self.get_type_size(type_name)
+        
+        self.emit(f"; Variable global: {node.name} (tipo: {type_name}, tamaño: {size} bytes, dirección: {address})")
+        
+        # Si tiene inicializador, generar código para inicializarla
+        if node.init_value:
+            reg = self.visit_expr(node.init_value, type_name)
+            store_instr = self.get_sized_instruction("STORE", type_name)
+            self.emit(f"{store_instr} R{reg:02d}, {address}  ; {node.name} = valor_inicial")
+    
+    def visit_function_decl(self, node):
+        """
+        Genera código para una declaración de función.
+        
+        Convención de llamada:
+        1. Prólogo: Guardar BP, configurar nuevo frame
+        2. Cuerpo: Ejecutar statements
+        3. Epílogo: Restaurar BP, retornar
+        """
+        self.emit(f"{node.name}:  ; Función: {node.name}")
+        self.current_function = node.name
+        self.reset_temps()
+        
+        # === PRÓLOGO ===
+        self.emit(f"  ; Prólogo de {node.name}")
+        self.emit(f"  PUSH8 R14          ; Guardar BP anterior")
+        self.emit(f"  MOV8 R14, R15      ; BP = SP (nuevo frame)")
+        
+        # Calcular espacio para variables locales
+        func_symbol = self.symbol_table.lookup(node.name)
+        local_space = 0
+        if func_symbol and hasattr(func_symbol, 'local_size'):
+            local_space = func_symbol.local_size
+        
+        if local_space > 0:
+            self.emit(f"  SUBV8 R15, {local_space}  ; Reservar espacio para locales")
+        
+        self.emit("")
+        
+        # === CUERPO ===
+        self.emit(f"  ; Cuerpo de {node.name}")
+        for stmt in node.body.statements:
+            self.visit_stmt(stmt)
+        
+        self.emit("")
+        
+        # === EPÍLOGO (si no hubo return explícito) ===
+        self.emit(f"{node.name}_epilogue:")
+        self.emit(f"  ; Epílogo de {node.name}")
+        self.emit(f"  MOV8 R15, R14      ; SP = BP (liberar locales)")
+        self.emit(f"  POP8 R14           ; Restaurar BP anterior")
+        self.emit(f"  RET                ; Retornar")
+        self.emit("")
+        
+        self.current_function = None
+    
+    def visit_stmt(self, node):
+        """Dispatcher para diferentes tipos de statements."""
+        if isinstance(node, VarDecl):
+            self.visit_local_var_decl(node)
+        elif isinstance(node, Assignment):
+            self.visit_assignment(node)
+        elif isinstance(node, IfStmt):
+            self.visit_if_stmt(node)
+        elif isinstance(node, WhileStmt):
+            self.visit_while_stmt(node)
+        elif isinstance(node, ForStmt):
+            self.visit_for_stmt(node)
+        elif isinstance(node, ReturnStmt):
+            self.visit_return_stmt(node)
+        elif isinstance(node, BreakStmt):
+            self.visit_break_stmt(node)
+        elif isinstance(node, ContinueStmt):
+            self.visit_continue_stmt(node)
+        elif isinstance(node, ExprStmt):
+            self.visit_expr_stmt(node)
+        elif isinstance(node, Block):
+            self.visit_block(node)
+        # Agregar más tipos según sea necesario
+    
+    def visit_local_var_decl(self, node):
+        """
+        Genera código para una declaración de variable local.
+        
+        Las variables locales se acceden mediante offset desde BP (R14).
+        """
+        symbol = self.symbol_table.lookup(node.name)
+        if not symbol:
+            return
+        
+        self.emit(f"  ; Variable local: {node.name} (offset: {symbol.offset})")
+        
+        # Si tiene inicializador, almacenarlo
+        if node.init_value:
+            type_name = symbol.type.name if hasattr(symbol.type, 'name') else str(symbol.type)
+            reg = self.visit_expr(node.init_value, type_name)
+            store_instr = self.get_sized_instruction("STORER", type_name)
+            
+            # Cargar la dirección: BP + offset
+            addr_reg = self.new_temp()
+            self.emit(f"  MOVV8 R{addr_reg:02d}, {symbol.offset}")
+            self.emit(f"  ADD8 R{addr_reg:02d}, R14  ; Dirección = BP + offset")
+            self.emit(f"  {store_instr} R{reg:02d}, R{addr_reg:02d}  ; {node.name} = valor_inicial")
+    
+    def visit_assignment(self, node):
+        """Genera código para una asignación."""
+        # node.lvalue es típicamente un Identifier, pero podría ser ArrayAccess o MemberAccess
+        if not isinstance(node.lvalue, Identifier):
+            self.emit("  ; ADVERTENCIA: Asignación a expresión compleja no implementada")
+            return
+        
+        target_name = node.lvalue.name
+        symbol = self.symbol_table.lookup(target_name)
+        if not symbol:
+            return
+        
+        type_name = symbol.type.name if hasattr(symbol.type, 'name') else str(symbol.type)
+        
+        # Evaluar expresión del lado derecho
+        reg = self.visit_expr(node.rvalue, type_name)
+        
+        if symbol.scope == "global":
+            # Variable global: STORE a dirección absoluta
+            address = self.global_data_base + symbol.offset
+            store_instr = self.get_sized_instruction("STORE", type_name)
+            self.emit(f"  {store_instr} R{reg:02d}, {address}  ; {target_name} = valor")
+        else:
+            # Variable local: STORER con offset desde BP
+            store_instr = self.get_sized_instruction("STORER", type_name)
+            addr_reg = self.new_temp()
+            self.emit(f"  MOVV8 R{addr_reg:02d}, {symbol.offset}")
+            self.emit(f"  ADD8 R{addr_reg:02d}, R14  ; Dirección = BP + offset")
+            self.emit(f"  {store_instr} R{reg:02d}, R{addr_reg:02d}  ; {target_name} = valor")
+    
+    def visit_if_stmt(self, node):
+        """
+        Genera código para un statement if.
+        
+        Estructura:
+          <evaluar condición>
+          CMP + JEQ else_label
+          <then_block>
+          JMP end_label
+        else_label:
+          <else_block>
+        end_label:
+        """
+        else_label = self.new_label("ELSE")
+        end_label = self.new_label("ENDIF")
+        
+        # Evaluar condición (debe ser booleano)
+        cond_reg = self.visit_expr(node.condition, "booleano")
+        
+        # Si la condición es falsa (0), saltar a else
+        self.emit(f"  CMPV8 R{cond_reg:02d}, 0")
+        self.emit(f"  JEQ {else_label}")
+        
+        # Bloque then
+        self.visit_stmt(node.then_block)
+        self.emit(f"  JMP {end_label}")
+        
+        # Bloque else (si existe)
+        self.emit(f"{else_label}:")
+        if node.else_block:
+            self.visit_stmt(node.else_block)
+        
+        self.emit(f"{end_label}:")
+    
+    def visit_while_stmt(self, node):
+        """
+        Genera código para un bucle while.
+        
+        Estructura:
+        start_label:
+          <evaluar condición>
+          CMP + JEQ end_label
+          <body>
+          JMP start_label
+        end_label:
+        """
+        start_label = self.new_label("WHILE_START")
+        end_label = self.new_label("WHILE_END")
+        
+        # Añadir contexto al stack de bucles (para break/continue)
+        self.loop_stack.append((start_label, end_label))
+        
+        self.emit(f"{start_label}:")
+        
+        # Evaluar condición
+        cond_reg = self.visit_expr(node.condition, "booleano")
+        self.emit(f"  CMPV8 R{cond_reg:02d}, 0")
+        self.emit(f"  JEQ {end_label}")
+        
+        # Cuerpo del bucle
+        self.visit_stmt(node.body)
+        
+        # Volver al inicio
+        self.emit(f"  JMP {start_label}")
+        
+        self.emit(f"{end_label}:")
+        
+        # Remover contexto del stack
+        self.loop_stack.pop()
+    
+    def visit_for_stmt(self, node):
+        """
+        Genera código para un bucle for.
+        
+        Estructura:
+          <init>
+        start_label:
+          <evaluar condición>
+          CMP + JEQ end_label
+          <body>
+        continue_label:
+          <update>
+          JMP start_label
+        end_label:
+        """
+        start_label = self.new_label("FOR_START")
+        continue_label = self.new_label("FOR_CONTINUE")
+        end_label = self.new_label("FOR_END")
+        
+        # Añadir contexto al stack (continue debe ir a continue_label)
+        self.loop_stack.append((continue_label, end_label))
+        
+        # Inicialización
+        if node.init:
+            self.visit_stmt(node.init)
+        
+        self.emit(f"{start_label}:")
+        
+        # Condición
+        if node.condition:
+            cond_reg = self.visit_expr(node.condition, "booleano")
+            self.emit(f"  CMPV8 R{cond_reg:02d}, 0")
+            self.emit(f"  JEQ {end_label}")
+        
+        # Cuerpo
+        self.visit_stmt(node.body)
+        
+        # Actualización
+        self.emit(f"{continue_label}:")
+        if node.increment:
+            self.visit_stmt(node.increment)
+        
+        self.emit(f"  JMP {start_label}")
+        
+        self.emit(f"{end_label}:")
+        
+        self.loop_stack.pop()
+    
+    def visit_return_stmt(self, node):
+        """
+        Genera código para un return.
+        
+        El valor de retorno se coloca en R00 antes del epílogo.
+        """
+        if node.value:
+            # Obtener el tipo de retorno de la función actual
+            func_symbol = self.symbol_table.lookup(self.current_function)
+            if func_symbol and hasattr(func_symbol.type, 'name'):
+                return_type = func_symbol.type.name
+            elif func_symbol:
+                return_type = str(func_symbol.type)
+            else:
+                return_type = "entero8"
+            
+            # Evaluar expresión y guardar en R00
+            reg = self.visit_expr(node.value, return_type)
+            if reg != 0:  # Si no está ya en R00, moverlo
+                mov_instr = self.get_sized_instruction("MOV", return_type)
+                self.emit(f"  {mov_instr} R00, R{reg:02d}  ; Valor de retorno en R00")
+        
+        # Saltar al epílogo
+        self.emit(f"  JMP {self.current_function}_epilogue")
+    
+    def visit_break_stmt(self, node):
+        """Genera código para break (salir del bucle actual)."""
+        if not self.loop_stack:
+            self.emit("  ; ERROR: break fuera de un bucle")
+            return
+        
+        _, end_label = self.loop_stack[-1]
+        self.emit(f"  JMP {end_label}  ; break")
+    
+    def visit_continue_stmt(self, node):
+        """Genera código para continue (siguiente iteración del bucle)."""
+        if not self.loop_stack:
+            self.emit("  ; ERROR: continue fuera de un bucle")
+            return
+        
+        start_label, _ = self.loop_stack[-1]
+        self.emit(f"  JMP {start_label}  ; continue")
+    
+    def visit_expr_stmt(self, node):
+        """Genera código para un statement de expresión (ej: llamada a función)."""
+        self.visit_expr(node.expression, "vacio")
+    
+    def visit_block(self, node):
+        """Genera código para un bloque de statements."""
+        for stmt in node.statements:
+            self.visit_stmt(stmt)
+    
+    # ==================== EXPRESIONES ====================
+    
+    def visit_expr(self, node, expected_type="entero8"):
+        """
+        Dispatcher para expresiones.
+        
+        Args:
+            node: Nodo de expresión del AST
+            expected_type: Tipo esperado del resultado
+        
+        Returns:
+            Número de registro temporal donde está el resultado
+        """
+        if isinstance(node, (IntLiteral, FloatLiteral, StringLiteral, CharLiteral, BoolLiteral)):
+            return self.visit_literal(node, expected_type)
+        elif isinstance(node, Identifier):
+            return self.visit_identifier(node, expected_type)
+        elif isinstance(node, BinaryOp):
+            return self.visit_binary_op(node, expected_type)
+        elif isinstance(node, UnaryOp):
+            return self.visit_unary_op(node, expected_type)
+        elif isinstance(node, FunctionCall):
+            return self.visit_function_call(node, expected_type)
+        # Agregar más tipos de expresiones según sea necesario
+        else:
+            # Expresión no soportada, retornar registro R00 por defecto
+            return 0
+    
+    def visit_literal(self, node, expected_type):
+        """Genera código para un literal (constante)."""
+        reg = self.new_temp()
+        mov_instr = self.get_sized_instruction("MOVV", expected_type)
+        
+        if isinstance(node, IntLiteral):
+            self.emit(f"  {mov_instr} R{reg:02d}, {node.value}")
+        elif isinstance(node, FloatLiteral):
+            # Para flotantes, convertir a representación hexadecimal IEEE 754
+            import struct
+            if expected_type == "flotante":
+                hex_val = struct.unpack('>I', struct.pack('>f', float(node.value)))[0]
+            else:  # doble
+                hex_val = struct.unpack('>Q', struct.pack('>d', float(node.value)))[0]
+            self.emit(f"  {mov_instr} R{reg:02d}, 0x{hex_val:X}")
+        elif isinstance(node, CharLiteral):
+            self.emit(f"  MOVV1 R{reg:02d}, {ord(node.value)}")
+        elif isinstance(node, BoolLiteral):
+            val = 1 if node.value else 0
+            self.emit(f"  MOVV1 R{reg:02d}, {val}")
+        elif isinstance(node, StringLiteral):
+            # Para cadenas, necesitaríamos un manejo especial (no implementado aquí)
+            self.emit(f"  MOVV8 R{reg:02d}, 0  ; String literal no soportado aún")
+        else:
+            self.emit(f"  MOVV8 R{reg:02d}, 0  ; Literal no soportado")
+        
+        return reg
+    
+    def visit_identifier(self, node, expected_type):
+        """Genera código para acceder a una variable."""
+        symbol = self.symbol_table.lookup(node.name)
+        if not symbol:
+            reg = self.new_temp()
+            self.emit(f"  ; ERROR: Variable {node.name} no encontrada")
+            self.emit(f"  MOVV8 R{reg:02d}, 0")
+            return reg
+        
+        reg = self.new_temp()
+        
+        type_name = symbol.type.name if hasattr(symbol.type, 'name') else str(symbol.type)
+        
+        if symbol.scope == "global":
+            # Variable global: LOAD desde dirección absoluta
+            address = self.global_data_base + symbol.offset
+            load_instr = self.get_sized_instruction("LOAD", type_name)
+            self.emit(f"  {load_instr} R{reg:02d}, {address}  ; Cargar {node.name}")
+        else:
+            # Variable local: LOADR con offset desde BP
+            load_instr = self.get_sized_instruction("LOADR", type_name)
+            addr_reg = self.new_temp()
+            self.emit(f"  MOVV8 R{addr_reg:02d}, {symbol.offset}")
+            self.emit(f"  ADD8 R{addr_reg:02d}, R14  ; Dirección = BP + offset")
+            self.emit(f"  {load_instr} R{reg:02d}, R{addr_reg:02d}  ; Cargar {node.name}")
+        
+        return reg
+    
+    def visit_binary_op(self, node, expected_type):
+        """Genera código para operaciones binarias."""
+        # Evaluar operandos
+        left_reg = self.visit_expr(node.left, expected_type)
+        right_reg = self.visit_expr(node.right, expected_type)
+        
+        result_reg = self.new_temp()
+        
+        # Determinar la instrucción según el operador
+        op_map = {
+            '+': 'ADD',
+            '-': 'SUB',
+            '*': 'MUL',
+            '/': 'DIV',
+            '==': 'CMP',  # Comparación requiere manejo especial
+            '!=': 'CMP',
+            '<': 'CMP',
+            '<=': 'CMP',
+            '>': 'CMP',
+            '>=': 'CMP',
+            '&&': 'AND',
+            '||': 'OR',
+        }
+        
+        base_instr = op_map.get(node.operator)
+        if not base_instr:
+            self.emit(f"  ; ERROR: Operador {node.operator} no soportado")
+            self.emit(f"  MOVV8 R{result_reg:02d}, 0")
+            return result_reg
+        
+        # Generar instrucción con tamaño apropiado
+        if node.operator in ['==', '!=', '<', '<=', '>', '>=']:
+            # Operadores de comparación
+            cmp_instr = self.get_sized_instruction("CMP", expected_type)
+            self.emit(f"  {cmp_instr} R{left_reg:02d}, R{right_reg:02d}")
+            
+            # Según el operador, usar salto condicional
+            jump_map = {
+                '==': 'JEQ',
+                '!=': 'JNE',
+                '<': 'JLT',
+                '<=': ('JLT', 'JEQ'),  # Requiere dos saltos
+                '>': 'JGE',  # Mayor: no cumple < ni ==
+                '>=': 'JGE',
+            }
+            
+            true_label = self.new_label("CMP_TRUE")
+            end_label = self.new_label("CMP_END")
+            
+            self.emit(f"  MOVV1 R{result_reg:02d}, 0  ; Asumir falso")
+            
+            if node.operator == '<=':
+                self.emit(f"  JLT {true_label}")
+                self.emit(f"  JEQ {true_label}")
+            else:
+                jump = jump_map[node.operator]
+                self.emit(f"  {jump} {true_label}")
+            
+            self.emit(f"  JMP {end_label}")
+            self.emit(f"{true_label}:")
+            self.emit(f"  MOVV1 R{result_reg:02d}, 1  ; Verdadero")
+            self.emit(f"{end_label}:")
+        else:
+            # Operadores aritméticos/lógicos
+            instr = self.get_sized_instruction(base_instr, expected_type)
+            self.emit(f"  MOV8 R{result_reg:02d}, R{left_reg:02d}")
+            self.emit(f"  {instr} R{result_reg:02d}, R{right_reg:02d}")
+        
+        return result_reg
+    
+    def visit_unary_op(self, node, expected_type):
+        """Genera código para operaciones unarias."""
+        operand_reg = self.visit_expr(node.operand, expected_type)
+        result_reg = self.new_temp()
+        
+        if node.operator == '-':
+            # Negación: 0 - operando
+            self.emit(f"  MOVV8 R{result_reg:02d}, 0")
+            sub_instr = self.get_sized_instruction("SUB", expected_type)
+            self.emit(f"  {sub_instr} R{result_reg:02d}, R{operand_reg:02d}")
+        elif node.operator == '!':
+            # NOT lógico
+            self.emit(f"  NOT R{result_reg:02d}")
+        else:
+            self.emit(f"  ; ERROR: Operador unario {node.operator} no soportado")
+            self.emit(f"  MOV8 R{result_reg:02d}, R{operand_reg:02d}")
+        
+        return result_reg
+    
+    def visit_function_call(self, node, expected_type):
+        """
+        Genera código para una llamada a función.
+        
+        Convención: Los argumentos se pasan en la pila (push en orden inverso).
+        El valor de retorno queda en R00.
+        """
+        # node.function es típicamente un Identifier
+        if isinstance(node.function, Identifier):
+            func_name = node.function.name
+        else:
+            func_name = "UNKNOWN_FUNCTION"
+        
+        # Evaluar argumentos y pushearlos en orden inverso
+        arg_regs = []
+        for arg in node.arguments:
+            arg_reg = self.visit_expr(arg, "entero8")  # Asumir entero8 por defecto
+            arg_regs.append(arg_reg)
+        
+        # Push argumentos en orden inverso
+        for arg_reg in reversed(arg_regs):
+            self.emit(f"  PUSH8 R{arg_reg:02d}  ; Push argumento")
+        
+        # Llamar a la función
+        self.emit(f"  CALL {func_name}")
+        
+        # Limpiar argumentos de la pila
+        if len(arg_regs) > 0:
+            stack_clean = len(arg_regs) * 8
+            self.emit(f"  ADDV8 R15, {stack_clean}  ; Limpiar argumentos")
+        
+        # El resultado está en R00
+        result_reg = 0
+        return result_reg
+
+
+# Función de utilidad para uso externo
+def generate_code(ast, symbol_table):
+    """
+    Función de conveniencia para generar código.
+    
+    Args:
+        ast: Árbol de sintaxis abstracta (nodo Program)
+        symbol_table: Tabla de símbolos del análisis semántico
+    
+    Returns:
+        String con el código ensamblador Atlas
+    """
+    generator = CodeGenerator(ast, symbol_table)
+    return generator.generate()
