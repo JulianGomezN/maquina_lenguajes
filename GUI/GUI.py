@@ -20,8 +20,17 @@ class SimuladorGUI:
         self.root = tk.Tk()
         self.root.title("Simulador - Atlas")
         
-        # Configurar pantalla completa
-        self.root.state('zoomed')  # Para Windows - maximiza la ventana
+        # Configurar pantalla completa (maximizar de forma cross-platform)
+        try:
+            # Intenta maximizar con el método estilo Windows
+            self.root.state('zoomed')  # Para Windows
+        except Exception:
+            try:
+                # Alternativa para X11/Linux
+                self.root.attributes('-zoomed', True)
+            except Exception:
+                # No se pudo maximizar automáticamente
+                pass
         
         # Permitir salir de pantalla completa con ESC
         self.root.bind('<Escape>', self.toggle_fullscreen)
@@ -240,9 +249,21 @@ class SimuladorGUI:
         """Alternar entre pantalla completa y ventana normal"""
         self.fullscreen = not self.fullscreen
         if self.fullscreen:
-            self.root.state('zoomed')  # Maximizar en Windows
+            try:
+                self.root.state('zoomed')
+            except Exception:
+                try:
+                    self.root.attributes('-zoomed', True)
+                except Exception:
+                    pass
         else:
-            self.root.state('normal')  # Ventana normal
+            try:
+                self.root.state('normal')  # Ventana normal
+            except Exception:
+                try:
+                    self.root.attributes('-zoomed', False)
+                except Exception:
+                    pass
             self.root.geometry("1400x900")  # Tamaño por defecto
 
     def cargar_ejemplo(self):
