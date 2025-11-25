@@ -15,6 +15,8 @@ from machine.CPU.CPU import CPU
 from machine.IO.Devices import Screen, Keyboard
 from compiler.ensamblador import Ensamblador
 from compiler.Loader import Loader
+from compiler.Preprocessor import preprocess
+from compiler.Lex_analizer import lexer as preprocessor_lexer
 
 class SimuladorGUI:
     def __init__(self, CPU:CPU, sdtout: Screen, stdin:Keyboard):
@@ -69,7 +71,7 @@ class SimuladorGUI:
         self._columna_ram_flags_registros(col4)
             
     # ======================================================================
-    #   COLUMNA 1 – CÓDIGO ALTO NIVEL
+    #   COLUMNA 1 – CÓDIGO ALTO NIVEL Y PREPROCESADO
     # ======================================================================
     def _columna_codigo_alto_nivel(self, parent):
         ttk.Label(parent, text="Código Alto Nivel", font=("Arial", 13, "bold")).pack()
@@ -84,9 +86,32 @@ class SimuladorGUI:
         sy.pack(side="right", fill="y")
         self.texto_alto.configure(yscrollcommand=sy.set)
 
+        ttk.Button(parent, text="Preprocesar", command=self.preprocesar).pack(fill="x", pady=10)
+        ttk.Button(parent, text="Cargar Archivo", command=self.cargar_archivo).pack(fill="x", pady=2)
+
+        # Preprocesado
+
+        ttk.Label(parent, text="Código Preprocesado", font=("Arial", 13, "bold")).pack()
+
+        frame_preprocessor = ttk.Frame(parent)
+        frame_preprocessor.pack(fill="both", expand=True)
+
+        self.texto_preprocesado = tk.Text(frame_preprocessor, wrap="none")
+        self.texto_preprocesado.pack(side="left", fill="both", expand=True)
+
+        sy_pre = ttk.Scrollbar(frame_preprocessor, orient="vertical", command=self.texto_preprocesado.yview)
+        sy_pre.pack(side="right", fill="y")
+        self.texto_preprocesado.configure(yscrollcommand=sy_pre.set)
+
+
         ttk.Button(parent, text="Compilar", command=self.compilar).pack(fill="x", pady=10)
 
-        ttk.Button(parent, text="Cargar Archivo", command=self.cargar_archivo).pack(fill="x", pady=2)
+        frame_buttoms = ttk.Frame(parent)
+        frame_buttoms.pack(fill="both", expand=True)
+
+        ttk.Button(frame_buttoms, text="LEX", command=self._abrir_ventana_analizador_lexico).pack(side="left",fill="x", pady=2, expand=True)
+        ttk.Button(frame_buttoms, text="YACC", command=self._abrir_ventana_analizador_sintactico).pack(side="left",fill="x", pady=2, expand=True)
+        
         ttk.Button(parent, text="Reset", command=self.reset_cpu).pack(fill="x", pady=2)
 
     # ======================================================================
@@ -311,10 +336,8 @@ class SimuladorGUI:
         self.entrada_maquina.bind('<Return>', self.procesar_entrada_maquina)
 
 
-
-
     # ======================================================================
-    #   TUS FUNCIONES EXACTAS PEGADAS E INTEGRADAS
+    #   FUNCIONES
     # ======================================================================
 
     def toggle_fullscreen(self, event=None):
@@ -414,10 +437,29 @@ class SimuladorGUI:
             self.entrada_direccion.insert(0, "0")
             return 0
 
-    def compilar(self):
+    def preprocesar(self):
         codigo = self.texto_alto.get("1.0", "end")
+
+        codigo_preprocesado = preprocess(codigo)
         #
-        # Aqui va la logica de traduccion de alto nivel a assembler
+        # Aqui va la logica de traduccion de alto nivel a a codigo preprocesado
+        #
+        self.texto_preprocesado.insert("1.0", codigo_preprocesado)
+
+    def analizador_lexico(self, codigo):
+        preprocessor_lexer.input(codigo)
+        tokens = ""
+        while True:
+            tok = preprocessor_lexer.token()
+            if not tok:
+                break
+            tokens += f"{tok}\n"
+        return tokens
+
+    def compilar(self):
+        codigo = self.texto_preprocesado.get("1.0", "end")
+        #
+        # Aqui va la logica de traduccion de codigo preprocesado a assembler
         #
         self.texto_asm.insert("1.0", codigo)
 
@@ -1031,3 +1073,32 @@ class SimuladorGUI:
         # volver a revisarlo en 20 ms
         self.root.after(20, self.check_cpu)
 
+    def _abrir_ventana_analizador_lexico(self):
+        # Si ya existe, traer al frente
+        if hasattr(self, 'lex_window') and self.lex_window and tk.Toplevel.winfo_exists(self.lex_window):
+            self.lex_window.deiconify()
+            self.lex_window.lift()
+            return
+
+
+        self.lex_window = tk.Toplevel(self.root)
+        self.lex_window.title("Ventana LEX")
+        self.lex_window.geometry("450x300")
+
+        frame = ttk.Frame(self.lex_window)
+        frame.pack(fill="both", expand=True)
+
+        self.texto_lex = tk.Text(frame, wrap="none")
+        self.texto_lex.pack(side="left", fill="both", expand=True)
+
+        sy = ttk.Scrollbar(frame, orient="vertical", command=self.texto_lex.yview)
+        sy.pack(side="right", fill="y")
+        self.texto_lex.configure(yscrollcommand=sy.set)
+
+        codigo_lex = self.analizador_lexico(self.texto_preprocesado.get("1.0", "end"))
+
+        self.texto_lex.insert("1.0", codigo_lex)
+
+    def _abrir_ventana_analizador_sintactico(self):
+        #Aqui va el codigo para mostrar el analizador sintactico
+        pass
