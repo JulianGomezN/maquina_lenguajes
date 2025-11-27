@@ -79,14 +79,15 @@ class SimuladorGUI:
         frame = ttk.Frame(parent)
         frame.pack(fill="both", expand=True)
 
-        self.texto_alto = tk.Text(frame, wrap="none")
+        self.texto_alto = tk.Text(frame, wrap="none", height=8)
         self.texto_alto.pack(side="left", fill="both", expand=True)
 
         sy = ttk.Scrollbar(frame, orient="vertical", command=self.texto_alto.yview)
         sy.pack(side="right", fill="y")
         self.texto_alto.configure(yscrollcommand=sy.set)
 
-        ttk.Button(parent, text="Preprocesar", command=self.preprocesar).pack(fill="x", pady=10)
+        ttk.Button(parent, text="Preprocesar", command=self.preprocesar).pack(fill="x", pady=2)
+        ttk.Button(parent, text="Compilar", command=self.compilar).pack(fill="x", pady=2)
         ttk.Button(parent, text="Cargar Archivo", command=self.cargar_archivo).pack(fill="x", pady=2)
 
         # Preprocesado
@@ -96,7 +97,7 @@ class SimuladorGUI:
         frame_preprocessor = ttk.Frame(parent)
         frame_preprocessor.pack(fill="both", expand=True)
 
-        self.texto_preprocesado = tk.Text(frame_preprocessor, wrap="none")
+        self.texto_preprocesado = tk.Text(frame_preprocessor, wrap="none", height=8)
         self.texto_preprocesado.pack(side="left", fill="both", expand=True)
 
         sy_pre = ttk.Scrollbar(frame_preprocessor, orient="vertical", command=self.texto_preprocesado.yview)
@@ -107,7 +108,7 @@ class SimuladorGUI:
         ttk.Button(parent, text="Compilar", command=self.compilar).pack(fill="x", pady=10)
 
         frame_buttoms = ttk.Frame(parent)
-        frame_buttoms.pack(fill="both", expand=True)
+        frame_buttoms.pack(fill="x", expand=False)
 
         ttk.Button(frame_buttoms, text="LEX", command=self._abrir_ventana_analizador_lexico).pack(side="left",fill="x", pady=2, expand=True)
         ttk.Button(frame_buttoms, text="YACC", command=self._abrir_ventana_analizador_sintactico).pack(side="left",fill="x", pady=2, expand=True)
@@ -290,6 +291,10 @@ class SimuladorGUI:
 
         reg_frame = ttk.Frame(parent)
         reg_frame.grid(row=4, column=0, sticky="nsew", pady=(0, 5))
+        
+        # Configurar columnas del grid para que se expandan uniformemente
+        for c in range(4):
+            reg_frame.columnconfigure(c, weight=1)
 
         self.registros = {}
 
@@ -298,13 +303,13 @@ class SimuladorGUI:
             col = i % 4
 
             frame = ttk.Frame(reg_frame)
-            frame.grid(row=row, column=col, padx=2, pady=1, sticky="w")
+            frame.grid(row=row, column=col, padx=2, pady=1, sticky="ew")
 
             reg_name = f"R{i:02}"
-            ttk.Label(frame, text=reg_name, width=4).pack(side="left")
+            ttk.Label(frame, text=reg_name, width=3).pack(side="left")
 
-            valor = ttk.Label(frame, text="0", width=10, relief="solid", anchor="center")
-            valor.pack(side="left")
+            valor = ttk.Label(frame, text="0", width=12, relief="solid", anchor="e", font=("Courier", 9))
+            valor.pack(side="left", fill="x", expand=True)
 
             self.registros[reg_name] = valor
 
@@ -360,11 +365,11 @@ class SimuladorGUI:
         archivo = filedialog.askopenfilename(
             title="Seleccionar archivo de programa",
             filetypes=[
-                ("Archivos Assembly", "*.asm"),
                 ("Archivos de texto", "*.txt"),
+                ("Archivos Assembly", "*.asm"),
                 ("Todos los archivos", "*.*")
             ],
-            initialdir=os.path.join(os.path.dirname(__file__), "..", "Algoritmos")
+            initialdir=os.path.join(os.path.dirname(__file__), "..", "..", "Algoritmos")
         )
         
         if archivo:
@@ -457,11 +462,56 @@ class SimuladorGUI:
         return tokens
 
     def compilar(self):
-        codigo = self.texto_preprocesado.get("1.0", "end")
-        #
-        # Aqui va la logica de traduccion de codigo preprocesado a assembler
-        #
-        self.texto_asm.insert("1.0", codigo)
+        """Compila código de alto nivel a Assembly Atlas"""
+        codigo = self.texto_preprocesado.get("1.0", "end").strip()
+        
+        if not codigo:
+            messagebox.showwarning("Advertencia", "No hay código preprocesado para compilar")
+            return
+        
+        try:
+            # Importar módulos del compilador
+            from compiler.syntax_analizer import parse
+            from compiler.semantic_analyzer import SemanticAnalyzer
+            from compiler.code_generator import generate_code
+            
+            # 1. Análisis sintáctico (parsing)
+            ast = parse(codigo)
+            if not ast:
+                messagebox.showerror("Error de Sintaxis", "No se pudo parsear el código")
+                return
+            
+            # 2. Análisis semántico
+            analyzer = SemanticAnalyzer()
+            success = analyzer.analyze(ast)
+            
+            # Mostrar errores semánticos si existen
+            if analyzer.errors:
+                errores_msg = "\n".join(analyzer.errors[:10])
+                if len(analyzer.errors) > 10:
+                    errores_msg += f"\n... y {len(analyzer.errors)-10} errores más"
+                messagebox.showwarning(
+                    f"Advertencias Semánticas ({len(analyzer.errors)})",
+                    errores_msg
+                )
+            
+            # 3. Generación de código Assembly
+            assembly_code = generate_code(ast, analyzer.symbol_table)
+            
+            if not assembly_code:
+                messagebox.showerror("Error", "No se pudo generar código Assembly")
+                return
+            
+            # Insertar código Assembly en el área correspondiente
+            self.texto_asm.delete("1.0", "end")
+            self.texto_asm.insert("1.0", assembly_code)
+            
+            self.set_log(f"✓ Compilación exitosa ({len(assembly_code)} caracteres de Assembly generados)")
+            
+        except Exception as e:
+            messagebox.showerror("Error de Compilación", f"Error al compilar:\n{str(e)}")
+            import traceback
+            print(traceback.format_exc())
 
     def ensamblar(self):
         texto = self.texto_asm.get("1.0", "end").strip()
@@ -832,12 +882,39 @@ class SimuladorGUI:
         #PC
         self.set_flag("PC",self.CPU.pc)
 
-    def clear_all_text(self):
+    def limpiar_campos_gui(self):
+        """Limpia todos los campos de texto de la GUI excepto la RAM"""
+        # Parar ejecución paso a paso si está corriendo
+        self.ejecutando_paso_automatico = False
+        
+        # Limpiar campos de texto
         self.texto_alto.delete("1.0", "end")
+        self.texto_preprocesado.delete("1.0", "end")
         self.texto_asm.delete("1.0", "end")
         self.texto_relo.delete("1.0", "end")
-        self.texto_entrada.delete("1.0", "end")
         self.texto_salida.delete("1.0", "end")
+        self.texto_log.delete("1.0", "end")
+        
+        # Limpiar entrada
+        self.entrada_maquina.delete(0, 'end')
+        
+        # Limpiar buffer de salida de la máquina
+        self.machine_out.buffer = ""
+        
+        # Resetear programa actual
+        self.programa_actual = []
+        
+        self.set_log("Campos de GUI limpiados. La RAM y el estado del CPU se mantienen.")
+
+    def clear_all_text(self):
+        """Limpia todos los campos de texto de la GUI incluyendo la RAM"""
+        self.texto_alto.delete("1.0", "end")
+        self.texto_preprocesado.delete("1.0", "end")
+        self.texto_asm.delete("1.0", "end")
+        self.texto_relo.delete("1.0", "end")
+        self.texto_salida.delete("1.0", "end")
+        self.texto_log.delete("1.0", "end")
+        self.entrada_maquina.delete(0, 'end')
         self.limpiar_ram()
  
     def leer_memoria_gui(self):

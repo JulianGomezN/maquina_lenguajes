@@ -6,9 +6,9 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from src.machine.CPU.CPU import CPU
-from src.machine.CPU.Memory.Memory import Memory 
-from logic.Loader import Loader
+from machine.CPU.CPU import CPU
+from machine.Memory.Memory import Memory 
+from compiler.Loader import Loader
 from compiler.ensamblador import Ensamblador
 
 def test_integration():

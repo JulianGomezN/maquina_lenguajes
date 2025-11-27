@@ -2,7 +2,7 @@
 # Analizador Sintáctico usando PLY Yacc
 
 import ply.yacc as yacc
-from compiler.lex_analizer import tokens  # Importar tokens del lexer
+from compiler.Lex_analizer import tokens  # Importar tokens del lexer
 from compiler.ast_nodes import *
 
 # ============================================
@@ -526,7 +526,7 @@ def parse(code, debug=False):
     Returns:
         Program (nodo raíz del AST) o None si hay errores
     """
-    from compiler.lex_analizer import lexer
+    from compiler.Lex_analizer import lexer
     
     result = parser.parse(code, lexer=lexer, debug=debug)
     return result

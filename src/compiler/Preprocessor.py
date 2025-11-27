@@ -103,9 +103,36 @@ def process_line(tokens, result, base_path):
     else:
         # Sustituir macros en código normal
         line = ' '.join(tok.value for tok in tokens)
+        
+        # Primero, expandir macros con parámetros
         for name, value in macros.items():
-            pattern = rf'\b{name}\b'       # solo cuando está delimitado
-            line = re.sub(pattern, value, line)
+            if isinstance(value, dict):  # Macro con parámetros
+                # Patrón para encontrar NAME(args)
+                pattern = rf'\b{name}\s*\((.*?)\)'
+                
+                def replace_macro(match):
+                    args_str = match.group(1)
+                    # Separar argumentos (manejo simple, no nested)
+                    args = [arg.strip() for arg in args_str.split(',')]
+                    
+                    if len(args) != len(value['params']):
+                        return match.group(0)  # No reemplazar si número de args no coincide
+                    
+                    # Sustituir parámetros en el cuerpo de la macro
+                    expanded = value['body']
+                    for param, arg in zip(value['params'], args):
+                        # Reemplazar cada parámetro por su argumento
+                        expanded = re.sub(rf'\b{param}\b', arg, expanded)
+                    
+                    return expanded
+                
+                line = re.sub(pattern, replace_macro, line)
+        
+        # Luego, expandir macros simples
+        for name, value in macros.items():
+            if not isinstance(value, dict):  # Macro simple
+                pattern = rf'\b{name}\b'
+                line = re.sub(pattern, value, line)
 
         result.append(line + '\n')
 
@@ -114,8 +141,27 @@ def handle_directive(tokens, result, base_path):
 
     if directive == 'DEFINE':
         name = tokens[2].value
-        value = ' '.join(tok.value for tok in tokens[3:] if tok.type != 'NEWLINE')
-        macros[name] = value
+        
+        # Verificar si el siguiente token es parámetros entre paréntesis
+        if len(tokens) > 3 and tokens[3].value.startswith('(') and ')' in tokens[3].value:
+            # Macro con parámetros: CUADRADO (x) ((x) * (x))
+            # tokens[2] = nombre de la macro
+            # tokens[3] = (param1, param2, ...)
+            # tokens[4:] = cuerpo de la macro
+            
+            param_token = tokens[3].value
+            # Extraer parámetros: "(x)" -> "x", "(a,b)" -> ["a", "b"]
+            params_str = param_token.strip('()')
+            params = [p.strip() for p in params_str.split(',')]
+            
+            # El cuerpo es todo lo que sigue
+            body = ' '.join(tok.value for tok in tokens[4:] if tok.type != 'NEWLINE')
+            
+            macros[name] = {'params': params, 'body': body}
+        else:
+            # Macro simple sin parámetros
+            value = ' '.join(tok.value for tok in tokens[3:] if tok.type != 'NEWLINE')
+            macros[name] = value
 
     elif directive == 'INCLUDE':
         if tokens[2].value.startswith('<'):

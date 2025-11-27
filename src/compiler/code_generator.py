@@ -141,6 +141,10 @@ class CodeGenerator:
         """
         size = self.get_type_size(type_name)
         
+        # Instrucciones que NO usan sufijo de tamaño
+        if base_instr in ["CMP", "CMPV"]:
+            return base_instr
+        
         # Instrucciones de punto flotante usan prefijo F
         if type_name in ["flotante", "doble"]:
             if base_instr in ["ADD", "SUB", "MUL", "DIV"]:
@@ -372,7 +376,7 @@ class CodeGenerator:
         cond_reg = self.visit_expr(node.condition, "booleano")
         
         # Si la condición es falsa (0), saltar a else
-        self.emit(f"  CMPV8 R{cond_reg:02d}, 0")
+        self.emit(f"  CMPV R{cond_reg:02d}, 0")
         self.emit(f"  JEQ {else_label}")
         
         # Bloque then
@@ -408,7 +412,7 @@ class CodeGenerator:
         
         # Evaluar condición
         cond_reg = self.visit_expr(node.condition, "booleano")
-        self.emit(f"  CMPV8 R{cond_reg:02d}, 0")
+        self.emit(f"  CMPV R{cond_reg:02d}, 0")
         self.emit(f"  JEQ {end_label}")
         
         # Cuerpo del bucle
@@ -453,7 +457,7 @@ class CodeGenerator:
         # Condición
         if node.condition:
             cond_reg = self.visit_expr(node.condition, "booleano")
-            self.emit(f"  CMPV8 R{cond_reg:02d}, 0")
+            self.emit(f"  CMPV R{cond_reg:02d}, 0")
             self.emit(f"  JEQ {end_label}")
         
         # Cuerpo

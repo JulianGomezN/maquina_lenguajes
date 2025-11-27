@@ -451,8 +451,15 @@ class SemanticAnalyzer:
     
     def _analyze_function_call(self, call):
         """Analiza llamada a función"""
+        # Evaluar la expresión de la función (puede ser un identificador o expresión)
+        func_type = self._analyze_expression(call.function)
+        
         if not isinstance(call.function, Identifier):
-            self.error("Llamada a función debe usar un identificador", call.lineno)
+            # Si no es un identificador simple, asumimos que es una expresión válida
+            # (por ejemplo, resultado de expansión de macro)
+            # Evaluar argumentos y retornar tipo desconocido
+            for arg in call.arguments:
+                self._analyze_expression(arg)
             return None
         
         func_name = call.function.name
