@@ -93,8 +93,7 @@ class SimuladorGUI:
         self.texto_alto.configure(yscrollcommand=sy.set)
 
         ttk.Button(parent, text="Preprocesar", command=self.preprocesar).pack(fill="x", pady=2)
-        ttk.Button(parent, text="Compilar", command=self.compilar).pack(fill="x", pady=2)
-        ttk.Button(parent, text="Cargar Archivo", command=self.cargar_archivo).pack(fill="x", pady=2)
+        ttk.Button(parent, text="Cargar Archivo", command=self.cargar_archivo).pack(fill="x", pady=(2,5))
 
         # Preprocesado
 
@@ -111,7 +110,7 @@ class SimuladorGUI:
         self.texto_preprocesado.configure(yscrollcommand=sy_pre.set)
 
 
-        ttk.Button(parent, text="Compilar", command=self.compilar).pack(fill="x", pady=10)
+        ttk.Button(parent, text="Compilar", command=self.compilar).pack(fill="x", pady=2)
 
         frame_buttoms = ttk.Frame(parent)
         frame_buttoms.pack(fill="x", expand=False)
@@ -137,7 +136,7 @@ class SimuladorGUI:
         sy.pack(side="right", fill="y")
         self.texto_asm.configure(yscrollcommand=sy.set)
 
-        ttk.Button(parent, text="Ensamblar", command=self.ensamblar).pack(fill="x", pady=10)
+        ttk.Button(parent, text="Ensamblar", command=self.ensamblar).pack(fill="x", pady=2)
         ttk.Button(parent, text="Cargar Archivo", command=self.cargar_archivo_asm).pack(fill="x", pady=2)
 
     # ======================================================================
@@ -185,10 +184,15 @@ class SimuladorGUI:
         # ================================
         ttk.Label(parent, text="Dirección de carga (hex):").grid(row=2, column=0, sticky="w")
         self.entrada_direccion = ttk.Entry(parent)
-        self.entrada_direccion.grid(row=3, column=0, sticky="ew", pady=5)
+        self.entrada_direccion.grid(row=3, column=0, sticky="ew", pady=2)
+        # Valor por defecto para la dirección de carga
+        try:
+            self.entrada_direccion.insert(0, "0")
+        except Exception:
+            pass
 
         ttk.Button(parent, text="Enlazar y Cargar",
-                command=self.enlazar_y_cargar).grid(row=4, column=0, sticky="ew", pady=10)
+                command=self.enlazar_y_cargar).grid(row=4, column=0, sticky="ew", pady=(2,5))
 
         # =================================
         # ====== Botones Ejecución ========
@@ -279,10 +283,10 @@ class SimuladorGUI:
             lbl.pack(side="left")
             self.flags[flag] = lbl
 
-        # PC y SP
+        # PC, SP y BP
         self.punteros = {}
 
-        for p in ["PC (Program Counter)", "SP (Stack Pointer)"]:
+        for p in ["PC (Program Counter)", "SP (Stack Pointer)", "BP (Base Pointer)"]:
             f = ttk.Frame(frame_punteros)
             f.pack(fill="x", pady=1)
             ttk.Label(f, text=p, width=20).pack(side="left")
@@ -309,13 +313,13 @@ class SimuladorGUI:
             col = i % 4
 
             frame = ttk.Frame(reg_frame)
-            frame.grid(row=row, column=col, padx=2, pady=1, sticky="ew")
+            frame.grid(row=row, column=col, padx=(2,10), pady=1, sticky="ew")
 
             reg_name = f"R{i:02}"
-            ttk.Label(frame, text=reg_name, width=3).pack(side="left")
+            ttk.Label(frame, text=reg_name, width=3).pack(side="left", padx=(0,5))
 
             valor = ttk.Label(frame, text="0", width=12, relief="solid", anchor="e", font=("Courier", 9))
-            valor.pack(side="left", fill="x", expand=True)
+            valor.pack(side="left", fill="x", expand=True, padx=(0,0))
 
             self.registros[reg_name] = valor
 
@@ -973,6 +977,12 @@ class SimuladorGUI:
 
         self.set_pointer("PC (Program Counter)",self.cpu.pc)
         self.set_pointer("SP (Stack Pointer)",self.cpu.sp.value)
+        # Mostrar BP usando el registro R14 (convención del proyecto)
+        try:
+            bp_val = self.cpu.registers[14].value
+        except Exception:
+            bp_val = 0
+        self.set_pointer("BP (Base Pointer)", bp_val)
         
         # Actualizar visor de RAM
         self.refrescar_visor_ram()
@@ -1021,6 +1031,14 @@ class SimuladorGUI:
         ).pack(side="left", padx=4)
 
         ttk.Button(top_controls, text="Limpiar RAM", command=self.limpiar_ram).pack(side="left", padx=4)
+        
+        # Campo de búsqueda
+        ttk.Label(top_controls, text="Ir a:").pack(side="left", padx=(10, 2))
+        self.ram_search_addr = tk.StringVar(value="0x0000")
+        search_entry = ttk.Entry(top_controls, textvariable=self.ram_search_addr, width=12)
+        search_entry.pack(side="left")
+        search_entry.bind('<Return>', lambda e: self._ir_a_direccion_ram())
+        ttk.Button(top_controls, text="🔍", command=self._ir_a_direccion_ram, width=3).pack(side="left", padx=2)
 
         # ------------------------
         # Tabla Treeview
@@ -1110,6 +1128,50 @@ class SimuladorGUI:
                     self._programar_auto_refresco_ram()
             self.ram_after_id = self.ram_window.after(interval, _tick)
 
+    def _ir_a_direccion_ram(self):
+        """Desplaza el visor de RAM a una dirección específica."""
+        try:
+            addr_str = self.ram_search_addr.get().strip()
+            # Soportar formato hex (0x1234) o decimal (1234)
+            if addr_str.startswith('0x') or addr_str.startswith('0X'):
+                addr = int(addr_str, 16)
+            else:
+                addr = int(addr_str)
+            
+            # Alinear a múltiplo de 8 (cada fila representa 8 bytes)
+            addr = (addr // 8) * 8
+            
+            # Verificar que la dirección esté en rango
+            if 0 <= addr < len(self.cpu.memory):
+                iid = f"{addr}"
+                if self.ram_tree.exists(iid):
+                    # Hacer visible y seleccionar la fila
+                    self.ram_tree.see(iid)
+                    self.ram_tree.selection_set(iid)
+                    self.ram_tree.focus(iid)
+                else:
+                    # Buscar la dirección más cercana
+                    all_items = self.ram_tree.get_children()
+                    if all_items:
+                        # Encontrar el item más cercano
+                        closest_iid = None
+                        min_diff = float('inf')
+                        for item_iid in all_items:
+                            item_addr = int(item_iid)
+                            diff = abs(item_addr - addr)
+                            if diff < min_diff:
+                                min_diff = diff
+                                closest_iid = item_iid
+                        
+                        if closest_iid:
+                            self.ram_tree.see(closest_iid)
+                            self.ram_tree.selection_set(closest_iid)
+                            self.ram_tree.focus(closest_iid)
+            else:
+                messagebox.showerror("Dirección inválida", f"La dirección debe estar entre 0x0000 y 0x{len(self.cpu.memory)-1:04X}")
+        except ValueError:
+            messagebox.showerror("Formato inválido", "Ingrese una dirección válida en formato hexadecimal (0x1234) o decimal (1234)")
+    
     def _cerrar_visor_ram(self):
         if hasattr(self, 'ram_after_id') and self.ram_after_id:
             try:
@@ -1134,7 +1196,14 @@ class SimuladorGUI:
             # Persistir inmediatamente si existe archivo configurado
             if hasattr(self.cpu.memory, 'save_to_txt') and hasattr(self.cpu.memory, 'memory_file'):
                 self.cpu.memory.save_to_txt(self.cpu.memory.memory_file)
-
+            
+            # Refrescar el visor de RAM si está abierto - ejecutar el código del botón refrescar
+            if hasattr(self, 'ram_tree'):
+                try:
+                    self.refrescar_visor_ram()
+                except Exception:
+                    pass  # Si falla, ignorar
+                
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo limpiar la RAM:\n{str(e)}")
 

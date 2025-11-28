@@ -18,8 +18,11 @@ INSTRUCTION_SET = {
     # Lógicas
     'NOT':  {'opcode': 0x0040, 'format': 'R',  'requiresAddress': False},
     'AND':  {'opcode': 0x0041, 'format': 'RR', 'requiresAddress': False},
+    # size-suffixed logical (accept codegen using AND8/OR8)
+    'AND8': {'opcode': 0x0041, 'format': 'RR', 'requiresAddress': False},
     'ANDV': {'opcode': 0x0042, 'format': 'RI', 'requiresAddress': False},
     'OR':   {'opcode': 0x0043, 'format': 'RR', 'requiresAddress': False},
+    'OR8':  {'opcode': 0x0043, 'format': 'RR', 'requiresAddress': False},
     'ORV':  {'opcode': 0x0044, 'format': 'RI', 'requiresAddress': False},
     'XOR':  {'opcode': 0x0045, 'format': 'RR', 'requiresAddress': False},
     'XORV': {'opcode': 0x0046, 'format': 'RI', 'requiresAddress': False},

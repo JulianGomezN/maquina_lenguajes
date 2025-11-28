@@ -6,8 +6,10 @@ Prueba el archivo 1.txt con áreas y volúmenes
 import sys
 import os
 
-# Añadir src al path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+# Añadir el directorio src al path (subir dos niveles desde tests/)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+src_dir = os.path.dirname(current_dir)  # Subir un nivel a src/
+sys.path.insert(0, src_dir)
 
 from compiler.Preprocessor import preprocess
 from compiler.syntax_analizer import parse
@@ -25,9 +27,14 @@ def main():
     print("PRUEBA DEL PIPELINE COMPLETO - Áreas y Volúmenes")
     print("=" * 70)
     
+    # Determinar la ruta base del proyecto (subir dos niveles desde tests/)
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(os.path.dirname(current_dir))  # Subir a la raíz del proyecto
+    
     # 1. Cargar archivo de alto nivel
     print("\n[1] Cargando archivo de alto nivel...")
-    with open("Algoritmos/Ejemplos_alto_nivel/1.txt", "r", encoding="utf-8") as f:
+    archivo_path = os.path.join(project_root, "Algoritmos", "Ejemplos_alto_nivel", "1.txt")
+    with open(archivo_path, "r", encoding="utf-8") as f:
         codigo_alto_nivel = f.read()
     
     print(f"✓ Archivo cargado ({len(codigo_alto_nivel)} caracteres)")
@@ -39,7 +46,8 @@ def main():
     # 2. Preprocesar
     print("\n[2] Preprocesando (expansión de #include y macros)...")
     try:
-        codigo_preprocesado = preprocess(codigo_alto_nivel)
+        # Pasar la ruta base del proyecto para que el preprocesador encuentre lib/
+        codigo_preprocesado = preprocess(codigo_alto_nivel, base_path=project_root)
         print(f"✓ Preprocesado exitoso ({len(codigo_preprocesado)} caracteres)")
         
         # Mostrar expansión de macros
@@ -105,9 +113,12 @@ def main():
         print(f"  Código Assembly generado ({len(assembly_code)} caracteres)")
         
         # Guardar assembly para inspección
-        with open("build/test_1_output.asm", "w", encoding="utf-8") as f:
+        build_dir = os.path.join(project_root, "build")
+        os.makedirs(build_dir, exist_ok=True)  # Crear directorio si no existe
+        output_file = os.path.join(build_dir, "test_1_output.asm")
+        with open(output_file, "w", encoding="utf-8") as f:
             f.write(assembly_code)
-        print("  ✓ Assembly guardado en: build/test_1_output.asm")
+        print(f"  ✓ Assembly guardado en: {output_file}")
         
         # Mostrar primeras líneas
         lineas_asm = assembly_code.split('\n')
@@ -146,8 +157,15 @@ def main():
     try:
         memory = Memory(2**16)
         loader = Loader(memory)
-        loader.load_in_memory(codigo_binario, 0)
-        print(f"✓ Código cargado en memoria desde dirección 0x0000")
+        
+        start_addr = 0x0000
+        absoluto_code, end_addr = loader.load_in_memory(codigo_binario, start_addr)
+        program_size = end_addr - start_addr
+        
+        print(f"✓ Código cargado en memoria")
+        print(f"  Dirección inicial: 0x{start_addr:04X}")
+        print(f"  Dirección final:   0x{end_addr:04X}")
+        print(f"  Tamaño total:      {program_size} bytes")
         
     except Exception as e:
         print(f"✗ Error al cargar en memoria: {e}")
@@ -155,8 +173,6 @@ def main():
         traceback.print_exc()
         return
     
-    # 7. Crear CPU y sistema I/O
-    print("\n[7] Inicializando CPU y sistema I/O...")
     # 8. Crear CPU y sistema I/O
     print("\n[8] Inicializando CPU y sistema I/O...")
     try:
@@ -168,8 +184,8 @@ def main():
         
         cpu = CPU(memory, io_system)
         print(f"✓ CPU inicializado")
-        print(f"  PC inicial: {cpu.PC}")
-        print(f"  SP inicial: {cpu.SP}")
+        print(f"  PC inicial: {cpu.pc:#06x}")
+        print(f"  SP inicial: {cpu.sp.value:#06x} (será inicializado por el código)")
         
     except Exception as e:
         print(f"✗ Error al inicializar CPU: {e}")
@@ -185,15 +201,15 @@ def main():
     step_count = 0
     
     try:
-        while not cpu.halted and step_count < max_steps:
-            cpu.step()
+        while cpu.running and step_count < max_steps:
+            cpu.tick()
             step_count += 1
             
             # Mostrar primeros pasos
             if step_count <= 10:
-                print(f"  Paso {step_count}: PC={hex(cpu.PC-8)}, Instrucción ejecutada")
+                print(f"  Paso {step_count}: PC={hex(cpu.pc-8)}, Instrucción ejecutada")
         
-        if cpu.halted:
+        if not cpu.running:
             print(f"\n✓ Programa terminado normalmente")
             print(f"  Total de instrucciones ejecutadas: {step_count}")
         else:
@@ -207,12 +223,12 @@ def main():
     # 10. Mostrar estado final
     print("\n[10] Estado final del sistema:")
     print("-" * 70)
-    print(f"  PC (Program Counter): {hex(cpu.PC)}")
-    print(f"  SP (Stack Pointer):   {hex(cpu.SP)}")
-    print(f"  Flags: Z={cpu.flags.Z} N={cpu.flags.N} C={cpu.flags.C} V={cpu.flags.V}")
+    print(f"  PC (Program Counter): {hex(cpu.pc)}")
+    print(f"  SP (Stack Pointer):   {hex(cpu.sp.value)}")
+    print(f"  Flags: Z={cpu.flags['Z']} N={cpu.flags['N']} C={cpu.flags['C']} V={cpu.flags['V']}")
     print(f"\n  Registros:")
     for i in range(16):
-        val = cpu.registers.read(i)
+        val = cpu.registers[i].value
         print(f"    R{i:02d} = {val:20d} (0x{val:016X})")
     
     # Mostrar salida de pantalla si hay

@@ -4,7 +4,7 @@ Traduce el Árbol de Sintaxis Abstracta (AST) a código ensamblador Atlas
 """
 
 from .ast_nodes import *
-from .symbol_table import SymbolTable
+from .symbol_table import SymbolTable, Symbol
 
 
 class CodeGenerator:
@@ -21,31 +21,113 @@ class CodeGenerator:
     
     def __init__(self, ast, symbol_table):
         """
-        Inicializa el generador de código.
+        Inicializa el generador de código Atlas desde el AST y tabla de símbolos.
         
         Args:
-            ast: Nodo raíz del AST (Program)
-            symbol_table: Tabla de símbolos generada por el análisis semántico
+            ast: Nodo raíz del AST (Program) con declaraciones globales y funciones
+            symbol_table: Tabla de símbolos con información de tipos, scopes y símbolos
+        
+        CONVENCIONES DE ARQUITECTURA ATLAS:
+        
+        1. REGISTROS (64 bits cada uno):
+           - R00-R13: Registros de propósito general para temporales y cálculos
+           - R14 (BP): Base Pointer, apunta al inicio del stack frame actual
+           - R15 (SP): Stack Pointer, apunta al tope del stack
+           - R00: Registro especial, también se usa para valores de retorno
+        
+        2. MEMORIA (64KB total, arquitectura von Neumann):
+           - 0x0000-0x0FFF: Código ejecutable y datos constantes (4KB)
+           - 0x1000-0x7FFF: Variables globales y heap dinámico (28KB)
+           - 0x8000-0xFFFF: Stack (32KB, crece hacia arriba)
+        
+        3. STACK FRAME (convención de llamada):
+           Cuando se llama a una función f(a, b):
+           
+           Memoria:                     Offset desde BP:
+           ┌──────────────────────┐
+           │ param_b (segundo)    │     BP+24
+           ├──────────────────────┤
+           │ param_a (primero)    │     BP+16
+           ├──────────────────────┤
+           │ dirección_retorno    │     BP+8  (guardada por CALL)
+           ├──────────────────────┤
+           │ BP_anterior          │  ←  BP (guardado por PUSH8 R14)
+           ├──────────────────────┤
+           │ variable_local_1     │     BP-4
+           ├──────────────────────┤
+           │ variable_local_2     │     BP-8
+           └──────────────────────┘
+           
+           - Parámetros: offsets POSITIVOS desde BP (BP+16, BP+24, ...)
+           - Locales: offsets NEGATIVOS desde BP (BP-4, BP-8, ...)
+           - Stack crece hacia ARRIBA (incrementa direcciones)
+        
+        4. INSTRUCCIONES Y TAMAÑOS:
+           Sufijos indican tamaño de operación:
+           - Sufijo 1: 1 byte  (caracter, booleano)
+           - Sufijo 2: 2 bytes (entero2)
+           - Sufijo 4: 4 bytes (entero4, flotante)
+           - Sufijo 8: 8 bytes (entero8, doble, puntero)
+           
+           Prefijo F para operaciones de punto flotante:
+           - FADD4, FSUB4, FMUL4, FDIV4 (flotante)
+           - FADD8, FSUB8, FMUL8, FDIV8 (doble)
+        
+        5. CONVENCIÓN DE LLAMADA A FUNCIÓN:
+           a) Caller: PUSH argumentos en orden inverso (último primero)
+           b) Caller: CALL función (pushea IP de retorno)
+           c) Callee: PUSH8 R14 (guarda BP anterior)
+           d) Callee: MOV8 R14, R15 (BP apunta al nuevo frame)
+           e) Callee: SUBV8 R15, tamaño_locales (reserva espacio)
+           f) Callee: ejecuta cuerpo de función
+           g) Callee: MOV8 R00, valor_retorno (si hay return)
+           h) Callee: MOV8 R15, R14 (libera locales)
+           i) Callee: POP8 R14 (restaura BP anterior)
+           j) Callee: RET (pop IP y retorna)
+           k) Caller: ADDV8 R15, tamaño_args (limpia argumentos del stack)
         """
         self.ast = ast
         self.symbol_table = symbol_table
-        self.code = []  # Lista de líneas de código ensamblador generadas
+        self.code = []  # Acumulador de líneas de código ensamblador
         
-        # Gestión de registros temporales (R00-R13, reservando R14=BP y R15=SP)
-        self.temp_counter = 0  # Contador para asignar registros temporales
-        self.max_temps = 14  # Máximo número de registros disponibles (R00-R13)
+        # === GESTIÓN DE REGISTROS TEMPORALES ===
+        # Usamos R00-R13 como registros temporales (14 disponibles)
+        # R14 y R15 están reservados para BP y SP respectivamente
+        self.temp_counter = 0  # Índice del próximo registro temporal (0-13)
+        self.max_temps = 14    # Límite de registros temporales
         
-        # Gestión de etiquetas
-        self.label_counter = 0  # Contador para generar etiquetas únicas
+        # === GESTIÓN DE ETIQUETAS ===
+        # Generamos etiquetas únicas para estructuras de control (if, while, for)
+        self.label_counter = 0  # Contador global para garantizar unicidad
         
-        # Stack de contexto para bucles (para break/continue)
-        self.loop_stack = []  # [(label_start, label_end), ...]
+        # === STACK DE CONTEXTO DE BUCLES ===
+        # Para implementar break y continue, necesitamos saber a qué labels saltar
+        # Cada entrada es: (label_inicio, label_fin)
+        # - break salta a label_fin (salir del bucle)
+        # - continue salta a label_inicio (próxima iteración)
+        self.loop_stack = []
         
-        # Función actual (para validar returns)
+        # === CONTEXTO DE FUNCIÓN ACTUAL ===
+        # Almacena el nombre de la función que se está generando
+        # Usado para validar returns y generar labels de epílogo
         self.current_function = None
         
-        # Dirección base para variables globales
-        self.global_data_base = 0x1000  # Las globales empiezan en dirección 0x1000
+        # === LAYOUT DE MEMORIA PARA VARIABLES GLOBALES ===
+        # Las variables globales se ubican en direcciones absolutas desde 0x1000
+        self.global_data_base = 0x1000  # Dirección base de variables globales
+        
+        # === GESTIÓN DE OFFSETS ===
+        # Los offsets se asignan dinámicamente durante la generación porque
+        # el análisis semántico no conoce las convenciones de la arquitectura Atlas
+        
+        # Offset para próxima variable global (incrementa secuencialmente)
+        self.global_offset_counter = 0
+        
+        # Offset para próxima variable local (crece negativamente desde BP)
+        self.local_offset_counter = 0
+        
+        # Offset para próximo parámetro (crece positivamente desde BP+16)
+        self.param_offset_counter = 0
     
     def generate(self):
         """
@@ -130,28 +212,220 @@ class CodeGenerator:
     
     def get_sized_instruction(self, base_instr, type_name):
         """
-        Genera el nombre de instrucción con sufijo de tamaño.
+        Genera el nombre completo de una instrucción con sufijo de tamaño apropiado.
+        
+        La arquitectura Atlas requiere especificar el tamaño de datos en cada operación.
+        Este método automatiza la generación del nombre correcto basándose en el tipo.
+        
+        REGLAS DE SUFIJOS:
+        
+        1. Instrucciones ENTERAS: sufijo indica bytes
+           - ADD1, SUB1, MUL1, DIV1 (1 byte)
+           - ADD4, SUB4, MUL4, DIV4 (4 bytes)
+           - ADD8, SUB8, MUL8, DIV8 (8 bytes)
+           - LOAD4, STORE4, MOV4, etc.
+        
+        2. Instrucciones FLOTANTES: prefijo F + sufijo de bytes
+           - FADD4, FSUB4, FMUL4, FDIV4 (flotante, 32 bits)
+           - FADD8, FSUB8, FMUL8, FDIV8 (doble, 64 bits)
+        
+        3. Instrucciones SIN SUFIJO (operan en modo registro):
+           - CMP, CMPV (comparaciones)
+           - JMP, JEQ, JNE, JLT, JGT (saltos)
+           - CALL, RET, PUSH8, POP8
+        
+        Ejemplos:
+        - get_sized_instruction("ADD", "entero4")  → "ADD4"
+        - get_sized_instruction("MUL", "doble")    → "FMUL8"
+        - get_sized_instruction("LOAD", "entero8") → "LOAD8"
+        - get_sized_instruction("CMP", "entero4")  → "CMP"
         
         Args:
-            base_instr: Instrucción base (ej: "ADD", "LOAD", "STORE", "FADD")
-            type_name: Tipo de dato
+            base_instr: Instrucción base sin sufijo (ej: "ADD", "LOAD", "STORE")
+            type_name: Tipo SPL (ej: "entero4", "flotante", "doble", "caracter")
         
         Returns:
-            Instrucción con sufijo (ej: "ADD4", "LOAD8", "FADD8")
+            String con instrucción completa incluyendo sufijo/prefijo apropiado
         """
+        # Obtener tamaño en bytes del tipo
         size = self.get_type_size(type_name)
         
-        # Instrucciones que NO usan sufijo de tamaño
-        if base_instr in ["CMP", "CMPV"]:
+        # Instrucciones que NO requieren sufijo de tamaño
+        # Estas operan directamente con valores de registro o son saltos
+        if base_instr in ["CMP", "CMPV", "JMP", "JEQ", "JNE", "JLT", "JGT", "JLE", "JGE"]:
             return base_instr
         
-        # Instrucciones de punto flotante usan prefijo F
+        # Instrucciones de punto flotante: prefijo F + sufijo de tamaño
+        # Solo para operaciones aritméticas (ADD, SUB, MUL, DIV)
         if type_name in ["flotante", "doble"]:
             if base_instr in ["ADD", "SUB", "MUL", "DIV"]:
                 return f"F{base_instr}{size}"
         
-        # Instrucciones enteras usan sufijo de tamaño
+        # Instrucciones enteras estándar: sufijo de tamaño
+        # Cubre: ADD, SUB, MUL, DIV, LOAD, STORE, MOV, etc.
         return f"{base_instr}{size}"
+    
+    def _assign_global_offset(self, symbol):
+        """
+        Asigna un offset secuencial a una variable global.
+        
+        ESTRATEGIA DE UBICACIÓN DE VARIABLES GLOBALES:
+        
+        Las variables globales se almacenan en memoria de forma contigua empezando
+        desde self.global_data_base (0x1000). Cada variable ocupa el espacio
+        determinado por su tipo, y el contador se incrementa para la siguiente.
+        
+        Ejemplo de layout en memoria:
+        
+        Código SPL:
+            entero8 x = 10;      // 8 bytes
+            flotante pi = 3.14;  // 4 bytes
+            entero4 z = 42;      // 4 bytes
+        
+        Layout en memoria:
+            Dirección  Variable  Offset  Tamaño
+            ─────────────────────────────────────
+            0x1000     x         0       8 bytes
+            0x1008     pi        8       4 bytes
+            0x100C     z         12      4 bytes
+            0x1010     (libre)   16      ...
+        
+        El acceso se realiza con instrucciones absolutas:
+            LOAD8 R00, 0x1000     ; Cargar x
+            STORE4 R01, 0x1008    ; Guardar pi
+        
+        Args:
+            symbol: Símbolo de la tabla con atributo 'type'
+        
+        Returns:
+            int: Offset relativo desde global_data_base
+        
+        Side Effects:
+            Incrementa self.global_offset_counter por el tamaño del tipo
+        """
+        # Extraer nombre del tipo del símbolo
+        type_name = symbol.type.name if hasattr(symbol.type, 'name') else str(symbol.type)
+        
+        # Obtener tamaño en bytes del tipo
+        size = self.get_type_size(type_name)
+        
+        # El offset actual es donde se ubicará esta variable
+        offset = self.global_offset_counter
+        
+        # Avanzar el contador para la próxima variable global
+        # (layout secuencial sin gaps)
+        self.global_offset_counter += size
+        
+        return offset
+    
+    def _assign_local_offset(self, symbol):
+        """
+        Asigna un offset relativo a BP (R14) para variables locales y parámetros.
+        
+        CONVENCIÓN DE STACK FRAME DETALLADA:
+        
+        Cuando se llama a una función: funcion(arg1, arg2, arg3)
+        
+        1. CALLER (quien llama):
+           - PUSH8 arg3  ; Push argumentos en orden INVERSO
+           - PUSH8 arg2
+           - PUSH8 arg1
+           - CALL funcion ; Pushea dirección de retorno
+        
+        2. CALLEE (la función):
+           - PUSH8 R14        ; Guarda BP anterior
+           - MOV8 R14, R15    ; BP apunta al inicio del frame
+           - SUBV8 R15, N     ; Reserva espacio para N bytes de locales
+        
+        3. RESULTADO EN MEMORIA:
+        
+        Dirección    Contenido           Offset    Acceso
+        ──────────────────────────────────────────────────────────────
+        BP+32        arg3 (tercero)      +32       LOADR Rx, [BP+32]
+        BP+24        arg2 (segundo)      +24       LOADR Rx, [BP+24]
+        BP+16        arg1 (primero)      +16       LOADR Rx, [BP+16]
+        BP+8         ret_address         +8        (usado por RET)
+        BP           old_BP              0    ←    BP apunta aquí
+        BP-4         local1 (entero4)    -4        LOADR Rx, [BP-4]
+        BP-8         local2 (entero4)    -8        LOADR Rx, [BP-8]
+        BP-16        local3 (entero8)    -16       LOADR Rx, [BP-16]
+        BP-N         ...                 -N
+        
+        REGLAS DE ASIGNACIÓN:
+        
+        A) PARÁMETROS (offsets POSITIVOS):
+           - Primer parámetro: BP+16 (porque BP+8 es ret_address, BP es old_BP)
+           - Segundo parámetro: BP+24 (incremento de 8 bytes)
+           - Tercer parámetro: BP+32
+           - etc.
+           
+           Simplificación: Todos los parámetros ocupan 8 bytes en stack,
+           independiente de su tipo real (convención de alineación).
+        
+        B) VARIABLES LOCALES (offsets NEGATIVOS):
+           - Primera local: BP - tamaño_tipo
+           - Segunda local: BP - acumulado_anterior - tamaño_tipo
+           - Crecen hacia abajo (direcciones menores)
+           
+           Respetan tamaño real: entero4 ocupa 4 bytes, entero8 ocupa 8.
+        
+        EJEMPLO COMPLETO:
+        
+        Código SPL:
+            funcion sumar(entero8 a, entero8 b) -> entero8 {
+                entero4 temp;      // local1: BP-4
+                entero8 result;    // local2: BP-12 (BP-4-8)
+                ...
+            }
+        
+        Layout:
+            BP+24: b (parámetro 2)
+            BP+16: a (parámetro 1)
+            BP+8:  ret_address
+            BP:    old_BP
+            BP-4:  temp (4 bytes)
+            BP-12: result (8 bytes)
+        
+        Args:
+            symbol: Símbolo con atributos 'kind' ("parameter" o "local") y 'type'
+        
+        Returns:
+            int: Offset relativo a BP (positivo para params, negativo para locales)
+        
+        Side Effects:
+            - Incrementa param_offset_counter si es parámetro
+            - Decrementa local_offset_counter si es local
+        """
+        # Extraer nombre del tipo
+        type_name = symbol.type.name if hasattr(symbol.type, 'name') else str(symbol.type)
+        
+        # Obtener tamaño en bytes del tipo
+        size = self.get_type_size(type_name)
+        
+        if symbol.kind == 'parameter':
+            # ===  PARÁMETROS: OFFSETS POSITIVOS ===
+            # Estructura del frame antes de BP:
+            # BP+8:  dirección de retorno (guardada por CALL)
+            # BP+16: primer parámetro
+            # BP+24: segundo parámetro
+            # BP+32: tercer parámetro...
+            #
+            # Convención simplificada: cada parámetro ocupa 8 bytes en stack
+            # (alineación, aunque el tipo real sea más pequeño)
+            offset = 16 + (self.param_offset_counter * 8)
+            self.param_offset_counter += 1
+            return offset
+        else:
+            # === VARIABLES LOCALES: OFFSETS NEGATIVOS ===
+            # Crecen hacia abajo desde BP:
+            # BP-4: primera local (si es entero4)
+            # BP-8: segunda local (si es entero4)
+            # BP-16: tercera local (si es entero8)
+            #
+            # Respetan tamaño real del tipo (sin padding)
+            self.local_offset_counter -= size
+            offset = self.local_offset_counter
+            return offset
     
     def is_float_type(self, type_name):
         """Determina si un tipo es de punto flotante."""
@@ -181,10 +455,12 @@ class CodeGenerator:
         self.emit("; === CÓDIGO DE INICIALIZACIÓN ===")
         self.emit("")
         
-        # Configurar el stack pointer (R15) y frame pointer (R14)
+        # Inicializar Stack Pointer en una ubicación segura
+        # Usar mitad de la memoria disponible (0x8000 para memoria de 64KB)
+        # Esto deja espacio para código en la parte baja y stack en la parte alta
         self.emit("; Inicializar Stack Pointer (R15) y Frame Pointer (R14)")
-        self.emit("MOVV8 R15, 0xFFFF  ; SP apunta al final de la memoria (64KB)")
-        self.emit("MOV8 R14, R15      ; BP = SP (frame inicial)")
+        self.emit("MOVV8 R15, 0x8000        ; SP en mitad de memoria (32KB)")
+        self.emit("MOV8 R14, R15            ; BP = SP (frame inicial)")
         self.emit("")
         
         # Buscar la función principal y llamarla
@@ -207,6 +483,7 @@ class CodeGenerator:
         
         self.emit("")
         self.emit("END_PROGRAM:")
+        self.emit("; Fin del código ejecutable")
     
     def visit_global_var_decl(self, node):
         """
@@ -234,48 +511,171 @@ class CodeGenerator:
     
     def visit_function_decl(self, node):
         """
-        Genera código para una declaración de función.
+        Genera código completo para una declaración de función.
         
-        Convención de llamada:
-        1. Prólogo: Guardar BP, configurar nuevo frame
-        2. Cuerpo: Ejecutar statements
-        3. Epílogo: Restaurar BP, retornar
+        ESTRUCTURA DE UNA FUNCIÓN:
+        
+        nombre_funcion:           ; Label de entrada
+          ; Prólogo
+          PUSH8 R14              ; Guardar BP del caller
+          MOV8 R14, R15          ; Establecer nuevo BP
+          SUBV8 R15, N           ; Reservar N bytes para locales
+          
+          ; Cuerpo
+          <código de statements>
+          
+        nombre_funcion_epilogue: ; Label de salida
+          ; Epílogo
+          MOV8 R15, R14          ; Liberar locales (SP = BP)
+          POP8 R14               ; Restaurar BP del caller
+          RET                    ; Retornar al caller
+        
+        CONVENCIÓN DE LLAMADA COMPLETA:
+        
+        Dado: funcion(a, b) -> resultado
+        
+        1. CALLER prepara llamada:
+           PUSH8 valor_b         ; Pushear args en orden inverso
+           PUSH8 valor_a
+           CALL funcion          ; Pushea IP+1 y salta
+        
+        2. FUNCIÓN ejecuta PRÓLOGO:
+           PUSH8 R14             ; Preservar BP del caller
+           MOV8 R14, R15         ; BP apunta al nuevo frame base
+           SUBV8 R15, local_size ; Reservar espacio para variables locales
+        
+        3. FUNCIÓN ejecuta CUERPO:
+           - Accede parámetros: BP+16 (a), BP+24 (b)
+           - Accede locales: BP-4, BP-8, etc.
+           - Si hay return, coloca valor en R00 y salta a epilogue
+        
+        4. FUNCIÓN ejecuta EPÍLOGO:
+           MOV8 R15, R14         ; SP = BP (libera locales)
+           POP8 R14              ; Restaura BP del caller
+           RET                   ; Pop IP de retorno y salta
+        
+        5. CALLER limpia stack:
+           ADDV8 R15, 16         ; Elimina args (2 * 8 bytes)
+           MOV8 resultado, R00   ; Obtiene valor de retorno
+        
+        GESTIÓN DE OFFSETS:
+        
+        Es crítico pre-asignar offsets a PARÁMETROS antes de procesar el cuerpo,
+        porque las variables locales usan un contador negativo que no debe
+        interferir con los parámetros (que usan contador positivo).
+        
+        Ejemplo:
+            funcion calcular(entero8 x, entero4 y) -> entero8 {
+                entero8 temp;
+                entero4 result;
+                ...
+            }
+        
+        Pre-asignación:
+            x.offset = 16      (parámetro 1)
+            y.offset = 24      (parámetro 2)
+        
+        Durante el cuerpo:
+            temp.offset = -8   (local 1, entero8)
+            result.offset = -12 (local 2, entero4 después de entero8)
+        
+        Args:
+            node: Nodo FunctionDecl con name, params, return_type, body
         """
+        # === LABEL DE ENTRADA ===
         self.emit(f"{node.name}:  ; Función: {node.name}")
+        
+        # Establecer contexto de función actual (para returns)
         self.current_function = node.name
-        self.reset_temps()
         
-        # === PRÓLOGO ===
+        # === ENTRAR AL SCOPE DE LA FUNCIÓN ===
+        # CRÍTICO: Recrear el contexto de scope para que lookup() funcione
+        # El análisis semántico ya creó estos scopes pero los destruyó con exit_scope()
+        self.symbol_table.enter_scope(
+            name=f"function_{node.name}",
+            is_function=True,
+            return_type=node.return_type
+        )
+        
+        # Resetear contadores para nueva función
+        self.reset_temps()              # Registros temporales desde R00
+        self.local_offset_counter = 0   # Locales desde BP-0
+        self.param_offset_counter = 0   # Parámetros desde BP+16
+        
+        # === DECLARAR PARÁMETROS EN EL SCOPE ACTUAL ===
+        # Recrear los símbolos de parámetros en este scope
+        for param in node.params:
+            param_symbol = Symbol(param.name, param.var_type, param, kind='parameter')
+            self.symbol_table.define(param_symbol)
+        
+        # === PRE-ASIGNACIÓN DE OFFSETS A PARÁMETROS ===
+        # CRÍTICO: Hacer esto ANTES de procesar el cuerpo para que los
+        # parámetros tengan offsets positivos establecidos y las locales
+        # no interfieran con el contador de parámetros
+        for param in node.params:
+            param_symbol = self.symbol_table.lookup(param.name)
+            if param_symbol and not hasattr(param_symbol, 'offset'):
+                # Asignar offset positivo (BP+16, BP+24, ...)
+                param_symbol.offset = self._assign_local_offset(param_symbol)
+        
+        # === PRÓLOGO DE LA FUNCIÓN ===
+        # El prólogo configura el stack frame según la convención de llamada
         self.emit(f"  ; Prólogo de {node.name}")
-        self.emit(f"  PUSH8 R14          ; Guardar BP anterior")
-        self.emit(f"  MOV8 R14, R15      ; BP = SP (nuevo frame)")
         
-        # Calcular espacio para variables locales
+        # Paso 1: Guardar BP del caller
+        # Esto preserva la cadena de frames para poder hacer stack unwinding
+        self.emit(f"  PUSH8 R14          ; Guardar BP del caller en stack")
+        
+        # Paso 2: Establecer nuevo BP
+        # BP ahora apunta a la base del frame actual (donde está old_BP)
+        self.emit(f"  MOV8 R14, R15      ; BP = SP (inicio del frame actual)")
+        
+        # Paso 3: Reservar espacio para variables locales
+        # El análisis semántico puede haber calculado el tamaño total necesario
         func_symbol = self.symbol_table.lookup(node.name)
         local_space = 0
         if func_symbol and hasattr(func_symbol, 'local_size'):
             local_space = func_symbol.local_size
         
         if local_space > 0:
-            self.emit(f"  SUBV8 R15, {local_space}  ; Reservar espacio para locales")
+            # Mover SP hacia arriba para reservar espacio
+            # Stack crece hacia direcciones mayores en Atlas
+            self.emit(f"  SUBV8 R15, {local_space}  ; Reservar {local_space} bytes para locales")
         
         self.emit("")
         
-        # === CUERPO ===
+        # === CUERPO DE LA FUNCIÓN ===
+        # Generar código para cada statement del cuerpo
         self.emit(f"  ; Cuerpo de {node.name}")
         for stmt in node.body.statements:
             self.visit_stmt(stmt)
         
         self.emit("")
         
-        # === EPÍLOGO (si no hubo return explícito) ===
+        # === EPÍLOGO DE LA FUNCIÓN ===
+        # El epílogo se ejecuta cuando:
+        # 1. Se llega al final de la función sin return explícito
+        # 2. Un return statement hace JMP a este label
         self.emit(f"{node.name}_epilogue:")
         self.emit(f"  ; Epílogo de {node.name}")
+        
+        # Paso 1: Liberar variables locales
+        # Restaurar SP a la posición de BP (elimina locales)
         self.emit(f"  MOV8 R15, R14      ; SP = BP (liberar locales)")
-        self.emit(f"  POP8 R14           ; Restaurar BP anterior")
-        self.emit(f"  RET                ; Retornar")
+        
+        # Paso 2: Restaurar BP del caller
+        # Pop del valor que guardamos en el prólogo
+        self.emit(f"  POP8 R14           ; Restaurar BP del caller")
+        
+        # Paso 3: Retornar al caller
+        # RET hace: IP = POP(); (salta a dirección de retorno)
+        self.emit(f"  RET                ; Retornar al caller")
         self.emit("")
         
+        # === SALIR DEL SCOPE DE LA FUNCIÓN ===
+        self.symbol_table.exit_scope()
+        
+        # Limpiar contexto de función
         self.current_function = None
     
     def visit_stmt(self, node):
@@ -308,9 +708,17 @@ class CodeGenerator:
         
         Las variables locales se acceden mediante offset desde BP (R14).
         """
+        # Buscar si ya existe el símbolo
         symbol = self.symbol_table.lookup(node.name)
+        
+        # Si no existe, crearlo y agregarlo al scope actual
         if not symbol:
-            return
+            symbol = Symbol(node.name, node.var_type, node, kind='local')
+            self.symbol_table.define(symbol)
+        
+        # Asignar offset si no existe
+        if not hasattr(symbol, 'offset'):
+            symbol.offset = self._assign_local_offset(symbol)
         
         self.emit(f"  ; Variable local: {node.name} (offset: {symbol.offset})")
         
@@ -327,33 +735,133 @@ class CodeGenerator:
             self.emit(f"  {store_instr} R{reg:02d}, R{addr_reg:02d}  ; {node.name} = valor_inicial")
     
     def visit_assignment(self, node):
-        """Genera código para una asignación."""
-        # node.lvalue es típicamente un Identifier, pero podría ser ArrayAccess o MemberAccess
+        """
+        Genera código para una asignación de variable.
+        
+        FORMAS DE ASIGNACIÓN:
+        
+        1. Variable global:
+           variable = expresión;
+           
+           Genera:
+           <código para evaluar expresión en Rx>
+           STORE{size} Rx, dirección_absoluta
+        
+        2. Variable local o parámetro:
+           variable = expresión;
+           
+           Genera:
+           <código para evaluar expresión en Rx>
+           MOVV8 Ry, offset
+           ADD8 Ry, R14             ; Ry = BP + offset
+           STORER{size} Rx, Ry      ; [Ry] = Rx
+        
+        DISTINCIÓN GLOBAL vs LOCAL:
+        
+        Usamos symbol_table.global_scope.lookup_local() para determinar si
+        una variable es global. Solo variables en el scope global usan
+        direcciones absolutas; todas las demás usan offsets desde BP.
+        
+        ASIGNACIÓN DINÁMICA DE OFFSETS:
+        
+        Si una variable no tiene offset asignado (caso raro, debería estar
+        asignado por el análisis semántico o en visit_function_decl), lo
+        asignamos dinámicamente usando _assign_global_offset o
+        _assign_local_offset según corresponda.
+        
+        Ejemplo 1 - Global:
+            Código SPL:
+                entero8 x;
+                x = 42;
+            
+            Genera:
+                MOVV8 R00, 42
+                STORE8 R00, 0x1000    ; x está en 0x1000
+        
+        Ejemplo 2 - Local:
+            Código SPL:
+                funcion f() {
+                    entero4 temp;
+                    temp = 100;
+                }
+            
+            Genera:
+                MOVV4 R00, 100        ; Valor a asignar
+                MOVV8 R01, -4         ; Offset de temp
+                ADD8 R01, R14         ; R01 = BP-4 (dirección)
+                STORER4 R00, R01      ; [BP-4] = 100
+        
+        Ejemplo 3 - Parámetro:
+            Código SPL:
+                funcion f(entero8 a) {
+                    a = 50;
+                }
+            
+            Genera:
+                MOVV8 R00, 50         ; Valor a asignar
+                MOVV8 R01, 16         ; Offset de parámetro 'a'
+                ADD8 R01, R14         ; R01 = BP+16 (dirección)
+                STORER8 R00, R01      ; [BP+16] = 50
+        
+        Args:
+            node: Nodo Assignment con lvalue (Identifier) y rvalue (Expression)
+        """
+        # Validar que lvalue sea un identificador simple
+        # (asignación a arrays/structs no implementada aún)
         if not isinstance(node.lvalue, Identifier):
             self.emit("  ; ADVERTENCIA: Asignación a expresión compleja no implementada")
             return
         
+        # Obtener nombre y símbolo de la variable
         target_name = node.lvalue.name
         symbol = self.symbol_table.lookup(target_name)
         if not symbol:
+            self.emit(f"  ; ERROR: Variable '{target_name}' no encontrada")
             return
         
+        # Obtener tipo para generar instrucción con sufijo correcto
         type_name = symbol.type.name if hasattr(symbol.type, 'name') else str(symbol.type)
         
-        # Evaluar expresión del lado derecho
+        # === EVALUAR EXPRESIÓN DEL LADO DERECHO ===
+        # El resultado queda en un registro temporal
         reg = self.visit_expr(node.rvalue, type_name)
         
-        if symbol.scope == "global":
-            # Variable global: STORE a dirección absoluta
+        # === DETERMINAR SCOPE: GLOBAL vs LOCAL/PARÁMETRO ===
+        # Una variable es global solo si está en el scope global
+        # Locales y parámetros están en scopes de función
+        is_global = (self.symbol_table.global_scope.lookup_local(target_name) is not None)
+        
+        if is_global:
+            # === CASO 1: VARIABLE GLOBAL ===
+            # Usar dirección absoluta: global_data_base + offset
+            
+            # Asignar offset si no existe (fallback de seguridad)
+            if not hasattr(symbol, 'offset'):
+                symbol.offset = self._assign_global_offset(symbol)
+            
+            # Calcular dirección absoluta
             address = self.global_data_base + symbol.offset
+            
+            # Generar instrucción STORE con tamaño apropiado
             store_instr = self.get_sized_instruction("STORE", type_name)
             self.emit(f"  {store_instr} R{reg:02d}, {address}  ; {target_name} = valor")
         else:
-            # Variable local: STORER con offset desde BP
+            # === CASO 2: VARIABLE LOCAL O PARÁMETRO ===
+            # Usar offset relativo a BP (puede ser positivo o negativo)
+            
+            # Asignar offset si no existe (fallback de seguridad)
+            if not hasattr(symbol, 'offset'):
+                symbol.offset = self._assign_local_offset(symbol)
+            
+            # Generar instrucción STORER (Store Relative)
             store_instr = self.get_sized_instruction("STORER", type_name)
+            
+            # Paso 1: Calcular dirección efectiva en un registro temporal
             addr_reg = self.new_temp()
-            self.emit(f"  MOVV8 R{addr_reg:02d}, {symbol.offset}")
+            self.emit(f"  MOVV8 R{addr_reg:02d}, {symbol.offset}  ; Offset desde BP")
             self.emit(f"  ADD8 R{addr_reg:02d}, R14  ; Dirección = BP + offset")
+            
+            # Paso 2: Almacenar valor en la dirección calculada
             self.emit(f"  {store_instr} R{reg:02d}, R{addr_reg:02d}  ; {target_name} = valor")
     
     def visit_if_stmt(self, node):
@@ -583,29 +1091,140 @@ class CodeGenerator:
         return reg
     
     def visit_identifier(self, node, expected_type):
-        """Genera código para acceder a una variable."""
+        """
+        Genera código para leer el valor de una variable.
+        
+        ESTRATEGIAS DE CARGA SEGÚN SCOPE:
+        
+        1. Variable GLOBAL:
+           Usa dirección absoluta calculada como: global_data_base + offset
+           
+           Genera:
+           LOAD{size} Rx, dirección_absoluta
+        
+        2. Variable LOCAL o PARÁMETRO:
+           Usa offset relativo a BP (puede ser positivo o negativo)
+           
+           Genera:
+           MOVV8 Ry, offset
+           ADD8 Ry, R14             ; Ry = BP + offset
+           LOADR{size} Rx, Ry       ; Rx = [Ry]
+        
+        DETECCIÓN DE SCOPE:
+        
+        Una variable es global si y solo si está definida en el scope global.
+        Usamos symbol_table.global_scope.lookup_local() que busca SOLO en
+        ese scope sin subir por la cadena de scopes.
+        
+        ASIGNACIÓN DINÁMICA DE OFFSETS:
+        
+        Si una variable no tiene offset asignado, se asigna dinámicamente:
+        - Globales: offset secuencial desde 0
+        - Parámetros: offset positivo desde BP+16
+        - Locales: offset negativo desde BP-tamaño
+        
+        Esta asignación dinámica es un fallback de seguridad. Normalmente,
+        los offsets ya fueron asignados en visit_function_decl (parámetros)
+        o visit_local_var_decl (locales).
+        
+        Ejemplo 1 - Leer global:
+            Código SPL:
+                entero8 x = 10;
+                entero8 y = x + 5;
+            
+            Genera (para x + 5):
+                LOAD8 R00, 0x1000     ; Cargar x (global en 0x1000)
+                MOVV8 R01, 5
+                ADD8 R00, R01
+        
+        Ejemplo 2 - Leer local:
+            Código SPL:
+                funcion f() {
+                    entero4 temp = 100;
+                    entero4 result = temp * 2;
+                }
+            
+            Genera (para temp * 2):
+                MOVV8 R01, -4         ; Offset de temp
+                ADD8 R01, R14         ; R01 = BP-4
+                LOADR4 R00, R01       ; R00 = [BP-4] (cargar temp)
+                MOVV4 R02, 2
+                MUL4 R00, R02
+        
+        Ejemplo 3 - Leer parámetro:
+            Código SPL:
+                funcion calcular(entero8 a, entero8 b) -> entero8 {
+                    retornar a + b;
+                }
+            
+            Genera (para a + b):
+                MOVV8 R01, 16         ; Offset de 'a'
+                ADD8 R01, R14         ; R01 = BP+16
+                LOADR8 R00, R01       ; R00 = [BP+16] (cargar a)
+                
+                MOVV8 R02, 24         ; Offset de 'b'
+                ADD8 R02, R14         ; R02 = BP+24
+                LOADR8 R03, R02       ; R03 = [BP+24] (cargar b)
+                
+                ADD8 R00, R03         ; R00 = a + b
+        
+        Args:
+            node: Nodo Identifier con atributo 'name'
+            expected_type: Tipo esperado del resultado (para seleccionar instrucción)
+        
+        Returns:
+            int: Número de registro temporal donde quedó cargado el valor
+        """
+        # Buscar símbolo en la tabla
         symbol = self.symbol_table.lookup(node.name)
         if not symbol:
+            # Variable no encontrada: generar error y retornar 0
             reg = self.new_temp()
-            self.emit(f"  ; ERROR: Variable {node.name} no encontrada")
-            self.emit(f"  MOVV8 R{reg:02d}, 0")
+            self.emit(f"  ; ERROR: Variable '{node.name}' no encontrada en tabla de símbolos")
+            self.emit(f"  MOVV8 R{reg:02d}, 0  ; Valor por defecto")
             return reg
         
+        # Asignar registro temporal para el resultado
         reg = self.new_temp()
         
+        # Extraer nombre del tipo
         type_name = symbol.type.name if hasattr(symbol.type, 'name') else str(symbol.type)
         
-        if symbol.scope == "global":
-            # Variable global: LOAD desde dirección absoluta
+        # === DETERMINAR SCOPE: GLOBAL vs LOCAL/PARÁMETRO ===
+        # lookup_local busca SOLO en ese scope, no en padres
+        is_global = (self.symbol_table.global_scope.lookup_local(node.name) is not None)
+        
+        if is_global:
+            # === CASO 1: VARIABLE GLOBAL ===
+            # Cargar desde dirección absoluta
+            
+            # Asignar offset si no existe (fallback)
+            if not hasattr(symbol, 'offset'):
+                symbol.offset = self._assign_global_offset(symbol)
+            
+            # Calcular dirección absoluta
             address = self.global_data_base + symbol.offset
+            
+            # Generar instrucción LOAD con tamaño apropiado
             load_instr = self.get_sized_instruction("LOAD", type_name)
-            self.emit(f"  {load_instr} R{reg:02d}, {address}  ; Cargar {node.name}")
+            self.emit(f"  {load_instr} R{reg:02d}, {address}  ; Cargar {node.name} (global)")
         else:
-            # Variable local: LOADR con offset desde BP
+            # === CASO 2: VARIABLE LOCAL O PARÁMETRO ===
+            # Cargar usando offset relativo a BP
+            
+            # Asignar offset si no existe (fallback)
+            if not hasattr(symbol, 'offset'):
+                symbol.offset = self._assign_local_offset(symbol)
+            
+            # Generar instrucción LOADR (Load Relative)
             load_instr = self.get_sized_instruction("LOADR", type_name)
+            
+            # Paso 1: Calcular dirección efectiva en un registro temporal
             addr_reg = self.new_temp()
-            self.emit(f"  MOVV8 R{addr_reg:02d}, {symbol.offset}")
+            self.emit(f"  MOVV8 R{addr_reg:02d}, {symbol.offset}  ; Offset desde BP")
             self.emit(f"  ADD8 R{addr_reg:02d}, R14  ; Dirección = BP + offset")
+            
+            # Paso 2: Cargar valor desde la dirección calculada
             self.emit(f"  {load_instr} R{reg:02d}, R{addr_reg:02d}  ; Cargar {node.name}")
         
         return reg
@@ -672,8 +1291,16 @@ class CodeGenerator:
             self.emit(f"{true_label}:")
             self.emit(f"  MOVV1 R{result_reg:02d}, 1  ; Verdadero")
             self.emit(f"{end_label}:")
+        elif node.operator == '&&':
+            # Operador lógico AND - usar AND8 (bitwise funciona para booleanos)
+            self.emit(f"  MOV8 R{result_reg:02d}, R{left_reg:02d}")
+            self.emit(f"  AND8 R{result_reg:02d}, R{right_reg:02d}  ; AND lógico")
+        elif node.operator == '||':
+            # Operador lógico OR - usar OR8 (bitwise funciona para booleanos)
+            self.emit(f"  MOV8 R{result_reg:02d}, R{left_reg:02d}")
+            self.emit(f"  OR8 R{result_reg:02d}, R{right_reg:02d}  ; OR lógico")
         else:
-            # Operadores aritméticos/lógicos
+            # Operadores aritméticos
             instr = self.get_sized_instruction(base_instr, expected_type)
             self.emit(f"  MOV8 R{result_reg:02d}, R{left_reg:02d}")
             self.emit(f"  {instr} R{result_reg:02d}, R{right_reg:02d}")
@@ -703,34 +1330,155 @@ class CodeGenerator:
         """
         Genera código para una llamada a función.
         
-        Convención: Los argumentos se pasan en la pila (push en orden inverso).
-        El valor de retorno queda en R00.
+        CONVENCIÓN DE LLAMADA (Calling Convention):
+        
+        1. CALLER (quien llama):
+           a) Evaluar cada argumento y guardar en registro temporal
+           b) PUSH argumentos en orden INVERSO (último primero)
+           c) CALL función (pushea IP de retorno y salta)
+           d) Limpiar stack (ADDV8 SP, tamaño_args)
+           e) Obtener resultado desde R00
+        
+        2. CALLEE (la función llamada):
+           a) Ejecuta prólogo (guarda BP, reserva locales)
+           b) Accede parámetros como variables locales con offset positivo
+           c) Ejecuta cuerpo
+           d) Coloca resultado en R00 (si retorna algo)
+           e) Ejecuta epílogo (restaura BP, limpia locales, RET)
+        
+        ORDEN DE ARGUMENTOS EN STACK:
+        
+        Para la llamada: funcion(arg1, arg2, arg3)
+        
+        Stack antes de CALL:
+        ┌────────────┐
+        │ arg1       │ ← Primer push (último argumento se pushea primero)
+        ├────────────┤
+        │ arg2       │
+        ├────────────┤
+        │ arg3       │
+        └────────────┘ ← SP aquí
+        
+        Stack después de CALL (dentro de la función):
+        ┌────────────┐
+        │ arg1       │ ← BP+16 (primer parámetro)
+        ├────────────┤
+        │ arg2       │ ← BP+24 (segundo parámetro)
+        ├────────────┤
+        │ arg3       │ ← BP+32 (tercer parámetro)
+        ├────────────┤
+        │ ret_addr   │ ← BP+8 (guardada por CALL)
+        ├────────────┤
+        │ old_BP     │ ← BP (guardado por prólogo)
+        └────────────┘
+        
+        POR QUÉ ORDEN INVERSO:
+        
+        Pushear en orden inverso hace que el primer parámetro quede más
+        cerca de BP, facilitando el acceso secuencial (BP+16, BP+24, ...).
+        
+        EJEMPLO COMPLETO:
+        
+        Código SPL:
+            entero8 suma(entero8 a, entero8 b) {
+                retornar a + b;
+            }
+            
+            funcion principal() {
+                entero8 x = suma(10, 20);
+            }
+        
+        Código generado para llamada:
+            ; Evaluar argumentos
+            MOVV8 R00, 10          ; arg1 = 10
+            MOVV8 R01, 20          ; arg2 = 20
+            
+            ; Push en orden inverso
+            PUSH8 R01              ; Push 20 (segundo arg)
+            PUSH8 R00              ; Push 10 (primer arg)
+            
+            ; Llamar
+            CALL suma              ; Pushea IP+1, salta a 'suma'
+            
+            ; Limpiar stack (2 args * 8 bytes)
+            ADDV8 R15, 16          ; SP += 16 (elimina argumentos)
+            
+            ; Resultado en R00
+            MOV8 R02, R00          ; x = resultado
+        
+        Código generado para 'suma':
+            suma:
+              PUSH8 R14            ; Guarda BP
+              MOV8 R14, R15        ; BP = SP
+              
+              ; Cargar a (BP+16)
+              MOVV8 R01, 16
+              ADD8 R01, R14
+              LOADR8 R00, R01
+              
+              ; Cargar b (BP+24)
+              MOVV8 R02, 24
+              ADD8 R02, R14
+              LOADR8 R03, R02
+              
+              ; a + b
+              ADD8 R00, R03        ; Resultado en R00
+              
+            suma_epilogue:
+              MOV8 R15, R14
+              POP8 R14
+              RET                  ; Retorna con resultado en R00
+        
+        VALOR DE RETORNO:
+        
+        Siempre se retorna en R00. Este método retorna 0 para indicar
+        que el resultado está en R00, no en otro registro temporal.
+        
+        Args:
+            node: Nodo FunctionCall con 'function' (Identifier) y 'arguments' (lista)
+            expected_type: Tipo esperado del resultado (no usado actualmente)
+        
+        Returns:
+            int: 0 (indica que resultado está en R00)
         """
-        # node.function es típicamente un Identifier
+        # Extraer nombre de la función
         if isinstance(node.function, Identifier):
             func_name = node.function.name
         else:
+            # Caso raro: llamada a expresión compleja
             func_name = "UNKNOWN_FUNCTION"
+            self.emit(f"  ; ADVERTENCIA: Llamada a función no identificada")
         
-        # Evaluar argumentos y pushearlos en orden inverso
+        # === PASO 1: EVALUAR ARGUMENTOS ===
+        # Evaluar cada argumento y guardar registros donde quedaron
         arg_regs = []
         for arg in node.arguments:
-            arg_reg = self.visit_expr(arg, "entero8")  # Asumir entero8 por defecto
+            # Asumir entero8 por defecto (simplificación)
+            # TODO: Obtener tipo real del parámetro formal
+            arg_reg = self.visit_expr(arg, "entero8")
             arg_regs.append(arg_reg)
         
-        # Push argumentos en orden inverso
+        # === PASO 2: PUSH ARGUMENTOS EN ORDEN INVERSO ===
+        # Esto coloca el primer argumento más cerca de BP en memoria
         for arg_reg in reversed(arg_regs):
             self.emit(f"  PUSH8 R{arg_reg:02d}  ; Push argumento")
         
-        # Llamar a la función
-        self.emit(f"  CALL {func_name}")
+        # === PASO 3: LLAMAR A LA FUNCIÓN ===
+        # CALL hace:
+        # - PUSH de la dirección de retorno (IP actual + 1)
+        # - JMP a la función
+        self.emit(f"  CALL {func_name}  ; Llamar a {func_name}")
         
-        # Limpiar argumentos de la pila
+        # === PASO 4: LIMPIAR STACK (Caller-cleanup) ===
+        # Después de RET, el caller es responsable de eliminar los argumentos
+        # Cada argumento ocupó 8 bytes (simplificación)
         if len(arg_regs) > 0:
             stack_clean = len(arg_regs) * 8
-            self.emit(f"  ADDV8 R15, {stack_clean}  ; Limpiar argumentos")
+            self.emit(f"  ADDV8 R15, {stack_clean}  ; Limpiar {len(arg_regs)} argumentos del stack")
         
-        # El resultado está en R00
+        # === PASO 5: RESULTADO EN R00 ===
+        # Por convención, el valor de retorno siempre está en R00
+        # Retornamos 0 para indicar esto
         result_reg = 0
         return result_reg
 

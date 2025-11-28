@@ -33,6 +33,18 @@ class Loader :
         return out
     
     def load_in_memory(self, rel_src : str, start_address : int):
+        """
+        Carga el código en memoria y retorna información de carga.
+        
+        Args:
+            rel_src: Código fuente relocatable
+            start_address: Dirección inicial donde cargar
+            
+        Returns:
+            tuple: (codigo_absoluto_str, end_address)
+                - codigo_absoluto_str: Código en formato absoluto
+                - end_address: Dirección final (start_address + tamaño)
+        """
         program = self._get_absolute_code(rel_src,start_address)
 
         address = start_address
@@ -42,7 +54,8 @@ class Loader :
             address += 8
             absoluto += f"{ins:016X}\n"
         
-        return absoluto
+        # Retornar código absoluto y dirección final
+        return absoluto, address
         
 # -----------------------------
 # Prueba (Powershell)

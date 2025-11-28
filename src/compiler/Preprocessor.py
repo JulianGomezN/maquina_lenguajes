@@ -2,7 +2,11 @@ import ply.lex as lex
 import os
 import re
 
-path_lib = "lib"
+# Determinar la ruta base del proyecto para buscar lib/
+# Asumimos que Preprocessor.py está en src/compiler/
+current_file_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(current_file_dir))  # Subir 2 niveles a raíz
+path_lib = os.path.join(project_root, "lib")
 
 # --- Tokens ---
 tokens = [
