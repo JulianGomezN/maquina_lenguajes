@@ -3,7 +3,11 @@ from tkinter import ttk, messagebox
 
 import sys
 import os
+import io
 from pprint import pformat
+
+# Manejo de salida, usado al crear el AST para no modificar el archivo
+from contextlib import redirect_stdout
 
 # La CPU checkea si hay input, esto es para no bloquear el hilo de la GUI mientras hace esto
 import threading
@@ -17,6 +21,8 @@ from compiler.ensamblador import Ensamblador
 from compiler.Loader import Loader
 from compiler.Preprocessor import preprocess
 from compiler.Lex_analizer import lexer as preprocessor_lexer
+from compiler.ast_printer import print_ast
+from compiler.syntax_analizer import parse as syntax_parse
 
 class SimuladorGUI:
     def __init__(self, CPU:CPU, sdtout: Screen, stdin:Keyboard):
@@ -110,8 +116,8 @@ class SimuladorGUI:
         frame_buttoms = ttk.Frame(parent)
         frame_buttoms.pack(fill="x", expand=False)
 
-        ttk.Button(frame_buttoms, text="LEX", command=self._abrir_ventana_analizador_lexico).pack(side="left",fill="x", pady=2, expand=True)
-        ttk.Button(frame_buttoms, text="YACC", command=self._abrir_ventana_analizador_sintactico).pack(side="left",fill="x", pady=2, expand=True)
+        ttk.Button(frame_buttoms, text="A.Lexico", command=self._abrir_ventana_analizador_lexico).pack(side="left",fill="x", pady=2, expand=True)
+        ttk.Button(frame_buttoms, text="A.Sintactico", command=self._abrir_ventana_analizador_sintactico).pack(side="left",fill="x", pady=2, expand=True)
         
         ttk.Button(parent, text="Reset", command=self.reset_cpu).pack(fill="x", pady=2)
 
@@ -384,7 +390,7 @@ class SimuladorGUI:
                 
                 # Mostrar mensaje de éxito
                 nombre_archivo = os.path.basename(archivo)
-                self.set_log(f"Archivo '{nombre_archivo}' cargado exitosamente.\nHaz clic en 'Cargar Programa' para ensamblarlo.")
+                self.set_log(f"Archivo '{nombre_archivo}' cargado exitosamente.\nHaz clic en 'Preprocesar' para preprocesar el programa.")
                 
             except Exception as e:
                 messagebox.showerror("Error", f"Error al cargar el archivo:\n{str(e)}")
@@ -451,6 +457,8 @@ class SimuladorGUI:
         #
         self.texto_preprocesado.insert("1.0", codigo_preprocesado)
 
+        self.set_log(f"✓ Preprocesado exitoso. \nHaz clic en 'Compilar' para Compilar el programa. \nPuedes dar click en A.Lexico para ver los tokens o en A.Sintactico para ver el arbol sintactico.")
+
     def analizador_lexico(self, codigo):
         preprocessor_lexer.input(codigo)
         tokens = ""
@@ -506,7 +514,7 @@ class SimuladorGUI:
             self.texto_asm.delete("1.0", "end")
             self.texto_asm.insert("1.0", assembly_code)
             
-            self.set_log(f"✓ Compilación exitosa ({len(assembly_code)} caracteres de Assembly generados)")
+            self.set_log(f"✓ Compilación exitosa ({len(assembly_code)} caracteres de Assembly generados). \n Haga clic en 'Ensamblar' para ensamblar el programa.")
             
         except Exception as e:
             messagebox.showerror("Error de Compilación", f"Error al compilar:\n{str(e)}")
@@ -542,6 +550,7 @@ class SimuladorGUI:
 
             self.texto_relo.delete("1.0", "end")
             self.texto_relo.insert("1.0", self.programa_actual)
+            self.set_log(f"✓ Ensamblado exitoso. \nAsigne una direccion de carga y haga clic en 'Enlazar y cargar' para enlazar el programa y cargarlo en la memoria RAM.")
 
             #self.set_salida(f"Programa cargado exitosamente desde {tipo_carga}. ¡Haz clic en 'Ejecutar'!")
 
@@ -572,7 +581,7 @@ class SimuladorGUI:
             #Limpiar salida
             self.machine_out.buffer = ""
             self.update_gui()
-            self.set_log(f"Programa cargado en memoria!")
+            self.set_log(f"✓ Programa cargado en memoria! Puedes ejecutar el programa")
         except Exception as e:
             messagebox.showerror("Error", f"Error al cargar programa:\n{str(e)}")
             import traceback
@@ -1151,16 +1160,21 @@ class SimuladorGUI:
         self.root.after(20, self.check_cpu)
 
     def _abrir_ventana_analizador_lexico(self):
+
+        texto_preprocesado = self.texto_preprocesado.get("1.0", "end").strip()
+
+        if not texto_preprocesado:
+            messagebox.showwarning("Advertencia", "No hay un codigo preprocesado para analizar")
+            return
+
         # Si ya existe, traer al frente
         if hasattr(self, 'lex_window') and self.lex_window and tk.Toplevel.winfo_exists(self.lex_window):
             self.lex_window.deiconify()
             self.lex_window.lift()
             return
 
-
         self.lex_window = tk.Toplevel(self.root)
         self.lex_window.title("Ventana LEX")
-        self.lex_window.geometry("450x300")
 
         frame = ttk.Frame(self.lex_window)
         frame.pack(fill="both", expand=True)
@@ -1172,10 +1186,46 @@ class SimuladorGUI:
         sy.pack(side="right", fill="y")
         self.texto_lex.configure(yscrollcommand=sy.set)
 
-        codigo_lex = self.analizador_lexico(self.texto_preprocesado.get("1.0", "end"))
+        codigo_lex = self.analizador_lexico(texto_preprocesado)
 
         self.texto_lex.insert("1.0", codigo_lex)
 
     def _abrir_ventana_analizador_sintactico(self):
-        #Aqui va el codigo para mostrar el analizador sintactico
-        pass
+
+        texto_preprocesado = self.texto_preprocesado.get("1.0", "end").strip()
+
+        if not texto_preprocesado:
+            messagebox.showwarning("Advertencia", "No hay un codigo preprocesado para analizar")
+            return
+
+        if hasattr(self, 'syntax_window') and self.syntax_window and tk.Toplevel.winfo_exists(self.syntax_window):
+            self.syntax_window.deiconify()
+            self.syntax_window.lift()
+            return
+
+        self.syntax_window = tk.Toplevel(self.root)
+        self.syntax_window.title("Ventana Analizador Sintactico")
+
+        frame = ttk.Frame(self.syntax_window)
+        frame.pack(fill="both", expand=True)
+
+        self.texto_syntax = tk.Text(frame, wrap="none")
+        self.texto_syntax.pack(side="left", fill="both", expand=True)
+
+        sy = ttk.Scrollbar(frame, orient="vertical", command=self.texto_syntax.yview)
+        sy.pack(side="right", fill="y")
+        self.texto_syntax.configure(yscrollcommand=sy.set)
+
+        ast = syntax_parse(texto_preprocesado, debug=False)
+
+        # Capturar la salida de print_ast en un buffer
+
+        buffer = io.StringIO()
+        with redirect_stdout(buffer):
+            print_ast(ast)
+
+        codigo_syntax = buffer.getvalue()
+
+        print("Libera el buffer")
+
+        self.texto_syntax.insert("1.0", codigo_syntax)
