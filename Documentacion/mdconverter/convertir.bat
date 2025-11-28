@@ -1,17 +1,20 @@
 @echo off
 chcp 65001 > nul
-setlocal
 
-REM Lanzar el convertidor interactivo (file dialog)
-cd /d "%~dp0"
-echo Abriendo diálogo para seleccionar archivo .md...
+REM Cambiar al directorio del script y guardar el anterior
+pushd "%~dp0"
+
+echo Abriendo di�logo para seleccionar archivo .md...
+echo Ejecutando script Python: convertir_dialogo.py
 python convertir_dialogo.py
 
-if %errorlevel% neq 0 (
-    echo El script devolvió un error.
+if %ERRORLEVEL% NEQ 0 (
+    echo El script devolvi� un error.
     pause
-    exit /b %errorlevel%
+    popd
+    exit /b %ERRORLEVEL%
 )
 
 echo Finalizado.
 pause
+popd
