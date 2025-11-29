@@ -15,12 +15,14 @@ El **Simulador Atlas CPU** es una herramienta educativa completa que implementa 
 
 - **Arquitectura completa de 64 bits** con direccionamiento de 44 bits
 - **137+ instrucciones implementadas** en 5 formatos diferentes (incluyendo ALU, FPU y Stack)
-- **16 registros de propósito general** (R01-R15) 
+- **16 registros de propósito general** (R00-R15, donde R14=BP, R15=SP)
 - **Sistema de flags** (Z, N, C, V) para control de flujo
+- **Compilador de lenguaje de alto nivel** con sintaxis tipo C y keywords en español
+- **Preprocesador** con soporte para macros, constantes y archivos de inclusión (#include, #define)
 - **Interfaz gráfica intuitiva** con editor y visualizador de estado
-- **Ejecución paso a paso** y automática
-- **Assembler integrado** con soporte para etiquetas y comentarios
-- **Sistema de E/S mapeada en memoria**
+- **Ejecución paso a paso** y automática con depuración visual
+- **Assembler integrado** con soporte para etiquetas, directivas y comentarios
+- **Sistema de E/S mapeada en memoria** con dispositivos de pantalla y teclado
 
 ### Decisiones de Diseño Arquitectural
 
@@ -76,10 +78,13 @@ Antes de convertir, revise el documento Markdown y retire cualquier índice manu
 git clone <repository-url>
 cd maquina_lenguajes
 
-# 2. Ejecutar la interfaz gráfica
-python main.py
+# 2. Instalar dependencias (si es necesario)
+pip install -r requirements.txt
 
-# 3. ¡Listo para programar!
+# 3. Ejecutar la interfaz gráfica
+python src/main.py
+
+# 4. ¡Listo para programar!
 ```
 
 ### Persistencia de RAM y visor de memoria
@@ -105,6 +110,55 @@ SVIO R1, 0x100      ; Guardar resultado en I/O
 SHOWIO 0x100        ; Mostrar resultado
 PARAR               ; Terminar programa
 ```
+
+### Lenguaje de Alto Nivel
+
+El simulador incluye un **compilador completo** que soporta un lenguaje de alto nivel con sintaxis tipo C y keywords en español:
+
+```c
+// Ejemplo: Algoritmo de Euclides (MCD)
+funcion entero euclides(entero a, entero b) {
+    entero temp;
+    
+    mientras (b != 0) {
+        temp = a % b;
+        a = b;
+        b = temp;
+    }
+    
+    retornar a;
+}
+
+funcion entero principal() {
+    entero resultado;
+    resultado = euclides(1071, 462);
+    retornar resultado;  // Retorna 21 (MCD de 1071 y 462)
+}
+```
+
+**Características del lenguaje:**
+- **Tipos de datos**: `entero` (64 bits), `flotante`, `cadena`, `caracter`, `booleano`
+- **Estructuras de control**: `si`/`si_no`, `mientras`, `para`, `hacer_mientras`
+- **Estructuras de datos**: `estructura` (structs), arreglos, punteros
+- **Operadores**: Aritméticos (+, -, *, /, %), lógicos (&&, ||, !), comparación (==, !=, <, >, <=, >=)
+- **Funciones**: Declaración, llamada, recursión, parámetros por valor
+- **Gestión de memoria**: `nuevo`, `eliminar` (malloc/free)
+- **Preprocesador**: `#include`, `#define`, `#ifdef`, `#ifndef`
+- **Librerías**: Sistema de librerías estándar (math.asm, io.asm, utils.asm)
+
+**Pipeline de compilación:**
+1. **Preprocesador** → Expande macros y archivos de inclusión
+2. **Análisis Léxico** → Tokenización del código fuente
+3. **Análisis Sintáctico** → Construcción del AST (PLY yacc)
+4. **Análisis Semántico** → Verificación de tipos y ámbitos
+5. **Generación de Código** → Traducción a ensamblador Atlas
+6. **Ensamblado** → Conversión a código binario
+7. **Enlazado** → Resolución de símbolos externos
+8. **Carga** → Ubicación en memoria y ejecución
+
+> **Ejemplos completos**: Ver `Algoritmos/Ejemplos_alto_nivel/` para más programas validados
+
+> **Gramática formal**: Ver `Documentacion/README_GRAMATICA.md` para especificación E-BNF completa
 
 ---
 
@@ -160,20 +214,75 @@ INC R1  ; R1 = -7
 
 ```
 maquina_lenguajes/
-├── Algoritmos/              # Algoritmos de prueba y ejemplos (Euclides, Módulo, Matrix, ...)
-├── GUI/                     # Interfaz gráfica de usuario (código Tkinter)
-│   └── GUI.py               # Entrada y widgets principales
-├── Documentacion/           # Archivos de documentación técnica
-│   └── mdconverter/         # Utilidad para convertir .md -> .pdf (gui + scripts)
-├── compiler/                # Herramientas del compilador / ensamblador
-│   └── assembler.py         # Ensamblador (parsing y generación binaria)
-├── logic/                   # Núcleo del simulador (CPU, Memory, Loader)
-│   ├── CPU.py
-│   ├── Memory.py
-│   └── Loader.py
-├── main.py                  # Launcher de la GUI
-├── test_integration.py      # Pruebas de integración y ejemplos de uso
-└── README.md                # Este archivo (guía del proyecto)
+├── Algoritmos/                      # Algoritmos de prueba y ejemplos validados
+│   ├── Ejemplos_alto_nivel/         # Programas en lenguaje de alto nivel (.txt)
+│   │   ├── 1.txt                    # Ejemplo con macros y operaciones matemáticas
+│   │   ├── 2.txt                    # Ejemplo de bucle while con continue
+│   │   ├── 3.txt                    # Ejemplo de estructuras y punteros
+│   │   ├── euclides_resta.txt       # Algoritmo de Euclides con restas sucesivas
+│   │   ├── euclides_modulo.txt      # Algoritmo de Euclides con operador módulo
+│   │   └── README_EUCLIDES.md       # Documentación de algoritmos de Euclides
+│   ├── Ejemplos_Librerias/          # Ejemplos de uso de librerías del sistema
+│   ├── Euclides/                    # Implementación del algoritmo de Euclides
+│   ├── Matrix/                      # Operaciones con matrices
+│   ├── Modulo/                      # Algoritmo del módulo
+│   ├── SumaEnteros/                 # Suma de enteros
+│   └── ValorAbsoluto/               # Cálculo de valor absoluto
+├── build/                           # Archivos generados por el compilador
+│   ├── bin/                         # Binarios generados
+│   └── obj/                         # Archivos objeto intermedios
+├── Documentacion/                   # Documentación técnica y académica
+│   ├── CPU/                         # Especificaciones de la CPU
+│   │   ├── Instrucciones.md         # Set de instrucciones completo
+│   │   └── SIA.md                   # Sistema de Instrucciones Atlas
+│   ├── mdconverter/                 # Utilidad para convertir .md -> .pdf
+│   ├── Taller1/                     # Documentación del Taller 1
+│   ├── Taller2/                     # Documentación del Taller 2 (Gramática)
+│   │   └── gramatica/               # Definición formal de la gramática E-BNF
+│   ├── Tarea 14/                    # Documentación académica principal
+│   ├── GUIA_VISUALIZACION.md        # Guía para visualización de memoria
+│   ├── README_GRAMATICA.md          # Documentación de la gramática
+│   └── verificacion_gramatica.md    # Pruebas de validación de gramática
+├── lib/                             # Librerías del sistema en ensamblador
+│   ├── io.asm                       # Rutinas de entrada/salida
+│   ├── lib_principal.asm            # Librería principal del sistema
+│   ├── math.asm                     # Funciones matemáticas
+│   ├── math_utils.h                 # Header con macros matemáticas
+│   ├── stack.asm                    # Operaciones de pila
+│   ├── stdio.asm                    # Entrada/salida estándar
+│   └── utils.asm                    # Utilidades generales
+├── src/                             # Código fuente principal
+│   ├── compiler/                    # Pipeline del compilador
+│   │   ├── Lex_analizer.py          # Analizador léxico (tokenización)
+│   │   ├── syntax_analizer.py       # Analizador sintáctico (parser PLY)
+│   │   ├── semantic_analyzer.py     # Analizador semántico (tipos, ámbitos)
+│   │   ├── code_generator.py        # Generador de código ensamblador
+│   │   ├── ensamblador.py           # Ensamblador (ASM -> binario)
+│   │   ├── Preprocessor.py          # Preprocesador (#include, #define)
+│   │   ├── Linker.py                # Enlazador de módulos
+│   │   ├── Loader.py                # Cargador de binarios en memoria
+│   │   ├── ast_nodes.py             # Nodos del árbol sintáctico abstracto
+│   │   ├── symbol_table.py          # Tabla de símbolos y ámbitos
+│   │   ├── compiler.py              # Orquestador del pipeline completo
+│   │   └── README_PARSER.md         # Documentación del parser
+│   ├── GUI/                         # Interfaz gráfica de usuario
+│   │   └── GUI.py                   # Aplicación Tkinter principal
+│   ├── machine/                     # Simulador de hardware
+│   │   ├── CPU/                     # Implementación de la CPU Atlas
+│   │   ├── IO/                      # Sistema de entrada/salida
+│   │   └── Memory/                  # Sistema de memoria
+│   ├── tests/                       # Suite de pruebas unitarias
+│   │   ├── test_lexer.py            # Pruebas del analizador léxico
+│   │   ├── test_syntax_analizer.py  # Pruebas del parser
+│   │   ├── test_semantic_analyzer.py # Pruebas del análisis semántico
+│   │   ├── test_code_generator.py   # Pruebas del generador de código
+│   │   ├── test_ensamblador.py      # Pruebas del ensamblador
+│   │   ├── test_preprocessor.py     # Pruebas del preprocesador
+│   │   └── test_integration.py      # Pruebas de integración completas
+│   ├── main.py                      # Punto de entrada de la aplicación
+│   └── memory_ram.txt               # Archivo de persistencia de memoria RAM
+├── requirements.txt                 # Dependencias del proyecto (PLY)
+└── README.md                        # Este archivo (guía del proyecto)
 ```
 
 
@@ -302,17 +411,45 @@ FACT_RETURN:
 
 ## Testing y Validación
 
-### Pruebas de Integración
+### Pruebas del Compilador
 ```bash
-# Ejecutar suite completa de pruebas
-python test_integration.py
+# Navegar al directorio src
+cd src
+
+# Ejecutar pruebas del analizador léxico
+python -m pytest tests/test_lexer.py -v
+
+# Ejecutar pruebas del parser
+python -m pytest tests/test_syntax_analizer.py -v
+
+# Ejecutar pruebas del análisis semántico
+python -m pytest tests/test_semantic_analyzer.py -v
+
+# Ejecutar pruebas del generador de código
+python -m pytest tests/test_code_generator.py -v
+
+# Ejecutar pruebas del ensamblador
+python -m pytest tests/test_ensamblador.py -v
+
+# Ejecutar todas las pruebas
+python -m pytest tests/ -v
 ```
 
 ### Validación de Algoritmos
+
+**Ensamblador (bajo nivel):**
 - **Euclides**: MCD(1071, 462) = 21 (verificado)
 - **Módulo**: 17 % 5 = 2 (verificado)  
 - **Valor Absoluto**: |-7| = 7, |15| = 15 (verificado)
+- **Matrices**: Operaciones básicas validadas
 - **Todas las instrucciones**: 137+/137+ validadas (verificado)
+
+**Alto Nivel (compilador):**
+- **Euclides (resta)**: MCD(1071, 462) = 21 (método de Peña)
+- **Euclides (módulo)**: MCD(1071, 462) = 21 (método optimizado)
+- **Macros y constantes**: Expansión correcta del preprocesador
+- **Estructuras y punteros**: Gestión de memoria dinámica
+- **Bucles y condicionales**: Control de flujo validado
 
 
 ---
@@ -366,6 +503,8 @@ Para uso comercial o distribución, contactar a los desarrolladores.
 
 ---
 
-*README actualizado: Septiembre 2025 - Tarea 14 Grupo D*
+*README actualizado: Noviembre 2025 - Tarea 14 Grupo D*
 
 **Entrega Académica**: El documento consolidado **`Documentacion/Tarea14_GrupoD_Hexacore_Atlas.md`** contiene toda la documentación requerida para la evaluación académica, incluyendo marco teórico, descripción del problema, validación completa, diseño de la aplicación, manual técnico y especificaciones del Simulador Atlas CPU desarrollado por Hexacore.
+
+**Compilador y Lenguaje de Alto Nivel**: El proyecto incluye un compilador completo con preprocesador, análisis léxico/sintáctico/semántico, generador de código, ensamblador, enlazador y cargador. Ver gramática formal en `Documentacion/README_GRAMATICA.md` y ejemplos validados en `Algoritmos/Ejemplos_alto_nivel/`.
