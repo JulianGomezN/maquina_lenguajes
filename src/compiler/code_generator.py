@@ -582,6 +582,13 @@ class CodeGenerator:
         Args:
             node: Nodo FunctionDecl con name, params, return_type, body
         """
+        # === FUNCIONES EXTERNAS ===
+        # Las funciones externas (is_extern=True) no tienen cuerpo ni código
+        # Solo están declaradas para que el análisis semántico las reconozca
+        if node.is_extern or node.body is None:
+            # No generar código para funciones externas
+            return
+        
         # === LABEL DE ENTRADA ===
         self.emit(f"{node.name}:  ; Función: {node.name}")
         

@@ -16,5 +16,6 @@ funcion vacio crear_persona() {
         retornar;
     }
 
-    p.altura
+    eliminar p;
+    retornar;
 }

@@ -1,0 +1,27 @@
+/*
+ * Algoritmo de Euclides - Versión con Restas
+ * Basado en la versión del profesor Peña
+ * Calcula el Máximo Común Divisor (MCD) de dos números
+ * usando el método de restas sucesivas
+ */
+
+funcion entero4 euclides_resta(entero4 a, entero4 b) {
+    mientras (a != b) {
+        si (a > b) {
+            a = a - b;
+        } si_no {
+            b = b - a;
+        }
+    }
+    retornar a;
+}
+
+funcion entero4 principal() {
+    entero4 a = 1071;
+    entero4 b = 462;
+    entero4 resultado;
+    
+    resultado = euclides_resta(a, b);
+    
+    retornar resultado;
+}

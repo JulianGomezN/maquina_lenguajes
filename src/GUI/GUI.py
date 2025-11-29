@@ -720,7 +720,7 @@ class SimuladorGUI:
                 # Pausa de 1 segundo y continúa automáticamente
                 self.root.after(1000, self.ejecutar_modo_paso_automatico)
             else:
-                self.append_salida(pformat(self.cpu.io_map, indent=4, width=40, sort_dicts=False))
+                self.append_salida(pformat(self.cpu.io.devices, indent=4, width=40, sort_dicts=False))
 
                 self.append_salida("Programa terminado")
                 self.ejecutando_paso_automatico = False
@@ -801,7 +801,7 @@ class SimuladorGUI:
             return
         
         if not self.cpu.running:
-            self.append_salida(pformat(self.cpu.io_map, indent=4, width=40, sort_dicts=False))
+            self.append_salida(pformat(self.cpu.io.devices, indent=4, width=40, sort_dicts=False))
             messagebox.showinfo("Info", "El programa ya terminó")
             return
         
@@ -826,15 +826,26 @@ class SimuladorGUI:
         self.ejecutando_paso_automatico = False
         #self.boton_parar.config(state="disabled")
         
-        # Reiniciar componentes
-        self.cpu = CPU(self.cpu.memory)
+        # Reiniciar componentes - preservar memoria e I/O
+        memory = self.cpu.memory
+        io_system = self.cpu.io
+        self.cpu = CPU(memory, io_system)
+        
+        # Reiniciar PC a 0 y estado de ejecución
+        self.cpu.pc = 0
+        self.cpu.running = True
+        
+        # Limpiar buffers de I/O
+        self.machine_out.buffer = ""
+        self.machine_in.buffer = []
+        
         ##self.disco = Disco()  # También reiniciar el disco
         self.programa_actual = []  # Limpiar programa actual
         
         # Limpiar interfaz
         self.clear_all_text()
         self.update_gui()
-        self.set_salida("CPU y memoria reiniciados. ¡Carga un nuevo programa!")
+        self.set_salida("CPU reiniciado. ¡Carga un nuevo programa!")
 
     def leer_memoria(self, direccion):
         """Lee una celda de memoria del disco"""

@@ -5,7 +5,6 @@ funcion vacio ciclo() {
         si (i == 3 || i == 7) {
             continuar;
         }
-        imprimir("Iteración:", i);
     }
     retornar;
 }

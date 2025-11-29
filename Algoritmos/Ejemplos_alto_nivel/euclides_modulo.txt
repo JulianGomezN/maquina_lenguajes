@@ -1,0 +1,28 @@
+/*
+ * Algoritmo de Euclides - Versión con Módulo
+ * Basado en la versión de Tarea 9
+ * Calcula el Máximo Común Divisor (MCD) de dos números
+ * usando el operador módulo para mayor eficiencia
+ */
+
+funcion entero4 euclides_modulo(entero4 a, entero4 b) {
+    entero4 temp;
+    
+    mientras (b != 0) {
+        temp = a % b;
+        a = b;
+        b = temp;
+    }
+    
+    retornar a;
+}
+
+funcion entero4 principal() {
+    entero4 num1 = 1071;
+    entero4 num2 = 462;
+    entero4 mcd;
+    
+    mcd = euclides_modulo(num1, num2);
+    
+    retornar mcd;
+}

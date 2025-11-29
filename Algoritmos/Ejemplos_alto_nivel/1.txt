@@ -20,6 +20,7 @@ funcion entero4 principal() {
     flotante volumen = volumen_esfera(r);
     
     flotante mayor;
+    cadena mensaje;
 
     si (area > volumen){
         mayor = area;
@@ -28,9 +29,9 @@ funcion entero4 principal() {
     } 
     
     si (mayor == area) {
-        cadena mensaje = "El area es mayor";
+        mensaje = "El area es mayor";
     } si_no {
-        cadena mensaje = "El volumen es mayor";
+        mensaje = "El volumen es mayor";
     }
     
     retornar 0;
