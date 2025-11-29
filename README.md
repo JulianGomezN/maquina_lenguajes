@@ -41,7 +41,7 @@ El **Simulador Atlas CPU** es una herramienta educativa completa que implementa 
 ### Documento Principal - Taller 2
 
 | Documento | Descripción | Contenido |
-|-----------|-------------|-----------||
+|-----------|-------------|-----------|
 | **[Taller 2 - Grupo D - Hexacore Atlas](Documentacion/Taller2/Taller2_GrupoD_Hexacore_Atlas.md)** | **Documento consolidado académico** | Marco teórico, descripción del problema, validación, diseño, manual técnico y especificaciones completas |
 
 > **Documento principal**: Este archivo consolidado contiene toda la documentación académica requerida con portada institucional del Grupo D y la empresa Hexacore para el Simulador Atlas CPU.
