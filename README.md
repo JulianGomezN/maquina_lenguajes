@@ -38,11 +38,11 @@ El **Simulador Atlas CPU** es una herramienta educativa completa que implementa 
 
 ## Documentación Académica
 
-### Documento Principal - Tarea 14
+### Documento Principal - Taller 2
 
 | Documento | Descripción | Contenido |
-|-----------|-------------|-----------|
-| **[Tarea 14 - Grupo D - Hexacore Atlas](Documentacion/Tarea14_GrupoD_Hexacore_Atlas.md)** | **Documento consolidado académico** | Marco teórico, descripción del problema, validación, diseño, manual técnico y especificaciones completas |
+|-----------|-------------|-----------||
+| **[Taller 2 - Grupo D - Hexacore Atlas](Documentacion/Taller2/Taller2_GrupoD_Hexacore_Atlas.md)** | **Documento consolidado académico** | Marco teórico, descripción del problema, validación, diseño, manual técnico y especificaciones completas |
 
 > **Documento principal**: Este archivo consolidado contiene toda la documentación académica requerida con portada institucional del Grupo D y la empresa Hexacore para el Simulador Atlas CPU.
 
@@ -167,7 +167,7 @@ Para simplificar la implementación, se definen cinco formatos fijos de 64 bits:
 ## Arquitectura del Sistema
 [Instrucciones de CPU y formatos](Documentacion/CPU/Instrucciones.md)
 
-> **Referencia completa**: Ver [Documento Académico Principal](Documentacion/Tarea14_GrupoD_Hexacore_Atlas.md#6-especificaciones-técnicas) para todas las instrucciones (originales + nuevas ALU/FPU)
+> **Referencia completa**: Ver [Documento Académico Principal](Documentacion/Taller2/Taller2_GrupoD_Hexacore_Atlas.md#6-especificaciones-técnicas) para todas las instrucciones (originales + nuevas ALU/FPU)
 
 ---
 ## Algoritmos Validados
@@ -206,7 +206,7 @@ INC R1  ; R1 = -7
 ```
 **Resultado**: |-7| = 7, |15| = 15 (ambos casos correctos)
 
-> **Evidencias completas**: Ver [Documento Académico - Validación](Documentacion/Tarea14_GrupoD_Hexacore_Atlas.md#3-validación-y-evidencias)
+> **Evidencias completas**: Ver [Documento Académico - Validación](Documentacion/Taller2/Taller2_GrupoD_Hexacore_Atlas.md#3-validación-y-evidencias)
 
 ---
 
@@ -387,7 +387,7 @@ FACT_RETURN:
     RET             ; retornar de subrutina
 ```
 
-> **Más ejemplos**: Ver [Manual Técnico](Documentacion/Tarea14_GrupoD_Hexacore_Atlas.md#5-manual-técnico-y-de-usuario) sección 5.2
+> **Más ejemplos**: Ver [Manual Técnico](Documentacion/Taller2/Taller2_GrupoD_Hexacore_Atlas.md#5-manual-técnico-y-de-usuario) sección 5.2
 
 ---
 
@@ -455,9 +455,9 @@ python -m pytest tests/ -v
 ---
 
 ### Recursos Adicionales
-- **Documentación completa**: Archivo principal `Documentacion/Tarea14_GrupoD_Hexacore_Atlas.md`
+- **Documentación completa**: Archivo principal `Documentacion/Taller2/Taller2_GrupoD_Hexacore_Atlas.md`
 - **Ejemplos prácticos**: Carpeta `Algoritmos/` con casos reales
-- **Especificaciones**: Ver [Especificaciones Técnicas](Documentacion/Tarea14_GrupoD_Hexacore_Atlas.md#6-especificaciones-técnicas)
+- **Especificaciones**: Ver [Especificaciones Técnicas](Documentacion/Taller2/Taller2_GrupoD_Hexacore_Atlas.md#6-especificaciones-técnicas)
 
 ---
 
@@ -491,10 +491,10 @@ Para uso comercial o distribución, contactar a los desarrolladores.
 
 ### **Atlas CPU Simulator - Hexacore Technologies** 
 
-[![Documentación](https://img.shields.io/badge/Docs-Completa-blue.svg)](Documentacion/Tarea14_GrupoD_Hexacore_Atlas.md)
-[![Algoritmos](https://img.shields.io/badge/Algoritmos-Validados-green.svg)](Documentacion/Tarea14_GrupoD_Hexacore_Atlas.md#3-validación-y-evidencias)
-[![Arquitectura](https://img.shields.io/badge/Arquitectura-64bit-orange.svg)](Documentacion/Tarea14_GrupoD_Hexacore_Atlas.md#1-marco-teórico)
-[![ISA](https://img.shields.io/badge/Instrucciones-137+-red.svg)](Documentacion/Tarea14_GrupoD_Hexacore_Atlas.md#6-especificaciones-técnicas)
+[![Documentación](https://img.shields.io/badge/Docs-Completa-blue.svg)](Documentacion/Taller2/Taller2_GrupoD_Hexacore_Atlas.md)
+[![Algoritmos](https://img.shields.io/badge/Algoritmos-Validados-green.svg)](Documentacion/Taller2/Taller2_GrupoD_Hexacore_Atlas.md#3-validación-y-evidencias)
+[![Arquitectura](https://img.shields.io/badge/Arquitectura-64bit-orange.svg)](Documentacion/Taller2/Taller2_GrupoD_Hexacore_Atlas.md#1-marco-teórico)
+[![ISA](https://img.shields.io/badge/Instrucciones-137+-red.svg)](Documentacion/Taller2/Taller2_GrupoD_Hexacore_Atlas.md#6-especificaciones-técnicas)
 
 **Desarrollado por Grupo D - Universidad Nacional de Colombia**  
 **Hexacore Technologies - Simulador Atlas CPU**
@@ -503,8 +503,8 @@ Para uso comercial o distribución, contactar a los desarrolladores.
 
 ---
 
-*README actualizado: Noviembre 2025 - Tarea 14 Grupo D*
+*README actualizado: Noviembre 2025 - Taller 2 Grupo D*
 
-**Entrega Académica**: El documento consolidado **`Documentacion/Tarea14_GrupoD_Hexacore_Atlas.md`** contiene toda la documentación requerida para la evaluación académica, incluyendo marco teórico, descripción del problema, validación completa, diseño de la aplicación, manual técnico y especificaciones del Simulador Atlas CPU desarrollado por Hexacore.
+**Entrega Académica**: El documento consolidado **`Documentacion/Taller2/Taller2_GrupoD_Hexacore_Atlas.md`** contiene toda la documentación requerida para la evaluación académica, incluyendo marco teórico, descripción del problema, validación completa, diseño de la aplicación, manual técnico y especificaciones del Simulador Atlas CPU desarrollado por Hexacore.
 
 **Compilador y Lenguaje de Alto Nivel**: El proyecto incluye un compilador completo con preprocesador, análisis léxico/sintáctico/semántico, generador de código, ensamblador, enlazador y cargador. Ver gramática formal en `Documentacion/README_GRAMATICA.md` y ejemplos validados en `Algoritmos/Ejemplos_alto_nivel/`.
