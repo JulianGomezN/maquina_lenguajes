@@ -128,6 +128,11 @@ class CodeGenerator:
         
         # Offset para próximo parámetro (crece positivamente desde BP+16)
         self.param_offset_counter = 0
+        
+        # === DICCIONARIO DE FUNCIONES ===
+        # Mapea nombre de función -> nodo FunctionDecl
+        # Usado para obtener tipos de parámetros en llamadas a función
+        self.function_decls = {}
     
     def generate(self):
         """
@@ -403,28 +408,33 @@ class CodeGenerator:
         size = self.get_type_size(type_name)
         
         if symbol.kind == 'parameter':
-            # ===  PARÁMETROS: OFFSETS POSITIVOS ===
-            # Estructura del frame antes de BP:
-            # BP+8:  dirección de retorno (guardada por CALL)
-            # BP+16: primer parámetro
-            # BP+24: segundo parámetro
-            # BP+32: tercer parámetro...
+            # ===  PARÁMETROS: OFFSETS NEGATIVOS ===
+            # Con stack creciendo hacia arriba (PUSH incrementa SP):
+            # - PUSH args en orden inverso
+            # - CALL pushea dirección retorno (8 bytes)
+            # - PUSH8 R14 guarda BP anterior (8 bytes)
+            # - MOV8 R14, R15 establece nuevo BP
             #
-            # Convención simplificada: cada parámetro ocupa 8 bytes en stack
-            # (alineación, aunque el tipo real sea más pequeño)
-            offset = 16 + (self.param_offset_counter * 8)
-            self.param_offset_counter += 1
+            # Estructura:
+            # BP-8:  old_BP guardado
+            # BP-16: dirección retorno  
+            # BP-16-size1: primer parámetro
+            # BP-16-size1-size2: segundo parámetro...
+            #
+            # Cada parámetro ocupa su tamaño real en bytes
+            self.param_offset_counter += size
+            offset = -(16 + self.param_offset_counter)
             return offset
         else:
-            # === VARIABLES LOCALES: OFFSETS NEGATIVOS ===
-            # Crecen hacia abajo desde BP:
-            # BP-4: primera local (si es entero4)
-            # BP-8: segunda local (si es entero4)
-            # BP-16: tercera local (si es entero8)
+            # === VARIABLES LOCALES: OFFSETS POSITIVOS ===
+            # Crecen hacia arriba desde BP (stack crece hacia arriba):
+            # BP+0: primera local (si es entero4)
+            # BP+4: segunda local (si es entero4)
+            # BP+12: tercera local (si es entero8)
             #
             # Respetan tamaño real del tipo (sin padding)
-            self.local_offset_counter -= size
             offset = self.local_offset_counter
+            self.local_offset_counter += size
             return offset
     
     def is_float_type(self, type_name):
@@ -446,6 +456,11 @@ class CodeGenerator:
         self.emit("; === SECCIÓN DE DATOS GLOBALES ===")
         self.emit("")
         
+        # Primero procesar declaraciones de estructuras (metadata)
+        for decl in node.declarations:
+            if isinstance(decl, StructDecl):
+                self.visit_struct_decl(decl)
+        
         # Generar declaraciones globales
         for decl in node.declarations:
             if isinstance(decl, VarDecl):
@@ -463,15 +478,15 @@ class CodeGenerator:
         self.emit("MOV8 R14, R15            ; BP = SP (frame inicial)")
         self.emit("")
         
-        # Buscar la función principal y llamarla
+        # Llamar a la función principal
         self.emit("; Llamar a la función principal")
         main_func = self.symbol_table.lookup("principal")
         if main_func and main_func.kind == "function":
             self.emit("CALL principal")
+            self.emit("JMP END_PROGRAM")
         else:
             self.emit("; ADVERTENCIA: No se encontró la función 'principal'")
-        
-        self.emit("JMP END_PROGRAM")
+            self.emit("PARAR")
         self.emit("")
         
         # Generar código para todas las funciones
@@ -491,16 +506,31 @@ class CodeGenerator:
         
         Las variables globales se asignan a direcciones absolutas de memoria
         comenzando desde self.global_data_base.
+        
+        OPTIMIZACIÓN DE CONSTANTES:
+        Las constantes no ocupan memoria, su valor se usa directamente como inmediato.
         """
         symbol = self.symbol_table.lookup(node.name)
         if not symbol:
             return
         
-        # La dirección ya fue asignada por el análisis semántico en symbol.offset
-        address = self.global_data_base + symbol.offset
         type_name = symbol.type.name if hasattr(symbol.type, 'name') else str(symbol.type)
         size = self.get_type_size(type_name)
         
+        # OPTIMIZACIÓN: Constantes no ocupan memoria
+        if symbol.is_const:
+            # Guardar el valor en el símbolo para uso posterior
+            if node.init_value:
+                if isinstance(node.init_value, (IntLiteral, FloatLiteral)):
+                    symbol.const_value = node.init_value.value
+                    self.emit(f"; Constante: {node.name} = {symbol.const_value} (tipo: {type_name}, no ocupa memoria)")
+                else:
+                    # Constante con expresión compleja (evaluar en tiempo de compilación si es posible)
+                    self.emit(f"; Constante: {node.name} (tipo: {type_name}, expresión no evaluada en compile-time)")
+            return
+        
+        # Variable normal: asignar memoria
+        address = self.global_data_base + symbol.offset
         self.emit(f"; Variable global: {node.name} (tipo: {type_name}, tamaño: {size} bytes, dirección: {address})")
         
         # Si tiene inicializador, generar código para inicializarla
@@ -508,6 +538,37 @@ class CodeGenerator:
             reg = self.visit_expr(node.init_value, type_name)
             store_instr = self.get_sized_instruction("STORE", type_name)
             self.emit(f"{store_instr} R{reg:02d}, {address}  ; {node.name} = valor_inicial")
+    
+    def visit_struct_decl(self, node):
+        """
+        Procesa declaración de estructura.
+        Las estructuras no generan código ejecutable, solo metadata.
+        
+        Args:
+            node: StructDecl con name y members (lista de VarDecl)
+        """
+        self.emit(f"; Estructura: {node.name}")
+        
+        # Calcular offsets y tamaño total de la estructura
+        current_offset = 0
+        for member in node.members:
+            member_type = member.var_type.name if hasattr(member.var_type, 'name') else 'entero4'
+            member_size = self.get_type_size(member_type)
+            
+            # Asignar offset al miembro
+            member.offset = current_offset
+            self.emit(f";   {member.name}: {member_type} (offset: {current_offset}, size: {member_size})")
+            
+            current_offset += member_size
+        
+        # Guardar metadata de la estructura en la tabla de símbolos
+        struct_symbol = self.symbol_table.lookup(node.name)
+        if struct_symbol:
+            struct_symbol.members = node.members
+            struct_symbol.size = current_offset
+        
+        self.emit(f";   Tamaño total: {current_offset} bytes")
+        self.emit("")
     
     def visit_function_decl(self, node):
         """
@@ -589,6 +650,11 @@ class CodeGenerator:
             # No generar código para funciones externas
             return
         
+        # === REGISTRAR FUNCIÓN ===
+        # Guardar el nodo de la función para poder consultar sus parámetros
+        # cuando se haga una llamada a esta función
+        self.function_decls[node.name] = node
+        
         # === LABEL DE ENTRADA ===
         self.emit(f"{node.name}:  ; Función: {node.name}")
         
@@ -638,16 +704,12 @@ class CodeGenerator:
         self.emit(f"  MOV8 R14, R15      ; BP = SP (inicio del frame actual)")
         
         # Paso 3: Reservar espacio para variables locales
-        # El análisis semántico puede haber calculado el tamaño total necesario
-        func_symbol = self.symbol_table.lookup(node.name)
-        local_space = 0
-        if func_symbol and hasattr(func_symbol, 'local_size'):
-            local_space = func_symbol.local_size
-        
-        if local_space > 0:
-            # Mover SP hacia arriba para reservar espacio
-            # Stack crece hacia direcciones mayores en Atlas
-            self.emit(f"  SUBV8 R15, {local_space}  ; Reservar {local_space} bytes para locales")
+        # Calcular el tamaño total de variables locales antes de procesar el cuerpo
+        # Nota: local_offset_counter será negativo y acumulará el espacio total
+        # Por ahora, procesaremos el cuerpo y luego calcularemos
+        # Guardar la posición actual para insertar la reserva después
+        local_space_line_index = len(self.code)
+        self.emit(f"  ; [PLACEHOLDER: Reservar espacio para locales]")
         
         self.emit("")
         
@@ -656,6 +718,16 @@ class CodeGenerator:
         self.emit(f"  ; Cuerpo de {node.name}")
         for stmt in node.body.statements:
             self.visit_stmt(stmt)
+        
+        # Después de procesar el cuerpo, sabemos cuánto espacio necesitan las locales
+        # local_offset_counter contiene el total usado (positivo, stack crece hacia arriba)
+        local_space = self.local_offset_counter
+        if local_space > 0:
+            # Actualizar la línea placeholder con el valor real
+            self.code[local_space_line_index] = f"  ADDV8 R15, {local_space}  ; Reservar {local_space} bytes para locales"
+        else:
+            # No hay locales, eliminar el placeholder
+            self.code[local_space_line_index] = "  ; Sin variables locales"
         
         self.emit("")
         
@@ -707,7 +779,8 @@ class CodeGenerator:
             self.visit_expr_stmt(node)
         elif isinstance(node, Block):
             self.visit_block(node)
-        # Agregar más tipos según sea necesario
+        else:
+            self.emit(f"  ; ERROR: Statement type {type(node).__name__} not handled!")
     
     def visit_local_var_decl(self, node):
         """
@@ -747,75 +820,25 @@ class CodeGenerator:
         
         FORMAS DE ASIGNACIÓN:
         
-        1. Variable global:
-           variable = expresión;
-           
-           Genera:
-           <código para evaluar expresión en Rx>
-           STORE{size} Rx, dirección_absoluta
+        1. Simple (=): variable = expresión
+        2. Compuesta (+=, -=, *=, /=, %=): variable op= expresión
+           Equivale a: variable = variable op expresión
         
-        2. Variable local o parámetro:
-           variable = expresión;
-           
-           Genera:
-           <código para evaluar expresión en Rx>
-           MOVV8 Ry, offset
-           ADD8 Ry, R14             ; Ry = BP + offset
-           STORER{size} Rx, Ry      ; [Ry] = Rx
-        
-        DISTINCIÓN GLOBAL vs LOCAL:
-        
-        Usamos symbol_table.global_scope.lookup_local() para determinar si
-        una variable es global. Solo variables en el scope global usan
-        direcciones absolutas; todas las demás usan offsets desde BP.
-        
-        ASIGNACIÓN DINÁMICA DE OFFSETS:
-        
-        Si una variable no tiene offset asignado (caso raro, debería estar
-        asignado por el análisis semántico o en visit_function_decl), lo
-        asignamos dinámicamente usando _assign_global_offset o
-        _assign_local_offset según corresponda.
-        
-        Ejemplo 1 - Global:
-            Código SPL:
-                entero8 x;
-                x = 42;
-            
-            Genera:
-                MOVV8 R00, 42
-                STORE8 R00, 0x1000    ; x está en 0x1000
-        
-        Ejemplo 2 - Local:
-            Código SPL:
-                funcion f() {
-                    entero4 temp;
-                    temp = 100;
-                }
-            
-            Genera:
-                MOVV4 R00, 100        ; Valor a asignar
-                MOVV8 R01, -4         ; Offset de temp
-                ADD8 R01, R14         ; R01 = BP-4 (dirección)
-                STORER4 R00, R01      ; [BP-4] = 100
-        
-        Ejemplo 3 - Parámetro:
-            Código SPL:
-                funcion f(entero8 a) {
-                    a = 50;
-                }
-            
-            Genera:
-                MOVV8 R00, 50         ; Valor a asignar
-                MOVV8 R01, 16         ; Offset de parámetro 'a'
-                ADD8 R01, R14         ; R01 = BP+16 (dirección)
-                STORER8 R00, R01      ; [BP+16] = 50
+        OPERADORES COMPUESTOS:
+        Para i += 1:
+        - Cargar valor actual de i
+        - Sumar 1
+        - Guardar resultado en i
         
         Args:
-            node: Nodo Assignment con lvalue (Identifier) y rvalue (Expression)
+            node: Nodo Assignment con lvalue, operator, rvalue
         """
-        # Validar que lvalue sea un identificador simple
-        # (asignación a arrays/structs no implementada aún)
-        if not isinstance(node.lvalue, Identifier):
+        # Validar que lvalue sea un identificador simple o acceso a miembro/array
+        if isinstance(node.lvalue, MemberAccess):
+            return self.visit_member_access_assignment(node)
+        elif isinstance(node.lvalue, ArrayAccess):
+            return self.visit_array_access_assignment(node)
+        elif not isinstance(node.lvalue, Identifier):
             self.emit("  ; ADVERTENCIA: Asignación a expresión compleja no implementada")
             return
         
@@ -829,9 +852,33 @@ class CodeGenerator:
         # Obtener tipo para generar instrucción con sufijo correcto
         type_name = symbol.type.name if hasattr(symbol.type, 'name') else str(symbol.type)
         
-        # === EVALUAR EXPRESIÓN DEL LADO DERECHO ===
-        # El resultado queda en un registro temporal
-        reg = self.visit_expr(node.rvalue, type_name)
+        # === MANEJAR OPERADORES COMPUESTOS ===
+        # Para +=, -=, *=, /=, %=: convertir a operación binaria
+        if node.operator != '=':
+            # Mapeo de operador compuesto a binario
+            op_map = {
+                '+=': '+',
+                '-=': '-',
+                '*=': '*',
+                '/=': '/',
+                '%=': '%'
+            }
+            if node.operator in op_map:
+                # Crear nodo binario: variable op rvalue
+                binary_op = BinaryOp(
+                    left=node.lvalue,  # Identifier de la variable
+                    operator=op_map[node.operator],
+                    right=node.rvalue
+                )
+                # Evaluar como: variable = (variable op rvalue)
+                reg = self.visit_expr(binary_op, type_name)
+            else:
+                self.emit(f"  ; ERROR: Operador '{node.operator}' no soportado")
+                return
+        else:
+            # === ASIGNACIÓN SIMPLE ===
+            # Evaluar expresión del lado derecho
+            reg = self.visit_expr(node.rvalue, type_name)
         
         # === DETERMINAR SCOPE: GLOBAL vs LOCAL/PARÁMETRO ===
         # Una variable es global solo si está en el scope global
@@ -870,6 +917,114 @@ class CodeGenerator:
             
             # Paso 2: Almacenar valor en la dirección calculada
             self.emit(f"  {store_instr} R{reg:02d}, R{addr_reg:02d}  ; {target_name} = valor")
+    
+    def visit_member_access_assignment(self, node):
+        """Maneja asignación a miembros de estructura: obj.member = value o ptr->member = value"""
+        if not isinstance(node.lvalue, MemberAccess):
+            return
+        
+        member_node = node.lvalue
+        
+        # Obtener tipo del objeto/puntero
+        if isinstance(member_node.object, Identifier):
+            obj_symbol = self.symbol_table.lookup(member_node.object.name)
+            if not obj_symbol:
+                self.emit("  ; ERROR: Objeto no encontrado para acceso a miembro")
+                return
+            
+            # Obtener tipo de estructura
+            struct_type = obj_symbol.type.name if hasattr(obj_symbol.type, 'name') else str(obj_symbol.type)
+            if member_node.is_pointer:
+                # Remover el * del tipo para obtener el tipo base
+                struct_type = struct_type.rstrip('*')
+            
+            # Buscar estructura en tabla de símbolos
+            struct_symbol = self.symbol_table.lookup(struct_type)
+            if not struct_symbol or not hasattr(struct_symbol, 'members'):
+                self.emit(f"  ; ERROR: Estructura '{struct_type}' no encontrada")
+                return
+            
+            # Buscar miembro en la estructura
+            member_offset = None
+            member_type = None
+            for member in struct_symbol.members:
+                if member.name == member_node.member:
+                    member_offset = member.offset if hasattr(member, 'offset') else 0
+                    member_type = member.var_type.name if hasattr(member.var_type, 'name') else 'entero4'
+                    break
+            
+            if member_offset is None:
+                self.emit(f"  ; ERROR: Miembro '{member_node.member}' no encontrado")
+                return
+            
+            # Evaluar expresión del lado derecho
+            value_reg = self.visit_expr(node.rvalue, member_type)
+            
+            # Calcular dirección del miembro
+            if member_node.is_pointer:
+                # ptr->member: cargar puntero y sumar offset
+                ptr_reg = self.visit_identifier(member_node.object, 'entero8')
+                addr_reg = self.new_temp()
+                self.emit(f"  MOVV8 R{addr_reg:02d}, {member_offset}")
+                self.emit(f"  ADD8 R{addr_reg:02d}, R{ptr_reg:02d}  ; Dirección del miembro")
+            else:
+                # obj.member: calcular dirección base del objeto + offset del miembro
+                base_reg = self.new_temp()
+                self.emit(f"  MOVV8 R{base_reg:02d}, {obj_symbol.offset}")
+                self.emit(f"  ADD8 R{base_reg:02d}, R14  ; Base del objeto")
+                addr_reg = self.new_temp()
+                self.emit(f"  MOVV8 R{addr_reg:02d}, {member_offset}")
+                self.emit(f"  ADD8 R{addr_reg:02d}, R{base_reg:02d}  ; Dirección del miembro")
+            
+            # Guardar valor
+            store_instr = self.get_sized_instruction("STORER", member_type)
+            self.emit(f"  {store_instr} R{value_reg:02d}, R{addr_reg:02d}  ; {member_node.member} = valor")
+        else:
+            self.emit("  ; ERROR: Acceso a miembro complejo no implementado")
+    
+    def visit_array_access_assignment(self, node):
+        """Maneja asignación a elementos de array: arr[index] = value"""
+        if not isinstance(node.lvalue, ArrayAccess):
+            return
+        
+        array_node = node.lvalue
+        
+        # Obtener símbolo del array
+        if isinstance(array_node.array, Identifier):
+            array_symbol = self.symbol_table.lookup(array_node.array.name)
+            if not array_symbol:
+                self.emit("  ; ERROR: Array no encontrado")
+                return
+            
+            # Obtener tipo del elemento
+            element_type = array_symbol.type.name if hasattr(array_symbol.type, 'name') else 'entero4'
+            element_size = self.get_type_size(element_type)
+            
+            # Evaluar índice
+            index_reg = self.visit_expr(array_node.index, 'entero4')
+            
+            # Evaluar valor a asignar
+            value_reg = self.visit_expr(node.rvalue, element_type)
+            
+            # Calcular dirección: base + (index * element_size)
+            offset_reg = self.new_temp()
+            self.emit(f"  MOVV4 R{offset_reg:02d}, {element_size}")
+            self.emit(f"  MUL4 R{offset_reg:02d}, R{index_reg:02d}  ; offset = index * size")
+            
+            # Obtener dirección base del array
+            base_reg = self.new_temp()
+            if hasattr(array_symbol, 'offset'):
+                self.emit(f"  MOVV8 R{base_reg:02d}, {array_symbol.offset}")
+                self.emit(f"  ADD8 R{base_reg:02d}, R14  ; Base del array")
+            
+            # Sumar offset al base
+            self.emit(f"  ADD8 R{base_reg:02d}, R{offset_reg:02d}  ; Dirección del elemento")
+            
+            # Guardar valor
+            store_instr = self.get_sized_instruction("STORER", element_type)
+            self.emit(f"  {store_instr} R{value_reg:02d}, R{base_reg:02d}  ; arr[index] = valor")
+        else:
+            self.emit("  ; ERROR: Acceso a array complejo no implementado")
     
     def visit_if_stmt(self, node):
         """
@@ -1033,8 +1188,12 @@ class CodeGenerator:
         self.emit(f"  JMP {start_label}  ; continue")
     
     def visit_expr_stmt(self, node):
-        """Genera código para un statement de expresión (ej: llamada a función)."""
-        self.visit_expr(node.expression, "vacio")
+        """Genera código para un statement de expresión (ej: llamada a función o assignment)."""
+        # ExprStmt puede contener una expresión o un assignment
+        if isinstance(node.expression, Assignment):
+            self.visit_assignment(node.expression)
+        else:
+            self.visit_expr(node.expression, "vacio")
     
     def visit_block(self, node):
         """Genera código para un bloque de statements."""
@@ -1064,7 +1223,15 @@ class CodeGenerator:
             return self.visit_unary_op(node, expected_type)
         elif isinstance(node, FunctionCall):
             return self.visit_function_call(node, expected_type)
-        # Agregar más tipos de expresiones según sea necesario
+        elif isinstance(node, MemberAccess):
+            return self.visit_member_access(node, expected_type)
+        elif isinstance(node, ArrayAccess):
+            return self.visit_array_access(node, expected_type)
+        elif isinstance(node, NewExpr):
+            return self.visit_new_expr(node, expected_type)
+        elif isinstance(node, DeleteExpr):
+            self.visit_delete_expr(node)
+            return 0  # delete no retorna valor
         else:
             # Expresión no soportada, retornar registro R00 por defecto
             return 0
@@ -1197,6 +1364,26 @@ class CodeGenerator:
         # Extraer nombre del tipo
         type_name = symbol.type.name if hasattr(symbol.type, 'name') else str(symbol.type)
         
+        # === OPTIMIZACIÓN: CONSTANTES USAN VALORES INMEDIATOS ===
+        # Si es constante con valor conocido, usar MOVV directamente
+        if symbol.is_const and hasattr(symbol, 'const_value'):
+            mov_instr = self.get_sized_instruction("MOVV", type_name)
+            
+            # Para flotantes, convertir a hexadecimal IEEE 754
+            if type_name in ["flotante", "doble"]:
+                import struct
+                if type_name == "flotante":
+                    hex_val = struct.unpack('>I', struct.pack('>f', float(symbol.const_value)))[0]
+                    self.emit(f"  {mov_instr} R{reg:02d}, 0x{hex_val:X}  ; Constante {node.name} = {symbol.const_value}")
+                else:  # doble
+                    hex_val = struct.unpack('>Q', struct.pack('>d', float(symbol.const_value)))[0]
+                    self.emit(f"  {mov_instr} R{reg:02d}, 0x{hex_val:X}  ; Constante {node.name} = {symbol.const_value}")
+            else:
+                # Enteros: usar valor directo
+                self.emit(f"  {mov_instr} R{reg:02d}, {symbol.const_value}  ; Constante {node.name}")
+            
+            return reg
+        
         # === DETERMINAR SCOPE: GLOBAL vs LOCAL/PARÁMETRO ===
         # lookup_local busca SOLO en ese scope, no en padres
         is_global = (self.symbol_table.global_scope.lookup_local(node.name) is not None)
@@ -1250,6 +1437,7 @@ class CodeGenerator:
             '-': 'SUB',
             '*': 'MUL',
             '/': 'DIV',
+            '%': 'MOD',  # Operador módulo
             '==': 'CMP',  # Comparación requiere manejo especial
             '!=': 'CMP',
             '<': 'CMP',
@@ -1309,13 +1497,58 @@ class CodeGenerator:
         else:
             # Operadores aritméticos
             instr = self.get_sized_instruction(base_instr, expected_type)
-            self.emit(f"  MOV8 R{result_reg:02d}, R{left_reg:02d}")
+            mov_instr = self.get_sized_instruction("MOV", expected_type)
+            self.emit(f"  {mov_instr} R{result_reg:02d}, R{left_reg:02d}")
             self.emit(f"  {instr} R{result_reg:02d}, R{right_reg:02d}")
         
         return result_reg
     
     def visit_unary_op(self, node, expected_type):
-        """Genera código para operaciones unarias."""
+        """Genera código para operaciones unarias: -, !, ++, --"""
+        
+        # Incremento/decremento requieren lvalue
+        if node.operator in ['++', '--']:
+            if not isinstance(node.operand, Identifier):
+                self.emit(f"  ; ERROR: {node.operator} requiere variable")
+                return self.new_temp()
+            
+            var_name = node.operand.name
+            symbol = self.symbol_table.lookup(var_name)
+            if not symbol:
+                self.emit(f"  ; ERROR: Variable '{var_name}' no encontrada")
+                return self.new_temp()
+            
+            type_name = symbol.type.name if hasattr(symbol.type, 'name') else 'entero4'
+            
+            # Cargar valor actual
+            current_reg = self.visit_identifier(node.operand, type_name)
+            
+            # Incrementar o decrementar
+            if node.operator == '++':
+                add_instr = self.get_sized_instruction("ADDV", type_name)
+                self.emit(f"  {add_instr} R{current_reg:02d}, 1  ; Incrementar")
+            else:  # --
+                sub_instr = self.get_sized_instruction("SUBV", type_name)
+                self.emit(f"  {sub_instr} R{current_reg:02d}, 1  ; Decrementar")
+            
+            # Guardar nuevo valor
+            is_global = (self.symbol_table.global_scope.lookup_local(var_name) is not None)
+            if is_global:
+                address = self.global_data_base + symbol.offset
+                store_instr = self.get_sized_instruction("STORE", type_name)
+                self.emit(f"  {store_instr} R{current_reg:02d}, {address}  ; Guardar {var_name}")
+            else:
+                addr_reg = self.new_temp()
+                self.emit(f"  MOVV8 R{addr_reg:02d}, {symbol.offset}")
+                self.emit(f"  ADD8 R{addr_reg:02d}, R14")
+                store_instr = self.get_sized_instruction("STORER", type_name)
+                self.emit(f"  {store_instr} R{current_reg:02d}, R{addr_reg:02d}  ; Guardar {var_name}")
+            
+            # Retornar valor (post-incremento retorna valor original, pre-incremento el nuevo)
+            # Por simplicidad, retornamos el nuevo valor
+            return current_reg
+        
+        # Operadores normales (-, !)
         operand_reg = self.visit_expr(node.operand, expected_type)
         result_reg = self.new_temp()
         
@@ -1332,6 +1565,123 @@ class CodeGenerator:
             self.emit(f"  MOV8 R{result_reg:02d}, R{operand_reg:02d}")
         
         return result_reg
+    
+    def visit_member_access(self, node, expected_type):
+        """Genera código para acceso a miembro: obj.member o ptr->member"""
+        if not isinstance(node.object, Identifier):
+            self.emit("  ; ERROR: Acceso a miembro de expresión compleja no implementado")
+            return self.new_temp()
+        
+        obj_symbol = self.symbol_table.lookup(node.object.name)
+        if not obj_symbol:
+            self.emit("  ; ERROR: Objeto no encontrado")
+            return self.new_temp()
+        
+        # Obtener tipo de estructura
+        struct_type = obj_symbol.type.name if hasattr(obj_symbol.type, 'name') else str(obj_symbol.type)
+        if node.is_pointer:
+            struct_type = struct_type.rstrip('*')
+        
+        # Buscar estructura
+        struct_symbol = self.symbol_table.lookup(struct_type)
+        if not struct_symbol or not hasattr(struct_symbol, 'members'):
+            self.emit(f"  ; ERROR: Estructura '{struct_type}' no encontrada")
+            return self.new_temp()
+        
+        # Buscar miembro
+        member_offset = None
+        member_type = None
+        for member in struct_symbol.members:
+            if member.name == node.member:
+                member_offset = member.offset if hasattr(member, 'offset') else 0
+                member_type = member.var_type.name if hasattr(member.var_type, 'name') else 'entero4'
+                break
+        
+        if member_offset is None:
+            self.emit(f"  ; ERROR: Miembro '{node.member}' no encontrado")
+            return self.new_temp()
+        
+        # Calcular dirección y cargar valor
+        if node.is_pointer:
+            # ptr->member
+            ptr_reg = self.visit_identifier(node.object, 'entero8')
+            addr_reg = self.new_temp()
+            self.emit(f"  MOVV8 R{addr_reg:02d}, {member_offset}")
+            self.emit(f"  ADD8 R{addr_reg:02d}, R{ptr_reg:02d}")
+        else:
+            # obj.member
+            base_reg = self.new_temp()
+            self.emit(f"  MOVV8 R{base_reg:02d}, {obj_symbol.offset}")
+            self.emit(f"  ADD8 R{base_reg:02d}, R14")
+            addr_reg = self.new_temp()
+            self.emit(f"  MOVV8 R{addr_reg:02d}, {member_offset}")
+            self.emit(f"  ADD8 R{addr_reg:02d}, R{base_reg:02d}")
+        
+        # Cargar valor del miembro
+        result_reg = self.new_temp()
+        load_instr = self.get_sized_instruction("LOADR", member_type)
+        self.emit(f"  {load_instr} R{result_reg:02d}, R{addr_reg:02d}  ; Cargar {node.member}")
+        return result_reg
+    
+    def visit_array_access(self, node, expected_type):
+        """Genera código para acceso a array: arr[index]"""
+        if not isinstance(node.array, Identifier):
+            self.emit("  ; ERROR: Array complejo no implementado")
+            return self.new_temp()
+        
+        array_symbol = self.symbol_table.lookup(node.array.name)
+        if not array_symbol:
+            self.emit("  ; ERROR: Array no encontrado")
+            return self.new_temp()
+        
+        element_type = array_symbol.type.name if hasattr(array_symbol.type, 'name') else 'entero4'
+        element_size = self.get_type_size(element_type)
+        
+        # Evaluar índice
+        index_reg = self.visit_expr(node.index, 'entero4')
+        
+        # Calcular offset
+        offset_reg = self.new_temp()
+        self.emit(f"  MOVV4 R{offset_reg:02d}, {element_size}")
+        self.emit(f"  MUL4 R{offset_reg:02d}, R{index_reg:02d}")
+        
+        # Dirección base
+        base_reg = self.new_temp()
+        self.emit(f"  MOVV8 R{base_reg:02d}, {array_symbol.offset}")
+        self.emit(f"  ADD8 R{base_reg:02d}, R14")
+        self.emit(f"  ADD8 R{base_reg:02d}, R{offset_reg:02d}")
+        
+        # Cargar elemento
+        result_reg = self.new_temp()
+        load_instr = self.get_sized_instruction("LOADR", element_type)
+        self.emit(f"  {load_instr} R{result_reg:02d}, R{base_reg:02d}")
+        return result_reg
+    
+    def visit_new_expr(self, node, expected_type):
+        """Genera código para nuevo Tipo (malloc)"""
+        # Obtener tamaño del tipo
+        type_name = node.type.name if hasattr(node.type, 'name') else 'entero4'
+        type_size = self.get_type_size(type_name)
+        
+        # Llamar a función de sistema malloc (debe estar implementada)
+        size_reg = self.new_temp()
+        self.emit(f"  MOVV8 R{size_reg:02d}, {type_size}  ; Tamaño a asignar")
+        self.emit(f"  PUSH8 R{size_reg:02d}  ; Argumento para malloc")
+        self.emit(f"  CALL __malloc  ; Asignar memoria")
+        self.emit(f"  ADDV8 R15, 8  ; Limpiar argumento")
+        self.emit(f"  ; R00 contiene puntero a memoria asignada")
+        
+        return 0  # malloc retorna en R00
+    
+    def visit_delete_expr(self, node):
+        """Genera código para eliminar ptr (free)"""
+        # Evaluar expresión del puntero
+        ptr_reg = self.visit_expr(node.expression, 'entero8')
+        
+        # Llamar a free
+        self.emit(f"  PUSH8 R{ptr_reg:02d}  ; Argumento para free")
+        self.emit(f"  CALL __free  ; Liberar memoria")
+        self.emit(f"  ADDV8 R15, 8  ; Limpiar argumento")
     
     def visit_function_call(self, node, expected_type):
         """
@@ -1456,31 +1806,55 @@ class CodeGenerator:
             func_name = "UNKNOWN_FUNCTION"
             self.emit(f"  ; ADVERTENCIA: Llamada a función no identificada")
         
-        # === PASO 1: EVALUAR ARGUMENTOS ===
-        # Evaluar cada argumento y guardar registros donde quedaron
+        # === PASO 1: OBTENER INFORMACIÓN DE LA FUNCIÓN ===
+        # Buscar el nodo de la función para conocer los tipos de parámetros
+        param_types = []
+        if func_name in self.function_decls:
+            func_node = self.function_decls[func_name]
+            if hasattr(func_node, 'params'):
+                param_types = [p.var_type for p in func_node.params]
+        
+        # === PASO 2: EVALUAR ARGUMENTOS ===
+        # Evaluar cada argumento con su tipo correspondiente
         arg_regs = []
-        for arg in node.arguments:
-            # Asumir entero8 por defecto (simplificación)
-            # TODO: Obtener tipo real del parámetro formal
-            arg_reg = self.visit_expr(arg, "entero8")
+        arg_types = []
+        for i, arg in enumerate(node.arguments):
+            # Obtener tipo del parámetro formal si existe
+            if i < len(param_types):
+                param_type_node = param_types[i]
+                # param_types[i] es un Type node, extraer el nombre
+                if hasattr(param_type_node, 'name'):
+                    type_name = param_type_node.name
+                elif hasattr(param_type_node, 'base_type'):
+                    type_name = param_type_node.base_type
+                else:
+                    type_name = str(param_type_node)
+            else:
+                type_name = "entero8"  # Default fallback
+            
+            arg_reg = self.visit_expr(arg, type_name)
             arg_regs.append(arg_reg)
+            arg_types.append(type_name)
         
-        # === PASO 2: PUSH ARGUMENTOS EN ORDEN INVERSO ===
+        # === PASO 3: PUSH ARGUMENTOS EN ORDEN INVERSO ===
         # Esto coloca el primer argumento más cerca de BP en memoria
-        for arg_reg in reversed(arg_regs):
-            self.emit(f"  PUSH8 R{arg_reg:02d}  ; Push argumento")
+        for arg_reg, arg_type in zip(reversed(arg_regs), reversed(arg_types)):
+            # Usar el tamaño correcto según el tipo
+            type_size = self.get_type_size(arg_type)
+            push_instr = self.get_sized_instruction("PUSH", arg_type)
+            self.emit(f"  {push_instr} R{arg_reg:02d}  ; Push argumento ({arg_type})")
         
-        # === PASO 3: LLAMAR A LA FUNCIÓN ===
+        # === PASO 4: LLAMAR A LA FUNCIÓN ===
         # CALL hace:
         # - PUSH de la dirección de retorno (IP actual + 1)
         # - JMP a la función
         self.emit(f"  CALL {func_name}  ; Llamar a {func_name}")
         
-        # === PASO 4: LIMPIAR STACK (Caller-cleanup) ===
+        # === PASO 5: LIMPIAR STACK (Caller-cleanup) ===
         # Después de RET, el caller es responsable de eliminar los argumentos
-        # Cada argumento ocupó 8 bytes (simplificación)
+        # Sumar el tamaño real de cada argumento
         if len(arg_regs) > 0:
-            stack_clean = len(arg_regs) * 8
+            stack_clean = sum(self.get_type_size(t) for t in arg_types)
             self.emit(f"  ADDV8 R15, {stack_clean}  ; Limpiar {len(arg_regs)} argumentos del stack")
         
         # === PASO 5: RESULTADO EN R00 ===

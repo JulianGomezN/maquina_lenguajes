@@ -642,8 +642,14 @@ def analyze(ast):
     
     Returns:
         bool: True si no hay errores, False si hay errores
+        list: Lista de errores
+        SymbolTable: Tabla de símbolos generada
     """
     analyzer = SemanticAnalyzer()
     success = analyzer.analyze(ast)
+    
+    # Asignar la tabla de símbolos al AST para uso posterior
+    ast.symbol_table = analyzer.symbol_table
+    
     return success, analyzer.errors
 

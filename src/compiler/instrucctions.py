@@ -78,6 +78,7 @@ INSTRUCTION_SET = {
     'MUL1':  {'opcode': 0x0102, 'format': 'RR', 'requiresAddress': False},
     'MULS1': {'opcode': 0x0103, 'format': 'RR', 'requiresAddress': False},
     'DIV1':  {'opcode': 0x0104, 'format': 'RR', 'requiresAddress': False},
+    'MOD1':  {'opcode': 0x0105, 'format': 'RR', 'requiresAddress': False},
     'ADDV1': {'opcode': 0x0110, 'format': 'RI', 'requiresAddress': False},
     'SUBV1': {'opcode': 0x0111, 'format': 'RI', 'requiresAddress': False},
 
@@ -87,6 +88,7 @@ INSTRUCTION_SET = {
     'MUL2':  {'opcode': 0x0202, 'format': 'RR', 'requiresAddress': False},
     'MULS2': {'opcode': 0x0203, 'format': 'RR', 'requiresAddress': False},
     'DIV2':  {'opcode': 0x0204, 'format': 'RR', 'requiresAddress': False},
+    'MOD2':  {'opcode': 0x0205, 'format': 'RR', 'requiresAddress': False},
     'ADDV2': {'opcode': 0x0210, 'format': 'RI', 'requiresAddress': False},
     'SUBV2': {'opcode': 0x0211, 'format': 'RI', 'requiresAddress': False},
 
@@ -96,6 +98,7 @@ INSTRUCTION_SET = {
     'MUL4':  {'opcode': 0x0302, 'format': 'RR', 'requiresAddress': False},
     'MULS4': {'opcode': 0x0303, 'format': 'RR', 'requiresAddress': False},
     'DIV4':  {'opcode': 0x0304, 'format': 'RR', 'requiresAddress': False},
+    'MOD4':  {'opcode': 0x0305, 'format': 'RR', 'requiresAddress': False},
     'ADDV4': {'opcode': 0x0310, 'format': 'RI', 'requiresAddress': False},
     'SUBV4': {'opcode': 0x0311, 'format': 'RI', 'requiresAddress': False},
 
@@ -105,6 +108,7 @@ INSTRUCTION_SET = {
     'MUL8':  {'opcode': 0x0314, 'format': 'RR', 'requiresAddress': False},
     'MULS8': {'opcode': 0x0315, 'format': 'RR', 'requiresAddress': False},
     'DIV8':  {'opcode': 0x0316, 'format': 'RR', 'requiresAddress': False},
+    'MOD8':  {'opcode': 0x0319, 'format': 'RR', 'requiresAddress': False},
     'ADDV8': {'opcode': 0x0317, 'format': 'RI', 'requiresAddress': False},
     'SUBV8': {'opcode': 0x0318, 'format': 'RI', 'requiresAddress': False},
 
@@ -246,6 +250,7 @@ IS_INV = {
     0x0102: {'mnemonic': 'MUL1',  'format': 'RR'},
     0x0103: {'mnemonic': 'MULS1', 'format': 'RR'},
     0x0104: {'mnemonic': 'DIV1',  'format': 'RR'},
+    0x0105: {'mnemonic': 'MOD1',  'format': 'RR'},
     0x0110: {'mnemonic': 'ADDV1', 'format': 'RI'},
     0x0111: {'mnemonic': 'SUBV1', 'format': 'RI'},
 
@@ -255,6 +260,7 @@ IS_INV = {
     0x0202: {'mnemonic': 'MUL2',  'format': 'RR'},
     0x0203: {'mnemonic': 'MULS2', 'format': 'RR'},
     0x0204: {'mnemonic': 'DIV2',  'format': 'RR'},
+    0x0205: {'mnemonic': 'MOD2',  'format': 'RR'},
     0x0210: {'mnemonic': 'ADDV2', 'format': 'RI'},
     0x0211: {'mnemonic': 'SUBV2', 'format': 'RI'},
 
@@ -264,6 +270,7 @@ IS_INV = {
     0x0302: {'mnemonic': 'MUL4',  'format': 'RR'},
     0x0303: {'mnemonic': 'MULS4', 'format': 'RR'},
     0x0304: {'mnemonic': 'DIV4',  'format': 'RR'},
+    0x0305: {'mnemonic': 'MOD4',  'format': 'RR'},
     0x0310: {'mnemonic': 'ADDV4', 'format': 'RI'},
     0x0311: {'mnemonic': 'SUBV4', 'format': 'RI'},
 
@@ -273,6 +280,7 @@ IS_INV = {
     0x0314: {'mnemonic': 'MUL8',  'format': 'RR'},
     0x0315: {'mnemonic': 'MULS8', 'format': 'RR'},
     0x0316: {'mnemonic': 'DIV8',  'format': 'RR'},
+    0x0319: {'mnemonic': 'MOD8',  'format': 'RR'},
     0x0317: {'mnemonic': 'ADDV8', 'format': 'RI'},
     0x0318: {'mnemonic': 'SUBV8', 'format': 'RI'},
 

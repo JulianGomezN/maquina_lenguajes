@@ -79,19 +79,19 @@ class CPU:
             0x00A0: RI, 0x00A1: RI, 0x00A2: RI, 0x00A3: OP, 0x00A4: OP,
             
             # New size-suffixed arithmetic instructions (1 byte)
-            0x0100: RR, 0x0101: RR, 0x0102: RR, 0x0103: RR, 0x0104: RR,  # ADD1, SUB1, MUL1, MULS1, DIV1
+            0x0100: RR, 0x0101: RR, 0x0102: RR, 0x0103: RR, 0x0104: RR, 0x0105: RR,  # ADD1, SUB1, MUL1, MULS1, DIV1, MOD1
             0x0110: RI, 0x0111: RI,  # ADDV1, SUBV1
             
             # New size-suffixed arithmetic instructions (2 bytes)
-            0x0200: RR, 0x0201: RR, 0x0202: RR, 0x0203: RR, 0x0204: RR,  # ADD2, SUB2, MUL2, MULS2, DIV2
+            0x0200: RR, 0x0201: RR, 0x0202: RR, 0x0203: RR, 0x0204: RR, 0x0205: RR,  # ADD2, SUB2, MUL2, MULS2, DIV2, MOD2
             0x0210: RI, 0x0211: RI,  # ADDV2, SUBV2
             
             # New size-suffixed arithmetic instructions (4 bytes)
-            0x0300: RR, 0x0301: RR, 0x0302: RR, 0x0303: RR, 0x0304: RR,  # ADD4, SUB4, MUL4, MULS4, DIV4
+            0x0300: RR, 0x0301: RR, 0x0302: RR, 0x0303: RR, 0x0304: RR, 0x0305: RR,  # ADD4, SUB4, MUL4, MULS4, DIV4, MOD4
             0x0310: RI, 0x0311: RI,  # ADDV4, SUBV4
             
             # New size-suffixed arithmetic instructions (8 bytes)
-            0x0312: RR, 0x0313: RR, 0x0314: RR, 0x0315: RR, 0x0316: RR,  # ADD8, SUB8, MUL8, MULS8, DIV8
+            0x0312: RR, 0x0313: RR, 0x0314: RR, 0x0315: RR, 0x0316: RR, 0x0319: RR,  # ADD8, SUB8, MUL8, MULS8, DIV8, MOD8
             0x0317: RI, 0x0318: RI,  # ADDV8, SUBV8,
 
             # New MOV instructions for different sizes
@@ -545,6 +545,16 @@ class CPU:
                 self.flags["V"] = 1
                 self.registers[ins.rd].write(0, 1)
             return
+        if op == 0x0105:  # MOD1
+            a, b = self.registers[ins.rd].read(1), self.registers[ins.rs].read(1)
+            try:
+                r = self.alu.mod(a, b, 1, signed=True)
+                self.sync_flags_from_alu()
+                self.registers[ins.rd].write(r, 1)
+            except ZeroDivisionError:
+                self.flags["V"] = 1
+                self.registers[ins.rd].write(0, 1)
+            return
         if op == 0x0110:  # ADDV1
             a, b = self.registers[ins.rd].read(1), ins.imm & 0xFF
             r = self.alu.add(a, b, 1, signed=True)
@@ -587,6 +597,16 @@ class CPU:
             a, b = self.registers[ins.rd].read(2), self.registers[ins.rs].read(2)
             try:
                 r = self.alu.div(a, b, 2, signed=True)
+                self.sync_flags_from_alu()
+                self.registers[ins.rd].write(r, 2)
+            except ZeroDivisionError:
+                self.flags["V"] = 1
+                self.registers[ins.rd].write(0, 2)
+            return
+        if op == 0x0205:  # MOD2
+            a, b = self.registers[ins.rd].read(2), self.registers[ins.rs].read(2)
+            try:
+                r = self.alu.mod(a, b, 2, signed=True)
                 self.sync_flags_from_alu()
                 self.registers[ins.rd].write(r, 2)
             except ZeroDivisionError:
@@ -641,6 +661,16 @@ class CPU:
                 self.flags["V"] = 1
                 self.registers[ins.rd].write(0, 4)
             return
+        if op == 0x0305:  # MOD4
+            a, b = self.registers[ins.rd].read(4), self.registers[ins.rs].read(4)
+            try:
+                r = self.alu.mod(a, b, 4, signed=True)
+                self.sync_flags_from_alu()
+                self.registers[ins.rd].write(r, 4)
+            except ZeroDivisionError:
+                self.flags["V"] = 1
+                self.registers[ins.rd].write(0, 4)
+            return
         if op == 0x0310:  # ADDV4
             a, b = self.registers[ins.rd].read(4), ins.imm & 0xFFFFFFFF
             r = self.alu.add(a, b, 4, signed=True)
@@ -684,6 +714,16 @@ class CPU:
             a, b = self.registers[ins.rd].read(8), self.registers[ins.rs].read(8)
             try:
                 r = self.alu.div(a, b, 8, signed=True)
+                self.sync_flags_from_alu()
+                self.registers[ins.rd].write(r, 8)
+            except ZeroDivisionError:
+                self.flags["V"] = 1
+                self.registers[ins.rd].write(0, 8)
+            return
+        if op == 0x0319:  # MOD8
+            a, b = self.registers[ins.rd].read(8), self.registers[ins.rs].read(8)
+            try:
+                r = self.alu.mod(a, b, 8, signed=True)
                 self.sync_flags_from_alu()
                 self.registers[ins.rd].write(r, 8)
             except ZeroDivisionError:

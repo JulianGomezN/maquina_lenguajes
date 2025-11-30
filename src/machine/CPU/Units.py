@@ -113,6 +113,28 @@ class ALU:
         self._update_flags(res, size, carry, overflow)
         return self._to_unsigned(res, size)
 
+    # ======================================
+    # Módulo
+    # ======================================
+    def mod(self, a, b, size=4, signed=False):
+        if b == 0:
+            raise ZeroDivisionError("División por cero en operación módulo")
+
+        mask, sign_bit = self._mask(size)
+
+        if signed:
+            a = self._to_signed(a, size)
+            b = self._to_signed(b, size)
+            res = a % b
+            overflow = not (-sign_bit <= res < sign_bit)
+        else:
+            res = a % b
+            overflow = res > mask
+
+        carry = 0
+        self._update_flags(res, size, carry, overflow)
+        return self._to_unsigned(res, size)
+
 
 class FPU:
     def __init__(self):
