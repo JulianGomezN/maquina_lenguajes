@@ -1,10 +1,27 @@
 funcion vacio ciclo() {
     entero2 i = 0;
+    imprimir("Inicio del ciclo");
+    imprimir();
+    
     mientras (i < 10 && i != 5) {
         i += 1;
         si (i == 3 || i == 7) {
+            imprimir("Saltando i = ");
+            imprimir(i);
+            imprimir();
             continuar;
         }
+        imprimir("i = ");
+        imprimir(i);
+        imprimir();
     }
+    
+    imprimir("Fin del ciclo, i final = ");
+    imprimir(i);
+    imprimir();
     retornar;
+}
+
+funcion vacio principal() {
+    ciclo();
 }

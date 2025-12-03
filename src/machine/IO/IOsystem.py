@@ -24,3 +24,10 @@ class IOSystem:
             return device.read()
         print(f"[WARN] Dispositivo en {hex(addr)} no existe")
         return 0
+    
+    def show(self, addr):
+        """Muestra el contenido del dispositivo (para SHOWIO)"""
+        device = self.devices.get(addr)
+        if device and hasattr(device, 'show'):
+            device.show()
+

@@ -518,6 +518,10 @@ class SimuladorGUI:
             self.texto_asm.delete("1.0", "end")
             self.texto_asm.insert("1.0", assembly_code)
             
+            # DEBUG: Guardar código ensamblador generado
+            with open("debug_output.asm", "w", encoding="utf-8") as f:
+                f.write(assembly_code)
+            
             self.set_log(f"✓ Compilación exitosa ({len(assembly_code)} caracteres de Assembly generados). \n Haga clic en 'Ensamblar' para ensamblar el programa.")
             
         except Exception as e:
@@ -606,12 +610,20 @@ class SimuladorGUI:
                 # Formato "0000: 006110000000000a"
                 partes = linea.split(':')
                 if len(partes) >= 2:
-                    linea_limpia = partes[1].strip().split()[0]
+                    partes_hex = partes[1].strip().split()
+                    if partes_hex:
+                        linea_limpia = partes_hex[0]
+                    else:
+                        return False  # No hay contenido después del ':'
                 else:
                     return False
             else:
                 # Remover prefijos comunes
-                linea_limpia = linea.replace('0x', '').strip().split()[0]
+                partes_sin_prefijo = linea.replace('0x', '').strip().split()
+                if partes_sin_prefijo:
+                    linea_limpia = partes_sin_prefijo[0]
+                else:
+                    return False
             
             # Verificar si es hexadecimal válido de 16 caracteres
             if len(linea_limpia) == 16 and all(c in '0123456789ABCDEFabcdef' for c in linea_limpia):

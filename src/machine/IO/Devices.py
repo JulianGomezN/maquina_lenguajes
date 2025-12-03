@@ -12,7 +12,14 @@ class Screen(Device):
         self.buffer = ""  # guarda lo que se imprimió
 
     def write(self, value):
-        self.buffer += chr(value & 0xFF)
+        char = chr(value & 0xFF)
+        self.buffer += char
+    
+    def show(self):
+        """Imprime el último carácter escrito en el buffer"""
+        if self.buffer:
+            # Imprimir el último carácter añadido
+            print(self.buffer[-1], end='', flush=True)
     
 class Keyboard(Device):
 

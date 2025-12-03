@@ -42,7 +42,15 @@ INSTRUCTION_SET = {
 
     # Comparación
     'CMP':  {'opcode': 0x0070, 'format': 'RR', 'requiresAddress': False},
+    'CMP1': {'opcode': 0x0070, 'format': 'RR', 'requiresAddress': False},
+    'CMP2': {'opcode': 0x0070, 'format': 'RR', 'requiresAddress': False},
+    'CMP4': {'opcode': 0x0070, 'format': 'RR', 'requiresAddress': False},
+    'CMP8': {'opcode': 0x0070, 'format': 'RR', 'requiresAddress': False},
     'CMPV': {'opcode': 0x0071, 'format': 'RI', 'requiresAddress': False},
+    'CMPV1':{'opcode': 0x0071, 'format': 'RI', 'requiresAddress': False},
+    'CMPV2':{'opcode': 0x0071, 'format': 'RI', 'requiresAddress': False},
+    'CMPV4':{'opcode': 0x0071, 'format': 'RI', 'requiresAddress': False},
+    'CMPV8':{'opcode': 0x0071, 'format': 'RI', 'requiresAddress': False},
 
     # Flags
     'CLRZ': {'opcode': 0x0080, 'format': 'OP', 'requiresAddress': False},
@@ -68,7 +76,7 @@ INSTRUCTION_SET = {
     # I/O
     'SVIO':   {'opcode': 0x00A0, 'format': 'RI', 'requiresAddress': False},
     'LOADIO': {'opcode': 0x00A1, 'format': 'RI', 'requiresAddress': False},
-    #'SHOWIO': {'opcode': 0x00A2, 'format': 'I',  'requiresAddress': False},
+    'SHOWIO': {'opcode': 0x00A2, 'format': 'I',  'requiresAddress': False},
     #'CLRIO':  {'opcode': 0x00A3, 'format': 'I',  'requiresAddress': False},
     #'RESETIO':{'opcode': 0x00A4, 'format': 'OP', 'requiresAddress': False},
 
@@ -155,6 +163,12 @@ INSTRUCTION_SET = {
     'FSQRT8':{'opcode': 0x0721, 'format': 'R',  'requiresAddress': False},
     'FSIN8': {'opcode': 0x0724, 'format': 'R',  'requiresAddress': False},
     'FCOS8': {'opcode': 0x0725, 'format': 'R',  'requiresAddress': False},
+    
+    # Conversiones FPU
+    'CVTF2I8': {'opcode': 0x0730, 'format': 'RR', 'requiresAddress': False},  # float64 -> int64
+    'CVTI2F8': {'opcode': 0x0731, 'format': 'RR', 'requiresAddress': False},  # int64 -> float64
+    'CVTF2I4': {'opcode': 0x0732, 'format': 'RR', 'requiresAddress': False},  # float32 -> int32
+    'CVTI2F4': {'opcode': 0x0733, 'format': 'RR', 'requiresAddress': False},  # int32 -> float32
 
     # Stack
     'RET':  {'opcode': 0x0800, 'format': 'OP', 'requiresAddress': False},
@@ -243,6 +257,7 @@ IS_INV = {
     # I/O
     0x00A0: {'mnemonic': 'SVIO',   'format': 'RI'},
     0x00A1: {'mnemonic': 'LOADIO', 'format': 'RI'},
+    0x00A2: {'mnemonic': 'SHOWIO', 'format': 'I'},
 
     # Aritmética 1 byte
     0x0100: {'mnemonic': 'ADD1',  'format': 'RR'},
@@ -327,6 +342,12 @@ IS_INV = {
     0x0721: {'mnemonic': 'FSQRT8','format': 'R'},
     0x0724: {'mnemonic': 'FSIN8', 'format': 'R'},
     0x0725: {'mnemonic': 'FCOS8', 'format': 'R'},
+    
+    # Conversiones FPU
+    0x0730: {'mnemonic': 'CVTF2I8', 'format': 'RR'},
+    0x0731: {'mnemonic': 'CVTI2F8', 'format': 'RR'},
+    0x0732: {'mnemonic': 'CVTF2I4', 'format': 'RR'},
+    0x0733: {'mnemonic': 'CVTI2F4', 'format': 'RR'},
 
     # Stack
     0x0800: {'mnemonic': 'RET', 'format': 'OP'},

@@ -22,7 +22,17 @@ funcion entero4 principal() {
     entero4 num2 = 462;
     entero4 mcd;
     
+    imprimir("Algoritmo de Euclides (modulo)");
+    imprimir();
+    imprimir("Calculando MCD de ");
+    imprimir(num1, num2);
+    imprimir();
+    
     mcd = euclides_modulo(num1, num2);
+    
+    imprimir("MCD = ");
+    imprimir(mcd);
+    imprimir();
     
     retornar mcd;
 }

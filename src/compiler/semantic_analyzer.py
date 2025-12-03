@@ -71,13 +71,41 @@ class SemanticAnalyzer:
         # Crear tipo para la estructura
         struct_type = Type(struct_decl.name, is_pointer=False, lineno=struct_decl.lineno)
         symbol = Symbol(struct_decl.name, struct_type, struct_decl, kind='struct')
+        # Agregar referencia a los miembros en el símbolo para acceso fácil
+        symbol.members = struct_decl.members
         self.symbol_table.define(symbol)
     
     def _analyze_struct(self, struct_decl):
         """Segunda pasada: analizar miembros de estructura"""
-        # Verificar que los tipos de los miembros sean válidos
+        # Calcular offsets para cada miembro
+        current_offset = 0
         for member in struct_decl.members:
             self._validate_type(member.var_type, member.lineno)
+            
+            # Asignar offset al miembro
+            member.offset = current_offset
+            
+            # Calcular tamaño del miembro para el siguiente offset
+            type_name = member.var_type.name if hasattr(member.var_type, 'name') else 'entero4'
+            
+            # Determinar tamaño según el tipo
+            if type_name == 'caracter' or type_name == 'booleano':
+                size = 1
+            elif type_name == 'entero2':
+                size = 2
+            elif type_name == 'entero4' or type_name == 'flotante':
+                size = 4
+            elif type_name == 'entero8' or type_name == 'doble' or type_name == 'cadena':
+                size = 8  # cadena es un puntero (8 bytes)
+            elif member.var_type.is_pointer:
+                size = 8  # Todos los punteros son 8 bytes
+            else:
+                size = 8  # Por defecto
+            
+            current_offset += size
+        
+        # Guardar tamaño total de la estructura
+        struct_decl.total_size = current_offset
     
     # ============================================
     # DECLARACIÓN DE FUNCIONES
@@ -173,6 +201,8 @@ class SemanticAnalyzer:
             self._analyze_break(stmt)
         elif isinstance(stmt, ContinueStmt):
             self._analyze_continue(stmt)
+        elif isinstance(stmt, PrintStmt):
+            self._analyze_print(stmt)
         elif isinstance(stmt, ExprStmt):
             if stmt.expression:
                 self._analyze_expression(stmt.expression)
@@ -276,6 +306,15 @@ class SemanticAnalyzer:
         """Analiza sentencia continue"""
         if not self.symbol_table.is_in_loop():
             self.error("'continuar' solo puede usarse dentro de un ciclo", continue_stmt.lineno)
+    
+    def _analyze_print(self, print_stmt):
+        """Analiza sentencia imprimir"""
+        # Validar cada expresión en la lista de argumentos
+        for expr in print_stmt.expressions:
+            expr_type = self._analyze_expression(expr)
+            # No hay restricciones de tipo: se puede imprimir cualquier tipo
+            # (enteros, flotantes, caracteres, cadenas, punteros, etc.)
+            # Si la expresión tiene error, _analyze_expression ya lo reportó
     
     # ============================================
     # ANÁLISIS DE EXPRESIONES
@@ -531,10 +570,16 @@ class SemanticAnalyzer:
         if not self._is_integer_type(index_type):
             self.error("Índice de array debe ser entero", array_access.lineno)
         
-        # Por ahora, asumimos que los arrays son punteros
-        # En una implementación completa, habría un tipo Array
-        if array_type.is_pointer:
-            return Type(array_type.name, is_pointer=False, lineno=array_access.lineno)
+        # Los arrays y punteros permiten acceso con []
+        if array_type.is_pointer or array_type.is_array:
+            # Para arrays multidimensionales, retornar tipo con una dimensión menos
+            if hasattr(array_type, 'dimensions') and array_type.dimensions and len(array_type.dimensions) > 1:
+                # Reducir una dimensión: [2][3] -> [3]
+                new_dims = array_type.dimensions[1:]
+                return Type(array_type.name, dimensions=new_dims, lineno=array_access.lineno)
+            else:
+                # Última dimensión: retornar tipo del elemento (sin array)
+                return Type(array_type.name, is_pointer=False, is_array=False, lineno=array_access.lineno)
         else:
             self.error("Acceso a array requiere puntero o array", array_access.lineno)
             return None

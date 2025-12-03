@@ -29,6 +29,7 @@ reserved = {
     'externo': 'EXTERNO',
     'nuevo': 'NUEVO',
     'eliminar': 'ELIMINAR',
+    'imprimir': 'IMPRIMIR',
 }
 
 # -----------------------------
@@ -125,21 +126,28 @@ t_PUNTO       = r'.'
 # -----------------------------
 # Reglas con función (más complejas)
 # -----------------------------
+# IMPORTANTE: El orden de las funciones determina la prioridad en PLY
+# Los literales flotantes deben ir ANTES de ID para capturar f3.14 correctamente
+
+# Punto flotante: f3.14, d2.5, 123.456, 1.23e+10, 1.23E-10
+def t_FLOT(t):
+    r'[fd]\d+\.\d*([eE][\-+]?\d+)?|[fd]\d*\.\d+([eE][\-+]?\d+)?|\d+\.\d*([eE][\-+]?\d+)?|\d*\.\d+([eE][\-+]?\d+)?'
+    try:
+        # Remover prefijo f o d si existe
+        val = t.value
+        if val and val[0] in ('f', 'd'):
+            val = val[1:]
+        t.value = float(val)
+    except ValueError:
+        print(f"Float value error {t.value}")
+        t.value = 0.0
+    return t
+
 # Identificadores (y palabras reservadas)
 def t_ID(t):
     r'[a-zA-Z][a-zA-Z0-9_]*'
     # Verificar si es palabra reservada
     t.type = reserved.get(t.value, 'ID')
-    return t
-
-# Punto flotante: 123.456, 1.23e+10, 1.23E-10
-def t_FLOT(t):
-    r'(\d+\.\d*|\d*\.\d+)([eE][\-+]?\d+)?'
-    try:
-        t.value = float(t.value)
-    except ValueError:
-        print(f"Float value error {t.value}")
-        t.value = 0.0
     return t
 
 # Enteros: decimal u hexadecimal (sin signo en token)

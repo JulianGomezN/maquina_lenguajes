@@ -17,14 +17,28 @@ class ASTNode:
 
 class Type(ASTNode):
     """Representa un tipo de dato"""
-    def __init__(self, name, is_pointer=False, lineno=None, lexpos=None):
+    def __init__(self, name, is_pointer=False, is_array=False, array_size=None, dimensions=None, lineno=None, lexpos=None):
         super().__init__(lineno, lexpos)
         self.name = name  # 'entero4', 'flotante', 'vacio', etc.
         self.is_pointer = is_pointer
+        
+        # Soportar arrays multidimensionales
+        if dimensions is not None:
+            self.is_array = True
+            self.dimensions = dimensions  # Lista de dimensiones, ej: [2, 3] para [2][3]
+            self.array_size = dimensions[0] if dimensions else None  # Compatibilidad
+        else:
+            self.is_array = is_array
+            self.array_size = array_size
+            self.dimensions = [array_size] if is_array and array_size else None
     
     def __repr__(self):
         ptr = "*" if self.is_pointer else ""
-        return f"Type({self.name}{ptr})"
+        if self.dimensions:
+            arr = "".join(f"[{d}]" for d in self.dimensions)
+        else:
+            arr = ""
+        return f"Type({self.name}{ptr}{arr})"
 
 
 # ============================================
@@ -152,6 +166,16 @@ class ContinueStmt(ASTNode):
     """Sentencia continue"""
     def __repr__(self):
         return "ContinueStmt()"
+
+
+class PrintStmt(ASTNode):
+    """Sentencia imprimir"""
+    def __init__(self, expressions=None, lineno=None, lexpos=None):
+        super().__init__(lineno, lexpos)
+        self.expressions = expressions if expressions is not None else []
+    
+    def __repr__(self):
+        return f"PrintStmt(expressions={self.expressions})"
 
 
 class ExprStmt(ASTNode):

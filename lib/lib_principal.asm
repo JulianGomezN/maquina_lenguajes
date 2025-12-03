@@ -8,6 +8,7 @@
 #include "lib/io.asm"
 #include "lib/utils.asm"
 #include "lib/stack.asm"
+#include "lib/memory.asm"
 
 ; Definir macros adicionales que usan las otras bibliotecas
 .macro PRINT_SQUARE reg, output_addr

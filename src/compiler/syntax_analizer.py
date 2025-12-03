@@ -89,8 +89,17 @@ def p_param_list(p):
         p[0] = [p[1]]
 
 def p_param(p):
-    '''param : type ID'''
-    p[0] = VarDecl(p[1], p[2], lineno=p.lineno(2))
+    '''param : type ID
+             | type_base array_dims ID'''
+    if len(p) == 3:
+        p[0] = VarDecl(p[1], p[2], lineno=p.lineno(2))
+    else:
+        # Array parameter: type[size]... ID
+        base_type = p[1]
+        dimensions = p[2]
+        name = p[3]
+        var_type = Type(base_type.name, dimensions=dimensions, lineno=p.lineno(1))
+        p[0] = VarDecl(var_type, name, lineno=p.lineno(3))
 
 # ============================================
 # DECLARACIÓN DE ESTRUCTURA
@@ -109,8 +118,17 @@ def p_member_list(p):
         p[0] = [p[1]]
 
 def p_member(p):
-    '''member : type ID PUNTOCOMA'''
-    p[0] = VarDecl(p[1], p[2], lineno=p.lineno(2))
+    '''member : type ID PUNTOCOMA
+              | type_base array_dims ID PUNTOCOMA'''
+    if len(p) == 4:
+        p[0] = VarDecl(p[1], p[2], lineno=p.lineno(2))
+    else:
+        # Array member: type[size]... ID;
+        base_type = p[1]
+        dimensions = p[2]
+        name = p[3]
+        var_type = Type(base_type.name, dimensions=dimensions, lineno=p.lineno(1))
+        p[0] = VarDecl(var_type, name, lineno=p.lineno(3))
 
 # ============================================
 # DECLARACIÓN DE VARIABLE
@@ -122,20 +140,43 @@ def p_var_decl_stmt(p):
 
 def p_var_decl(p):
     '''var_decl : type ID
-                | type ID ASIGNAR expression'''
-    var_type = p[1]
-    name = p[2]
-    
-    if len(p) == 5:  # Con inicialización
-        init_value = p[4]
-    else:
+                | type ID ASIGNAR expression
+                | type_base array_dims ID
+                | type_base array_dims ID ASIGNAR expression'''
+    if len(p) == 3:  # type ID
+        var_type = p[1]
+        name = p[2]
         init_value = None
+    elif len(p) == 5:  # type ID = expr
+        var_type = p[1]
+        name = p[2]
+        init_value = p[4]
+    elif len(p) == 4:  # type array_dims ID
+        base_type = p[1]
+        dimensions = p[2]  # Lista de dimensiones
+        name = p[3]
+        var_type = Type(base_type.name, dimensions=dimensions, lineno=p.lineno(1))
+        init_value = None
+    else:  # type array_dims ID = expr
+        base_type = p[1]
+        dimensions = p[2]
+        name = p[3]
+        var_type = Type(base_type.name, dimensions=dimensions, lineno=p.lineno(1))
+        init_value = p[5]
     
-    p[0] = VarDecl(var_type, name, init_value, lineno=p.lineno(2))
+    p[0] = VarDecl(var_type, name, init_value, lineno=p.lineno(2) if len(p) <= 5 else p.lineno(3))
 
 def p_var_decl_const(p):
     '''var_decl : CONSTANTE type ID ASIGNAR expression'''
     p[0] = VarDecl(p[2], p[3], p[5], is_const=True, lineno=p.lineno(3))
+
+def p_array_dims(p):
+    '''array_dims : CORCHIZQ ENTERO CORCHDER
+                  | array_dims CORCHIZQ ENTERO CORCHDER'''
+    if len(p) == 4:  # Primera dimensión [n]
+        p[0] = [p[2]]
+    else:  # Dimensiones adicionales [n][m]...
+        p[0] = p[1] + [p[3]]
 
 # ============================================
 # TIPOS
@@ -143,13 +184,23 @@ def p_var_decl_const(p):
 
 def p_type(p):
     '''type : type_base
-            | type MULT'''
+            | type MULT
+            | ID
+            | ID MULT'''
     if len(p) == 2:
-        p[0] = p[1]
+        if isinstance(p[1], Type):
+            p[0] = p[1]
+        else:
+            # ID como tipo (estructura)
+            p[0] = Type(p[1], lineno=p.lineno(1))
     else:
         # Tipo puntero
-        base_type = p[1]
-        p[0] = Type(base_type.name, is_pointer=True, lineno=p.lineno(2))
+        if isinstance(p[1], Type):
+            base_type = p[1]
+            p[0] = Type(base_type.name, is_pointer=True, lineno=p.lineno(2))
+        else:
+            # ID* (puntero a estructura)
+            p[0] = Type(p[1], is_pointer=True, lineno=p.lineno(2))
 
 def p_type_base(p):
     '''type_base : VACIO
@@ -162,8 +213,7 @@ def p_type_base(p):
                  | DOBLE
                  | BOOLEANO
                  | CON_SIGNO
-                 | SIN_SIGNO
-                 | ID'''
+                 | SIN_SIGNO'''
     # Para keywords de tipo, el valor es el lexema
     p[0] = Type(p[1], lineno=p.lineno(1))
 
@@ -180,6 +230,7 @@ def p_statement(p):
                  | return_stmt
                  | break_stmt
                  | continue_stmt
+                 | print_stmt
                  | block'''
     p[0] = p[1]
 
@@ -270,6 +321,16 @@ def p_break_stmt(p):
 def p_continue_stmt(p):
     '''continue_stmt : CONTINUAR PUNTOCOMA'''
     p[0] = ContinueStmt(lineno=p.lineno(1))
+
+def p_print_stmt(p):
+    '''print_stmt : IMPRIMIR PARIZQ argument_list PARDER PUNTOCOMA
+                  | IMPRIMIR PARIZQ PARDER PUNTOCOMA'''
+    if len(p) == 6:
+        # imprimir(a, b, c);
+        p[0] = PrintStmt(p[3], lineno=p.lineno(1))
+    else:
+        # imprimir();
+        p[0] = PrintStmt([], lineno=p.lineno(1))
 
 # ============================================
 # EXPRESIONES

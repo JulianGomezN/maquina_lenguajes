@@ -21,7 +21,17 @@ funcion entero4 principal() {
     entero4 b = 462;
     entero4 resultado;
     
+    imprimir("Algoritmo de Euclides (restas)");
+    imprimir();
+    imprimir("Calculando MCD de ");
+    imprimir(a, b);
+    imprimir();
+    
     resultado = euclides_resta(a, b);
+    
+    imprimir("MCD = ");
+    imprimir(resultado);
+    imprimir();
     
     retornar resultado;
 }

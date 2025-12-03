@@ -11,11 +11,31 @@ funcion vacio crear_persona() {
     p->edad = 25;
     p->altura = 1.75;
 
+    imprimir("Persona creada:");
+    imprimir();
+    imprimir("Nombre: ");
+    imprimir(p->nombre);
+    imprimir();
+    imprimir("Edad: ");
+    imprimir(p->edad);
+    imprimir();
+    imprimir("Altura (m): ");
+    imprimir(p->altura);
+    imprimir();
+
     si (p->edad >= MAX) {
+        imprimir("Edad excede el maximo");
+        imprimir();
         eliminar p;
         retornar;
     }
 
+    imprimir("Persona valida");
+    imprimir();
     eliminar p;
     retornar;
+}
+
+funcion vacio principal () {
+    crear_persona();
 }

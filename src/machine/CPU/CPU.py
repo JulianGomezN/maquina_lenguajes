@@ -111,6 +111,7 @@ class CPU:
             0x0710: RR, 0x0711: RR, 0x0712: RR, 0x0713: RR,  # FADD8, FSUB8, FMUL8, FDIV8
             0x0720: R, 0x0721: R, 0x0722: R, 0x0723: R,      # FSQRT4, FSQRT8, FSIN4, FCOS4
             0x0724: R, 0x0725: R,  # FSIN8, FCOS8
+            0x0730: RR, 0x0731: RR, 0x0732: RR, 0x0733: RR,  # CVTF2I8, CVTI2F8, CVTF2I4, CVTI2F4
 
             #INTFLOAT instructions
             0x0726: R, 0x0727: R,  # INTFLOAT4, INTFLOAT8
@@ -508,6 +509,9 @@ class CPU:
             self.registers[ins.rd].write(value, 8)
             self.update_ZN(self.registers[ins.rd].read(8))
             return
+        if op == 0x00A2:  # SHOWIO
+            self.io.show(ins.imm)
+            return
     
 
         # -------- Size-suffixed Arithmetic Instructions (1 byte) --------
@@ -796,7 +800,8 @@ class CPU:
             return
         if op == 0x0513:  # LOADR8
             addr = self.registers[ins.rs].read(8) & MASK64
-            self.registers[ins.rd].write(self.memory.read(addr, 8), 8)
+            value = self.memory.read(addr, 8)
+            self.registers[ins.rd].write(value, 8)
             return
 
         # -------- STORE Instructions --------
@@ -914,6 +919,49 @@ class CPU:
             r = self.fpu.cos(a, 8)
             self.sync_flags_from_fpu()
             self.registers[ins.rd].write(r, 8)
+            return
+        
+        # -------- Conversiones FPU --------
+        if op == 0x0730:  # CVTF2I8 (float64 -> int64)
+            float_bits = self.registers[ins.rs].read(8)
+            float_val = self.fpu._bits_to_float(float_bits, 8)
+            int_val = int(float_val)  # Truncar a entero
+            # Ajustar para complemento a 2 si es necesario
+            if int_val < 0:
+                int_val = (1 << 64) + int_val
+            self.registers[ins.rd].write(int_val, 8)
+            return
+        
+        if op == 0x0731:  # CVTI2F8 (int64 -> float64)
+            int_bits = self.registers[ins.rs].read(8)
+            # Convertir de complemento a 2 si es negativo
+            if int_bits & (1 << 63):
+                int_val = int_bits - (1 << 64)
+            else:
+                int_val = int_bits
+            float_val = float(int_val)
+            float_bits = self.fpu._float_to_bits(float_val, 8)
+            self.registers[ins.rd].write(float_bits, 8)
+            return
+        
+        if op == 0x0732:  # CVTF2I4 (float32 -> int32)
+            float_bits = self.registers[ins.rs].read(4)
+            float_val = self.fpu._bits_to_float(float_bits, 4)
+            int_val = int(float_val)
+            if int_val < 0:
+                int_val = (1 << 32) + int_val
+            self.registers[ins.rd].write(int_val, 4)
+            return
+        
+        if op == 0x0733:  # CVTI2F4 (int32 -> float32)
+            int_bits = self.registers[ins.rs].read(4)
+            if int_bits & (1 << 31):
+                int_val = int_bits - (1 << 32)
+            else:
+                int_val = int_bits
+            float_val = float(int_val)
+            float_bits = self.fpu._float_to_bits(float_val, 4)
+            self.registers[ins.rd].write(float_bits, 4)
             return
 
 

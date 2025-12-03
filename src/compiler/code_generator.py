@@ -115,6 +115,7 @@ class CodeGenerator:
         # === LAYOUT DE MEMORIA PARA VARIABLES GLOBALES ===
         # Las variables globales se ubican en direcciones absolutas desde 0x1000
         self.global_data_base = 0x1000  # Dirección base de variables globales
+        self.string_data_base = 0x5000  # Dirección base de strings (separada del código) - movido de 0x3000 a 0x5000 para más espacio de código
         
         # === GESTIÓN DE OFFSETS ===
         # Los offsets se asignan dinámicamente durante la generación porque
@@ -133,6 +134,15 @@ class CodeGenerator:
         # Mapea nombre de función -> nodo FunctionDecl
         # Usado para obtener tipos de parámetros en llamadas a función
         self.function_decls = {}
+        
+        # === STRING LITERALS ===
+        # Diccionario para almacenar strings literales y sus etiquetas
+        # key: contenido del string, value: etiqueta única
+        self.string_literals = {}
+        self.string_counter = 0
+        # Diccionario para almacenar direcciones de strings
+        # key: contenido del string, value: dirección en memoria
+        self.string_addresses = {}
     
     def generate(self):
         """
@@ -141,9 +151,24 @@ class CodeGenerator:
         Returns:
             String con el código ensamblador Atlas completo
         """
+        # Primero, recolectar todos los string literals del AST
+        self._collect_string_literals(self.ast)
+        
         self.emit("; Código generado por el compilador SPL -> Atlas")
         self.emit("; Arquitectura: Atlas CPU (64-bit)")
         self.emit("")
+        
+        # Verificar si se necesitan las bibliotecas
+        self.needs_memory = self._has_dynamic_memory(self.ast)
+        needs_stdio = self._has_print_stmt(self.ast)
+        
+        # Incluir bibliotecas necesarias
+        if needs_stdio or self.needs_memory:
+            if needs_stdio:
+                self._include_stdio()
+            else:
+                # Solo memory.asm sin stdio
+                self._include_memory()
         
         # Generar código para el programa
         self.visit_program(self.ast)
@@ -214,6 +239,59 @@ class CodeGenerator:
             return 8
         else:
             return 8  # Por defecto, asumir 8 bytes
+    
+    def get_expression_type(self, expr):
+        """
+        Obtiene el tipo de una expresión consultando la tabla de símbolos.
+        
+        Args:
+            expr: Nodo de expresión del AST
+        
+        Returns:
+            Type object o None si no se puede determinar
+        """
+        from compiler.ast_nodes import Identifier, IntLiteral, FloatLiteral, StringLiteral, CharLiteral, MemberAccess
+        
+        if isinstance(expr, Identifier):
+            symbol = self.symbol_table.lookup(expr.name)
+            return symbol.type if symbol else None
+        
+        elif isinstance(expr, MemberAccess):
+            # Obtener tipo de la estructura
+            if isinstance(expr.object, Identifier):
+                obj_symbol = self.symbol_table.lookup(expr.object.name)
+                if obj_symbol:
+                    struct_type = obj_symbol.type.name if hasattr(obj_symbol.type, 'name') else str(obj_symbol.type)
+                    if expr.is_pointer:
+                        struct_type = struct_type.rstrip('*')
+                    
+                    # Buscar la estructura
+                    struct_symbol = self.symbol_table.lookup(struct_type)
+                    if struct_symbol and hasattr(struct_symbol, 'members'):
+                        # Buscar el miembro
+                        for member in struct_symbol.members:
+                            if member.name == expr.member:
+                                return member.var_type
+            return None
+        
+        elif isinstance(expr, IntLiteral):
+            from compiler.ast_nodes import Type
+            return Type('entero8', is_pointer=False)
+        
+        elif isinstance(expr, FloatLiteral):
+            from compiler.ast_nodes import Type
+            return Type('doble', is_pointer=False)
+        
+        elif isinstance(expr, StringLiteral):
+            from compiler.ast_nodes import Type
+            return Type('cadena', is_pointer=False)
+        
+        elif isinstance(expr, CharLiteral):
+            from compiler.ast_nodes import Type
+            return Type('caracter', is_pointer=False)
+        
+        # Para otros tipos de expresiones, retornar None
+        return None
     
     def get_sized_instruction(self, base_instr, type_name):
         """
@@ -405,7 +483,20 @@ class CodeGenerator:
         type_name = symbol.type.name if hasattr(symbol.type, 'name') else str(symbol.type)
         
         # Obtener tamaño en bytes del tipo
-        size = self.get_type_size(type_name)
+        if hasattr(symbol.type, 'dimensions') and symbol.type.dimensions:
+            # Para arrays multidimensionales: tamaño_elemento * total_elementos
+            element_size = self.get_type_size(type_name)
+            total_elements = 1
+            for dim in symbol.type.dimensions:
+                total_elements *= dim
+            size = element_size * total_elements
+        elif hasattr(symbol.type, 'is_array') and symbol.type.is_array:
+            # Compatibilidad con arrays 1D antiguos
+            element_size = self.get_type_size(type_name)
+            array_size = symbol.type.array_size
+            size = element_size * array_size
+        else:
+            size = self.get_type_size(type_name)
         
         if symbol.kind == 'parameter':
             # ===  PARÁMETROS: OFFSETS NEGATIVOS ===
@@ -441,6 +532,238 @@ class CodeGenerator:
         """Determina si un tipo es de punto flotante."""
         return type_name in ["flotante", "doble"]
     
+    def _has_print_stmt(self, node):
+        """
+        Detecta recursivamente si hay algún PrintStmt en el AST.
+        
+        Args:
+            node: Nodo del AST a inspeccionar
+        
+        Returns:
+            bool: True si encuentra al menos un PrintStmt
+        """
+        from compiler.ast_nodes import PrintStmt, Program, FunctionDecl, Block, IfStmt, WhileStmt, ForStmt
+        
+        if isinstance(node, PrintStmt):
+            return True
+        
+        # Buscar en nodos que pueden contener statements
+        if isinstance(node, Program):
+            return any(self._has_print_stmt(decl) for decl in node.declarations)
+        
+        elif isinstance(node, FunctionDecl):
+            return self._has_print_stmt(node.body) if node.body else False
+        
+        elif isinstance(node, Block):
+            return any(self._has_print_stmt(stmt) for stmt in node.statements)
+        
+        elif isinstance(node, IfStmt):
+            return (self._has_print_stmt(node.then_block) or 
+                    (self._has_print_stmt(node.else_block) if node.else_block else False))
+        
+        elif isinstance(node, WhileStmt):
+            return self._has_print_stmt(node.body)
+        
+        elif isinstance(node, ForStmt):
+            return self._has_print_stmt(node.body)
+        
+        return False
+    
+    def _has_dynamic_memory(self, node):
+        """
+        Detecta recursivamente si hay uso de memoria dinámica (nuevo/eliminar) en el AST.
+        
+        Args:
+            node: Nodo del AST a inspeccionar
+        
+        Returns:
+            bool: True si encuentra al menos un NewExpr o DeleteExpr
+        """
+        from compiler.ast_nodes import NewExpr, DeleteExpr, Program, FunctionDecl, Block, IfStmt, WhileStmt, ForStmt, ExprStmt, Assignment, BinaryOp, UnaryOp, VarDecl, ReturnStmt
+        
+        if isinstance(node, (NewExpr, DeleteExpr)):
+            return True
+        
+        # Buscar en nodos que pueden contener expresiones
+        if isinstance(node, Program):
+            return any(self._has_dynamic_memory(decl) for decl in node.declarations)
+        
+        elif isinstance(node, FunctionDecl):
+            return self._has_dynamic_memory(node.body) if node.body else False
+        
+        elif isinstance(node, Block):
+            return any(self._has_dynamic_memory(stmt) for stmt in node.statements)
+        
+        elif isinstance(node, (IfStmt, WhileStmt)):
+            result = self._has_dynamic_memory(node.condition) if hasattr(node, 'condition') else False
+            if isinstance(node, IfStmt):
+                result = result or self._has_dynamic_memory(node.then_block)
+                if node.else_block:
+                    result = result or self._has_dynamic_memory(node.else_block)
+            else:
+                result = result or self._has_dynamic_memory(node.body)
+            return result
+        
+        elif isinstance(node, ForStmt):
+            result = False
+            if node.init:
+                result = result or self._has_dynamic_memory(node.init)
+            if node.condition:
+                result = result or self._has_dynamic_memory(node.condition)
+            if node.update:
+                result = result or self._has_dynamic_memory(node.update)
+            result = result or self._has_dynamic_memory(node.body)
+            return result
+        
+        elif isinstance(node, (ExprStmt, ReturnStmt)):
+            expr = node.expression if hasattr(node, 'expression') else None
+            return self._has_dynamic_memory(expr) if expr else False
+        
+        elif isinstance(node, (Assignment, BinaryOp)):
+            left = getattr(node, 'left', None) or getattr(node, 'lvalue', None)
+            right = getattr(node, 'right', None) or getattr(node, 'rvalue', None)
+            result = False
+            if left:
+                result = result or self._has_dynamic_memory(left)
+            if right:
+                result = result or self._has_dynamic_memory(right)
+            return result
+        
+        elif isinstance(node, UnaryOp):
+            return self._has_dynamic_memory(node.operand)
+        
+        elif isinstance(node, VarDecl):
+            return self._has_dynamic_memory(node.init_value) if node.init_value else False
+        
+        return False
+    
+    def _collect_string_literals(self, node):
+        """
+        Recorre el AST y recolecta todos los string literals.
+        Asigna una etiqueta única a cada string.
+        """
+        from compiler.ast_nodes import StringLiteral, Program, FunctionDecl, Block, PrintStmt, VarDecl, Assignment, ReturnStmt, IfStmt, WhileStmt, ForStmt, BinaryOp, UnaryOp, FunctionCall, ExprStmt
+        
+        if isinstance(node, StringLiteral):
+            if node.value not in self.string_literals:
+                label = f"__STR{self.string_counter}"
+                self.string_literals[node.value] = label
+                self.string_counter += 1
+        
+        # Recorrer recursivamente los nodos que pueden contener string literals
+        elif isinstance(node, Program):
+            for decl in node.declarations:
+                self._collect_string_literals(decl)
+        
+        elif isinstance(node, FunctionDecl):
+            if node.body:
+                self._collect_string_literals(node.body)
+        
+        elif isinstance(node, Block):
+            for stmt in node.statements:
+                self._collect_string_literals(stmt)
+        
+        elif isinstance(node, PrintStmt):
+            for expr in node.expressions:
+                self._collect_string_literals(expr)
+        
+        elif isinstance(node, ExprStmt):
+            self._collect_string_literals(node.expression)
+        
+        elif isinstance(node, VarDecl):
+            if node.init_value:
+                self._collect_string_literals(node.init_value)
+        
+        elif isinstance(node, Assignment):
+            self._collect_string_literals(node.lvalue)
+            self._collect_string_literals(node.rvalue)
+        
+        elif isinstance(node, ReturnStmt):
+            if node.value:
+                self._collect_string_literals(node.value)
+        
+        elif isinstance(node, IfStmt):
+            self._collect_string_literals(node.condition)
+            self._collect_string_literals(node.then_block)
+            if node.else_block:
+                self._collect_string_literals(node.else_block)
+        
+        elif isinstance(node, WhileStmt):
+            self._collect_string_literals(node.condition)
+            self._collect_string_literals(node.body)
+        
+        elif isinstance(node, ForStmt):
+            if node.init:
+                self._collect_string_literals(node.init)
+            if node.condition:
+                self._collect_string_literals(node.condition)
+            if node.update:
+                self._collect_string_literals(node.update)
+            self._collect_string_literals(node.body)
+        
+        elif isinstance(node, BinaryOp):
+            self._collect_string_literals(node.left)
+            self._collect_string_literals(node.right)
+        
+        elif isinstance(node, UnaryOp):
+            self._collect_string_literals(node.operand)
+        
+        elif isinstance(node, FunctionCall):
+            for arg in node.arguments:
+                self._collect_string_literals(arg)
+    
+    def _include_stdio(self):
+        """Incluye el contenido de lib/stdio.asm en el código generado."""
+        import os
+        
+        # Construir ruta a stdio.asm
+        current_dir = os.path.dirname(__file__)
+        stdio_path = os.path.join(current_dir, "..", "..", "lib", "stdio.asm")
+        stdio_path = os.path.normpath(stdio_path)
+        
+        if os.path.exists(stdio_path):
+            with open(stdio_path, 'r', encoding='utf-8') as f:
+                # CRÍTICO: Saltar stdio.asm e ir directo al código de inicialización
+                self.emit("; Saltar biblioteca stdio.asm e iniciar programa")
+                self.emit("JMP __START_PROGRAM")
+                self.emit("")
+                self.emit("; === BIBLIOTECA stdio.asm ===")
+                for line in f:
+                    self.code.append(line.rstrip())
+                self.emit("; === FIN BIBLIOTECA ===")
+                self.emit("")
+        else:
+            self.emit(f"; ADVERTENCIA: No se encontró lib/stdio.asm en {stdio_path}")
+            self.emit("")
+        
+        # Incluir memory.asm (siempre, ya que puede ser necesario para malloc/free)
+        self._include_memory()
+    
+    def _include_memory(self):
+        """Incluye el contenido de lib/memory.asm en el código generado."""
+        import os
+        
+        current_dir = os.path.dirname(__file__)
+        memory_path = os.path.join(current_dir, "..", "..", "lib", "memory.asm")
+        memory_path = os.path.normpath(memory_path)
+        
+        # Si no hay stdio, necesitamos el JMP inicial
+        if not self.code or "JMP __START_PROGRAM" not in self.code[0]:
+            self.emit("; Saltar bibliotecas e iniciar programa")
+            self.emit("JMP __START_PROGRAM")
+            self.emit("")
+        
+        if os.path.exists(memory_path):
+            with open(memory_path, 'r', encoding='utf-8') as f:
+                self.emit("; === BIBLIOTECA memory.asm ===")
+                for line in f:
+                    self.code.append(line.rstrip())
+                self.emit("; === FIN BIBLIOTECA ===")
+                self.emit("")
+        else:
+            self.emit(f"; ADVERTENCIA: No se encontró lib/memory.asm en {memory_path}")
+            self.emit("")
+    
     # ==================== VISITANTES DEL AST ====================
     
     def visit_program(self, node):
@@ -469,14 +792,45 @@ class CodeGenerator:
         self.emit("")
         self.emit("; === CÓDIGO DE INICIALIZACIÓN ===")
         self.emit("")
-        
-        # Inicializar Stack Pointer en una ubicación segura
+        self.emit("__START_PROGRAM:")
+        self.emit("; Inicializar Stack Pointer en una ubicación segura")
         # Usar mitad de la memoria disponible (0x8000 para memoria de 64KB)
         # Esto deja espacio para código en la parte baja y stack en la parte alta
         self.emit("; Inicializar Stack Pointer (R15) y Frame Pointer (R14)")
-        self.emit("MOVV8 R15, 0x8000        ; SP en mitad de memoria (32KB)")
+        self.emit("MOVV8 R15, 0xC000        ; SP en 48KB (deja espacio para heap)")
         self.emit("MOV8 R14, R15            ; BP = SP (frame inicial)")
         self.emit("")
+        
+        # Inicializar heap para malloc/free (solo si se usa memoria dinámica)
+        if self.needs_memory:
+            self.emit("; Inicializar heap para asignación dinámica")
+            self.emit("CALL __init_heap")
+            self.emit("")
+        
+        # Inicializar string literals en memoria (área separada 0x5000+)
+        if self.string_literals:
+            self.emit("; Inicializar string literals en memoria (área 0x5000+)")
+            string_offset = 0
+            for string_val, label in self.string_literals.items():
+                addr = self.string_data_base + string_offset
+                self.string_addresses[string_val] = addr
+                self.emit(f"; {label} = \"{string_val}\" @ 0x{addr:X}")
+                
+                # Escribir string completo usando STORE1 (dirección absoluta)
+                for i, char in enumerate(string_val):
+                    char_addr = addr + i
+                    self.emit(f"  MOVV1 R01, {ord(char)}  ; '{char}'")
+                    self.emit(f"  STORE1 R01, {char_addr}  ; Escribir en 0x{char_addr:X}")
+                
+                # Escribir NULL terminator
+                null_addr = addr + len(string_val)
+                self.emit(f"  MOVV1 R01, 0  ; NULL")
+                self.emit(f"  STORE1 R01, {null_addr}  ; Escribir en 0x{null_addr:X}")
+                
+                # Avanzar offset (para el siguiente string)
+                string_offset += len(string_val) + 1
+            
+            self.emit("")
         
         # Llamar a la función principal
         self.emit("; Llamar a la función principal")
@@ -529,7 +883,10 @@ class CodeGenerator:
                     self.emit(f"; Constante: {node.name} (tipo: {type_name}, expresión no evaluada en compile-time)")
             return
         
-        # Variable normal: asignar memoria
+        # Variable normal: asignar memoria y offset si no está asignado
+        if not hasattr(symbol, 'offset'):
+            symbol.offset = self._assign_global_offset(symbol)
+        
         address = self.global_data_base + symbol.offset
         self.emit(f"; Variable global: {node.name} (tipo: {type_name}, tamaño: {size} bytes, dirección: {address})")
         
@@ -775,6 +1132,8 @@ class CodeGenerator:
             self.visit_break_stmt(node)
         elif isinstance(node, ContinueStmt):
             self.visit_continue_stmt(node)
+        elif isinstance(node, PrintStmt):
+            self.visit_print_stmt(node)
         elif isinstance(node, ExprStmt):
             self.visit_expr_stmt(node)
         elif isinstance(node, Block):
@@ -807,12 +1166,20 @@ class CodeGenerator:
             type_name = symbol.type.name if hasattr(symbol.type, 'name') else str(symbol.type)
             reg = self.visit_expr(node.init_value, type_name)
             store_instr = self.get_sized_instruction("STORER", type_name)
+            mov_instr = self.get_sized_instruction("MOV", type_name)
+            
+            # CRÍTICO: Si el valor está en R00 (común para valores de retorno de funciones),
+            # guardarlo en otro registro antes de calcular la dirección para evitar sobrescritura
+            value_reg = reg
+            if reg == 0:
+                value_reg = self.new_temp()
+                self.emit(f"  {mov_instr} R{value_reg:02d}, R{reg:02d}  ; Guardar valor de R00")
             
             # Cargar la dirección: BP + offset
             addr_reg = self.new_temp()
             self.emit(f"  MOVV8 R{addr_reg:02d}, {symbol.offset}")
             self.emit(f"  ADD8 R{addr_reg:02d}, R14  ; Dirección = BP + offset")
-            self.emit(f"  {store_instr} R{reg:02d}, R{addr_reg:02d}  ; {node.name} = valor_inicial")
+            self.emit(f"  {store_instr} R{value_reg:02d}, R{addr_reg:02d}  ; {node.name} = valor_inicial")
     
     def visit_assignment(self, node):
         """
@@ -983,15 +1350,24 @@ class CodeGenerator:
             self.emit("  ; ERROR: Acceso a miembro complejo no implementado")
     
     def visit_array_access_assignment(self, node):
-        """Maneja asignación a elementos de array: arr[index] = value"""
+        """Maneja asignación a elementos de array: arr[index] = value o arr[i][j] = value"""
+        from compiler.ast_nodes import ArrayAccess, Identifier
+        
         if not isinstance(node.lvalue, ArrayAccess):
             return
         
         array_node = node.lvalue
         
+        # Recolectar todos los índices para acceso multidimensional
+        indices = []
+        current = array_node
+        while isinstance(current, ArrayAccess):
+            indices.insert(0, current.index)
+            current = current.array
+        
         # Obtener símbolo del array
-        if isinstance(array_node.array, Identifier):
-            array_symbol = self.symbol_table.lookup(array_node.array.name)
+        if isinstance(current, Identifier):
+            array_symbol = self.symbol_table.lookup(current.name)
             if not array_symbol:
                 self.emit("  ; ERROR: Array no encontrado")
                 return
@@ -1000,16 +1376,36 @@ class CodeGenerator:
             element_type = array_symbol.type.name if hasattr(array_symbol.type, 'name') else 'entero4'
             element_size = self.get_type_size(element_type)
             
-            # Evaluar índice
-            index_reg = self.visit_expr(array_node.index, 'entero4')
+            # Obtener dimensiones del array
+            if hasattr(array_symbol.type, 'dimensions') and array_symbol.type.dimensions:
+                dimensions = array_symbol.type.dimensions
+            else:
+                dimensions = [array_symbol.type.array_size] if hasattr(array_symbol.type, 'array_size') else []
             
-            # Evaluar valor a asignar
+            if len(indices) != len(dimensions):
+                self.emit(f"  ; ERROR: Dimensiones incorrectas: esperaba {len(dimensions)}, recibió {len(indices)}")
+                return
+            
+            # Evaluar valor a asignar PRIMERO (antes de calcular offset para evitar sobreescribir registros)
             value_reg = self.visit_expr(node.rvalue, element_type)
             
-            # Calcular dirección: base + (index * element_size)
-            offset_reg = self.new_temp()
-            self.emit(f"  MOVV4 R{offset_reg:02d}, {element_size}")
-            self.emit(f"  MUL4 R{offset_reg:02d}, R{index_reg:02d}  ; offset = index * size")
+            # Calcular offset multidimensional
+            offset_reg = self.visit_expr(indices[0], 'entero4')
+            
+            for i in range(1, len(indices)):
+                # offset *= dimensions[i]
+                dim_reg = self.new_temp()
+                self.emit(f"  MOVV4 R{dim_reg:02d}, {dimensions[i]}")
+                self.emit(f"  MUL4 R{offset_reg:02d}, R{dim_reg:02d}")
+                
+                # offset += indices[i]
+                index_reg = self.visit_expr(indices[i], 'entero4')
+                self.emit(f"  ADD4 R{offset_reg:02d}, R{index_reg:02d}")
+            
+            # Multiplicar por tamaño del elemento
+            size_reg = self.new_temp()
+            self.emit(f"  MOVV4 R{size_reg:02d}, {element_size}")
+            self.emit(f"  MUL4 R{offset_reg:02d}, R{size_reg:02d}")
             
             # Obtener dirección base del array
             base_reg = self.new_temp()
@@ -1022,7 +1418,7 @@ class CodeGenerator:
             
             # Guardar valor
             store_instr = self.get_sized_instruction("STORER", element_type)
-            self.emit(f"  {store_instr} R{value_reg:02d}, R{base_reg:02d}  ; arr[index] = valor")
+            self.emit(f"  {store_instr} R{value_reg:02d}, R{base_reg:02d}  ; arr[...] = valor")
         else:
             self.emit("  ; ERROR: Acceso a array complejo no implementado")
     
@@ -1187,6 +1583,52 @@ class CodeGenerator:
         start_label, _ = self.loop_stack[-1]
         self.emit(f"  JMP {start_label}  ; continue")
     
+    def visit_print_stmt(self, node):
+        """Genera código para imprimir()."""
+        self.emit("  ; imprimir()")
+        
+        # Si no hay expresiones, solo imprimir newline
+        if not node.expressions:
+            self.emit("  CALL __print_newline")
+            return
+        
+        # Imprimir cada expresión
+        for expr in node.expressions:
+            # Primero obtener el tipo de la expresión
+            expr_type = self.get_expression_type(expr)
+            type_name = expr_type.name if expr_type else 'entero8'
+            
+            # Evaluar la expresión con su tipo correcto
+            reg = self.visit_expr(expr, type_name)
+            
+            # Determinar qué función de impresión usar según el tipo
+            # Cadenas (puntero a char)
+            if type_name == 'cadena' or (type_name == 'caracter' and expr_type and expr_type.pointer_level > 0):
+                self.emit(f"  PUSH8 R{reg:02d}")
+                self.emit("  CALL __print_string")
+                self.emit(f"  ADDV8 R15, 8  ; Limpiar stack")
+            
+            # Carácter individual
+            elif type_name == 'caracter':
+                self.emit(f"  PUSH8 R{reg:02d}")
+                self.emit("  CALL __print_char")
+                self.emit(f"  ADDV8 R15, 8  ; Limpiar stack")
+            
+            # Números flotantes
+            elif type_name == 'flotante':
+                self.emit(f"  PUSH4 R{reg:02d}")
+                self.emit("  CALL __print_float")
+                self.emit(f"  ADDV8 R15, 4  ; Limpiar stack")
+            
+            # Números enteros o tipo desconocido
+            else:
+                self.emit(f"  PUSH8 R{reg:02d}")
+                self.emit("  CALL __print_int8")
+                self.emit(f"  ADDV8 R15, 8  ; Limpiar stack")
+        
+        # Salto de línea final
+        self.emit("  CALL __print_newline")
+    
     def visit_expr_stmt(self, node):
         """Genera código para un statement de expresión (ej: llamada a función o assignment)."""
         # ExprStmt puede contener una expresión o un assignment
@@ -1257,8 +1699,13 @@ class CodeGenerator:
             val = 1 if node.value else 0
             self.emit(f"  MOVV1 R{reg:02d}, {val}")
         elif isinstance(node, StringLiteral):
-            # Para cadenas, necesitaríamos un manejo especial (no implementado aquí)
-            self.emit(f"  MOVV8 R{reg:02d}, 0  ; String literal no soportado aún")
+            # Cargar la dirección del string literal
+            addr = self.string_addresses.get(node.value)
+            label = self.string_literals.get(node.value, "STR")
+            if addr is not None:
+                self.emit(f"  MOVV8 R{reg:02d}, 0x{addr:X}  ; {label}")
+            else:
+                self.emit(f"  MOVV8 R{reg:02d}, 0  ; ERROR: String no inicializado")
         else:
             self.emit(f"  MOVV8 R{reg:02d}, 0  ; Literal no soportado")
         
@@ -1624,12 +2071,22 @@ class CodeGenerator:
         return result_reg
     
     def visit_array_access(self, node, expected_type):
-        """Genera código para acceso a array: arr[index]"""
-        if not isinstance(node.array, Identifier):
+        """Genera código para acceso a array: arr[index] o arr[i][j]"""
+        from compiler.ast_nodes import ArrayAccess, Identifier
+        
+        # Recolectar todos los índices para acceso multidimensional
+        indices = []
+        current = node
+        while isinstance(current, ArrayAccess):
+            indices.insert(0, current.index)  # Insertar al inicio para mantener orden
+            current = current.array
+        
+        # Obtener el identificador base
+        if not isinstance(current, Identifier):
             self.emit("  ; ERROR: Array complejo no implementado")
             return self.new_temp()
         
-        array_symbol = self.symbol_table.lookup(node.array.name)
+        array_symbol = self.symbol_table.lookup(current.name)
         if not array_symbol:
             self.emit("  ; ERROR: Array no encontrado")
             return self.new_temp()
@@ -1637,13 +2094,38 @@ class CodeGenerator:
         element_type = array_symbol.type.name if hasattr(array_symbol.type, 'name') else 'entero4'
         element_size = self.get_type_size(element_type)
         
-        # Evaluar índice
-        index_reg = self.visit_expr(node.index, 'entero4')
+        # Obtener dimensiones del array
+        if hasattr(array_symbol.type, 'dimensions') and array_symbol.type.dimensions:
+            dimensions = array_symbol.type.dimensions
+        else:
+            dimensions = [array_symbol.type.array_size] if hasattr(array_symbol.type, 'array_size') else []
         
-        # Calcular offset
-        offset_reg = self.new_temp()
-        self.emit(f"  MOVV4 R{offset_reg:02d}, {element_size}")
-        self.emit(f"  MUL4 R{offset_reg:02d}, R{index_reg:02d}")
+        # Calcular offset total para arrays multidimensionales
+        # Para arr[i][j] con dims [D1][D2]: offset = (i * D2 + j) * element_size
+        # Para arr[i][j][k] con dims [D1][D2][D3]: offset = ((i * D2 + j) * D3 + k) * element_size
+        
+        if len(indices) != len(dimensions):
+            self.emit(f"  ; ERROR: Dimensiones incorrectas: esperaba {len(dimensions)}, recibió {len(indices)}")
+            return self.new_temp()
+        
+        # Evaluar primer índice
+        offset_reg = self.visit_expr(indices[0], 'entero4')
+        
+        # Para cada dimensión subsecuente: offset = offset * dim[i+1] + index[i+1]
+        for i in range(1, len(indices)):
+            # offset *= dimensions[i]
+            dim_reg = self.new_temp()
+            self.emit(f"  MOVV4 R{dim_reg:02d}, {dimensions[i]}")
+            self.emit(f"  MUL4 R{offset_reg:02d}, R{dim_reg:02d}")
+            
+            # offset += indices[i]
+            index_reg = self.visit_expr(indices[i], 'entero4')
+            self.emit(f"  ADD4 R{offset_reg:02d}, R{index_reg:02d}")
+        
+        # Multiplicar por tamaño del elemento
+        size_reg = self.new_temp()
+        self.emit(f"  MOVV4 R{size_reg:02d}, {element_size}")
+        self.emit(f"  MUL4 R{offset_reg:02d}, R{size_reg:02d}")
         
         # Dirección base
         base_reg = self.new_temp()
@@ -1661,11 +2143,17 @@ class CodeGenerator:
         """Genera código para nuevo Tipo (malloc)"""
         # Obtener tamaño del tipo
         type_name = node.type.name if hasattr(node.type, 'name') else 'entero4'
-        type_size = self.get_type_size(type_name)
+        
+        # Verificar si es una estructura para obtener su tamaño total
+        struct_symbol = self.symbol_table.lookup(type_name)
+        if struct_symbol and struct_symbol.kind == 'struct' and hasattr(struct_symbol.node, 'total_size'):
+            type_size = struct_symbol.node.total_size
+        else:
+            type_size = self.get_type_size(type_name)
         
         # Llamar a función de sistema malloc (debe estar implementada)
         size_reg = self.new_temp()
-        self.emit(f"  MOVV8 R{size_reg:02d}, {type_size}  ; Tamaño a asignar")
+        self.emit(f"  MOVV8 R{size_reg:02d}, {type_size}  ; Tamaño a asignar para {type_name}")
         self.emit(f"  PUSH8 R{size_reg:02d}  ; Argumento para malloc")
         self.emit(f"  CALL __malloc  ; Asignar memoria")
         self.emit(f"  ADDV8 R15, 8  ; Limpiar argumento")

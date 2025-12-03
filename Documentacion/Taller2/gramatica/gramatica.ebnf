@@ -41,13 +41,18 @@ member ::= type ID ';'
 var_decl_stmt ::= var_decl ';'
 
 var_decl ::= type ID ('=' expression)?
+           | type_base array_dims ID ('=' expression)?
            | 'constante' type ID '=' expression
+
+array_dims ::= '[' ENTERO ']'
+             | array_dims '[' ENTERO ']'
 
 /* ============================================================================
    TIPOS
    ============================================================================ */
 
-type ::= type_base '*'*
+type ::= type_base
+       | type '*'
 
 type_base ::= 'vacio'
             | 'entero2'
@@ -74,6 +79,7 @@ statement ::= var_decl_stmt
             | return_stmt
             | break_stmt
             | continue_stmt
+            | print_stmt
             | block
 
 block ::= '{' statement_list? '}'
@@ -101,6 +107,8 @@ return_stmt ::= 'retornar' expression? ';'
 break_stmt ::= 'romper' ';'
 
 continue_stmt ::= 'continuar' ';'
+
+print_stmt ::= 'imprimir' '(' argument_list? ')' ';'
 
 /* ============================================================================
    EXPRESIONES

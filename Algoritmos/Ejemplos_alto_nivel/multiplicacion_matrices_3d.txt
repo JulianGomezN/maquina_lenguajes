@@ -1,0 +1,83 @@
+funcion vacio principal() {
+    // Declarar matrices 3x3
+    entero4[3][3] matrizA;
+    entero4[3][3] matrizB;
+    entero4[3][3] resultado;
+    
+    // Inicializar matriz A = [1, 2, 3; 4, 5, 6; 7, 8, 9]
+    matrizA[0][0] = 1;
+    matrizA[0][1] = 2;
+    matrizA[0][2] = 3;
+    matrizA[1][0] = 4;
+    matrizA[1][1] = 5;
+    matrizA[1][2] = 6;
+    matrizA[2][0] = 7;
+    matrizA[2][1] = 8;
+    matrizA[2][2] = 9;
+    
+    // Inicializar matriz B = [9, 8, 7; 6, 5, 4; 3, 2, 1]
+    matrizB[0][0] = 9;
+    matrizB[0][1] = 8;
+    matrizB[0][2] = 7;
+    matrizB[1][0] = 6;
+    matrizB[1][1] = 5;
+    matrizB[1][2] = 4;
+    matrizB[2][0] = 3;
+    matrizB[2][1] = 2;
+    matrizB[2][2] = 1;
+    
+    // Imprimir matriz A
+    imprimir("Matriz A:");
+    imprimir(matrizA[0][0], matrizA[0][1], matrizA[0][2]);
+    imprimir(matrizA[1][0], matrizA[1][1], matrizA[1][2]);
+    imprimir(matrizA[2][0], matrizA[2][1], matrizA[2][2]);
+    imprimir("");
+    
+    // Imprimir matriz B
+    imprimir("Matriz B:");
+    imprimir(matrizB[0][0], matrizB[0][1], matrizB[0][2]);
+    imprimir(matrizB[1][0], matrizB[1][1], matrizB[1][2]);
+    imprimir(matrizB[2][0], matrizB[2][1], matrizB[2][2]);
+    imprimir("");
+    
+    // Cargar elementos de matriz A
+    entero4 a00 = matrizA[0][0];
+    entero4 a01 = matrizA[0][1];
+    entero4 a02 = matrizA[0][2];
+    entero4 a10 = matrizA[1][0];
+    entero4 a11 = matrizA[1][1];
+    entero4 a12 = matrizA[1][2];
+    entero4 a20 = matrizA[2][0];
+    entero4 a21 = matrizA[2][1];
+    entero4 a22 = matrizA[2][2];
+    
+    // Cargar elementos de matriz B
+    entero4 b00 = matrizB[0][0];
+    entero4 b01 = matrizB[0][1];
+    entero4 b02 = matrizB[0][2];
+    entero4 b10 = matrizB[1][0];
+    entero4 b11 = matrizB[1][1];
+    entero4 b12 = matrizB[1][2];
+    entero4 b20 = matrizB[2][0];
+    entero4 b21 = matrizB[2][1];
+    entero4 b22 = matrizB[2][2];
+    
+    // Calcular resultado (multiplicación de matrices 3x3)
+    resultado[0][0] = a00 * b00 + a01 * b10 + a02 * b20;
+    resultado[0][1] = a00 * b01 + a01 * b11 + a02 * b21;
+    resultado[0][2] = a00 * b02 + a01 * b12 + a02 * b22;
+    
+    resultado[1][0] = a10 * b00 + a11 * b10 + a12 * b20;
+    resultado[1][1] = a10 * b01 + a11 * b11 + a12 * b21;
+    resultado[1][2] = a10 * b02 + a11 * b12 + a12 * b22;
+    
+    resultado[2][0] = a20 * b00 + a21 * b10 + a22 * b20;
+    resultado[2][1] = a20 * b01 + a21 * b11 + a22 * b21;
+    resultado[2][2] = a20 * b02 + a21 * b12 + a22 * b22;
+    
+    // Imprimir resultado
+    imprimir("Resultado A x B:");
+    imprimir(resultado[0][0], resultado[0][1], resultado[0][2]);
+    imprimir(resultado[1][0], resultado[1][1], resultado[1][2]);
+    imprimir(resultado[2][0], resultado[2][1], resultado[2][2]);
+}
