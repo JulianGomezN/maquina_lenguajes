@@ -32,9 +32,21 @@ program
          │
          └─ var_decl_stmt
              └─ var_decl
-                 ├─ type
-                 ├─ ID
-                 └─ expression (opcional para inicialización)
+                 ├─ Declaración simple
+                 │   ├─ type
+                 │   ├─ ID
+                 │   └─ expression (opcional para inicialización)
+                 ├─ Declaración de array
+                 │   ├─ type_base
+                 │   ├─ array_dims (uno o más)
+                 │   │   └─ '[' ENTERO ']' (recursivo para N dimensiones)
+                 │   ├─ ID
+                 │   └─ expression (opcional para inicialización)
+                 └─ Declaración de constante
+                     ├─ "constante"
+                     ├─ type
+                     ├─ ID
+                     └─ expression (requerido)
 ```
 
 ## Jerarquía de Tipos
@@ -55,6 +67,13 @@ type
  │       └─ ID (nombre de estructura)
  └─ Niveles de puntero
      └─ "*" (cero o más)
+
+array_dims (Arrays Multidimensionales)
+ └─ '[' ENTERO ']' (recursivo)
+     ├─ [n] - Array 1D
+     ├─ [n][m] - Array 2D (matriz)
+     ├─ [n][m][k] - Array 3D (tensor)
+     └─ ... (N dimensiones)
 ```
 
 ## Jerarquía de Sentencias
@@ -91,6 +110,11 @@ statement
  │
  ├─ continue_stmt
  │   └─ "continuar" ";"
+ │
+ ├─ print_stmt
+ │   ├─ "imprimir" "("
+ │   ├─ argument_list (opcional)
+ │   └─ ")" ";"
  │
  └─ block
      └─ "{" statement_list "}"
@@ -187,7 +211,7 @@ expression
 
 ## Ejemplo de Parseo
 
-### Código de entrada:
+### Ejemplo 1: Función recursiva
 ```c
 funcion entero4 factorial(entero4 n) {
     si (n <= 1) {
@@ -223,6 +247,55 @@ Program
                                 └── Right: IntLiteral (1)
 ```
 
+### Ejemplo 2: Arrays multidimensionales
+```c
+funcion vacio principal() {
+    entero4[3][3] matriz;
+    matriz[0][0] = 1;
+    matriz[0][1] = 2;
+    matriz[1][0] = 3;
+    imprimir(matriz[0][0], matriz[0][1]);
+}
+```
+
+### Árbol AST generado:
+```
+Program
+└── FunctionDecl: principal
+    ├── Return Type: vacio
+    ├── Parameters: (none)
+    └── Body: Block
+        ├── VarDecl: matriz
+        │   ├── Type: entero4
+        │   ├── Dimensions: [3, 3]
+        │   └── Storage: Stack (36 bytes)
+        ├── Assignment
+        │   ├── Left: ArrayAccess
+        │   │   ├── Array: ArrayAccess
+        │   │   │   ├── Array: Identifier (matriz)
+        │   │   │   └── Index: IntLiteral (0)
+        │   │   └── Index: IntLiteral (0)
+        │   └── Right: IntLiteral (1)
+        ├── Assignment
+        │   ├── Left: ArrayAccess
+        │   │   ├── Array: ArrayAccess
+        │   │   │   ├── Array: Identifier (matriz)
+        │   │   │   └── Index: IntLiteral (0)
+        │   │   └── Index: IntLiteral (1)
+        │   └── Right: IntLiteral (2)
+        ├── Assignment
+        │   ├── Left: ArrayAccess
+        │   │   ├── Array: ArrayAccess
+        │   │   │   ├── Array: Identifier (matriz)
+        │   │   │   └── Index: IntLiteral (1)
+        │   │   └── Index: IntLiteral (0)
+        │   └── Right: IntLiteral (3)
+        └── PrintStmt
+            └── Arguments:
+                ├── ArrayAccess (matriz[0][0])
+                └── ArrayAccess (matriz[0][1])
+```
+
 ## Tabla de No Terminales por Categoría
 
 | Categoría | No Terminales | Descripción |
@@ -230,10 +303,11 @@ Program
 | **Raíz** | `program`, `declaration_list`, `declaration` | Estructura principal del programa |
 | **Funciones** | `function_decl`, `normal_function_decl`, `extern_function_decl`, `param_list`, `param` | Declaraciones de funciones |
 | **Estructuras** | `struct_decl`, `member_list`, `member` | Definición de tipos compuestos |
-| **Variables** | `var_decl_stmt`, `var_decl` | Declaración de variables |
+| **Variables** | `var_decl_stmt`, `var_decl`, `array_dims` | Declaración de variables y arrays |
 | **Tipos** | `type`, `type_base` | Sistema de tipos |
 | **Sentencias Básicas** | `statement`, `block`, `statement_list`, `expr_stmt` | Sentencias fundamentales |
 | **Control de Flujo** | `if_stmt`, `while_stmt`, `for_stmt`, `for_init_opt`, `expr_opt`, `return_stmt`, `break_stmt`, `continue_stmt` | Estructuras de control |
+| **Entrada/Salida** | `print_stmt` | Operaciones de I/O |
 | **Expresiones Lógicas** | `expression`, `assignment`, `logical`, `logical_or`, `logical_and` | Expresiones lógicas |
 | **Expresiones Bitwise** | `bitwise_or`, `bitwise_xor`, `bitwise_and` | Operaciones bit a bit |
 | **Expresiones Comparación** | `equality`, `relational` | Comparaciones |
@@ -242,16 +316,38 @@ Program
 | **Expresiones Especiales** | `new_expr`, `delete_expr`, `argument_list` | Gestión de memoria y llamadas |
 | **Auxiliares** | `assignment_op`, `equality_op`, `relational_op`, `additive_op`, `multiplicative_op`, `unary_op`, `postfix_op`, `empty` | Operadores y reglas auxiliares |
 
-**Total: 52 no terminales** (47 reglas principales + 5 reglas de operadores auxiliares)
+**Total: 54 no terminales** (48 reglas principales + 6 reglas de operadores auxiliares)
 
 ## Estadísticas de la Gramática
 
-- **No terminales**: 52
+- **No terminales**: 54 (incluye `array_dims` y `print_stmt`)
 - **Terminales** (tokens): 60+ (incluyendo palabras reservadas, operadores, delimitadores)
-- **Reglas de producción**: 80+
+- **Reglas de producción**: 85+ (aumentado con soporte de arrays multidimensionales)
 - **Niveles de precedencia**: 12
-- **Palabras reservadas**: 25
+- **Palabras reservadas**: 26 (incluye `imprimir`, `constante`)
 - **Operadores**: 35+
+
+## Características Destacadas
+
+### Arrays Multidimensionales
+- **Sintaxis**: `tipo[dim1][dim2]...[dimN] identificador;`
+- **Ejemplos**:
+  - `entero4[10] vector;` - Array 1D de 10 elementos
+  - `entero4[3][3] matriz;` - Matriz 3×3 (9 elementos)
+  - `entero4[2][3][4] tensor;` - Tensor 3D (24 elementos)
+- **Acceso**: `matriz[i][j]` con sintaxis natural anidada
+- **Almacenamiento**: Row-major contiguous (fila por fila)
+- **Offset**: Calculado como `(i * D2 + j) * tamaño_elemento`
+
+### Constantes
+- **Sintaxis**: `constante tipo ID = expresion;`
+- **Ejemplo**: `constante entero4 MAX = 100;`
+- **Evaluación**: En tiempo de compilación
+
+### Sistema de Impresión
+- **Sintaxis**: `imprimir(expr1, expr2, ..., exprN);`
+- **Formato**: Valores separados por espacios
+- **Ejemplo**: `imprimir(a, b, c);` → "a b c"
 
 ## Validación
 

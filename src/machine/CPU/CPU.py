@@ -886,7 +886,6 @@ class CPU:
         if op == 0x0720:  # FSQRT4
             a = self.registers[ins.rd].read(4)
             r = self.fpu.sqrt(a, 4)
-            print(f"FSQRT4: {a} = {r}")
             self.sync_flags_from_fpu()
             self.registers[ins.rd].write(r, 4)
             return
@@ -1056,7 +1055,6 @@ class CPU:
         """ Emulates excecution of one instrucction
         """
         self.fetch()
-        #print(f"Executing: {self.ir:016X}")
         ins = self.decode()
         self.execute(ins)
 

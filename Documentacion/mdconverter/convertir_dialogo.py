@@ -101,11 +101,11 @@ def main():
             hf.write('\\floatplacement{figure}{H}\n')
             # Permitir barreras de floats si se desea usar \FloatBarrier
             hf.write('\\usepackage{placeins}\n')
-            # Ajustar automáticamente las imágenes para que no excedan el ancho ni
-            # el alto disponible en la página; se mantiene la relación de aspecto.
-            # Usar directamente claves de graphicx: limitar al ancho de la línea y
-            # al 90% de la altura de texto para evitar que una imagen ocupe toda la página.
-            hf.write('\\setkeys{Gin}{width=\\linewidth,height=0.9\\textheight,keepaspectratio}\n')
+            # Usar adjustbox para limitar tamaño solo si excede límites
+            hf.write('\\usepackage[export]{adjustbox}\n')
+            # Redefinir includegraphics para usar max size (solo escala si excede límites)
+            hf.write('\\let\\oldincludegraphics\\includegraphics\n')
+            hf.write('\\renewcommand{\\includegraphics}[2][]{\\oldincludegraphics[#1,max width=\\linewidth,max height=0.85\\textheight]{#2}}\n')
         # Pasar la carpeta del markdown como resource-path para que pandoc
         # encuentre imágenes referenciadas con rutas relativas (por ejemplo images/...).
         res = ejecutar_pandoc(md_limpio, pdf_salida, header_path=header_path, resource_path=dirpath)
