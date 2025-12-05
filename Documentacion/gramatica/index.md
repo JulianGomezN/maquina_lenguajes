@@ -280,8 +280,6 @@ referenced by:
 if_stmt  ::= 'si' '(' expression ')' statement ( 'si_no_si' '(' expression ')' statement )* ( 'si_no' statement )?
 ```
 
-Nota: Se permite un máximo de 10 cláusulas `si_no_si` consecutivas.
-
 referenced by:
 
 * statement

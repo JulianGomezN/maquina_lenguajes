@@ -264,16 +264,36 @@ def p_expr_stmt(p):
 
 def p_if_stmt(p):
     '''if_stmt : SI PARIZQ expression PARDER statement
+               | SI PARIZQ expression PARDER statement elif_list
+               | SI PARIZQ expression PARDER statement elif_list SI_NO statement
                | SI PARIZQ expression PARDER statement SI_NO statement'''
     condition = p[3]
     then_block = p[5]
+    elif_clauses = []
+    else_block = None
     
-    if len(p) == 8:  # Con si_no
+    if len(p) == 7:  # Con elif_list
+        elif_clauses = p[6]
+    elif len(p) == 8:  # Con si_no simple
         else_block = p[7]
-    else:
-        else_block = None
+    elif len(p) == 9:  # Con elif_list y si_no
+        elif_clauses = p[6]
+        else_block = p[8]
     
-    p[0] = IfStmt(condition, then_block, else_block, lineno=p.lineno(1))
+    p[0] = IfStmt(condition, then_block, elif_clauses, else_block, lineno=p.lineno(1))
+
+def p_elif_list(p):
+    '''elif_list : elif_clause
+                 | elif_list elif_clause'''
+    if len(p) == 2:
+        p[0] = [p[1]]
+    else:
+        p[0] = p[1] + [p[2]]
+
+def p_elif_clause(p):
+    '''elif_clause : SI_NO_SI PARIZQ expression PARDER statement'''
+    from .ast_nodes import ElifClause
+    p[0] = ElifClause(p[3], p[5], lineno=p.lineno(1))
 
 # ============================================
 # WHILE STATEMENT

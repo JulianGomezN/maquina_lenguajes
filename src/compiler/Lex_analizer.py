@@ -7,6 +7,7 @@ import ply.lex as lex
 reserved = {
     'si': 'SI',
     'si_no': 'SI_NO',
+    'si_no_si': 'SI_NO_SI',
     'mientras': 'MIENTRAS',
     'para': 'PARA',
     'romper': 'ROMPER',

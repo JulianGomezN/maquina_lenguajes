@@ -81,7 +81,7 @@ Los diagramas muestran visualmente:
 Para la regla:
 
 ```ebnf
-if_stmt ::= 'si' '(' expression ')' statement ('si_no' statement)?
+if_stmt ::= 'si' '(' expression ')' statement ('si_no_si' '(' expression ')' statement)* ('si_no' statement)?
 ```
 
 Verás un diagrama que muestra:

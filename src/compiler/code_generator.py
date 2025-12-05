@@ -1424,34 +1424,71 @@ class CodeGenerator:
     
     def visit_if_stmt(self, node):
         """
-        Genera código para un statement if.
+        Genera código para un statement if con soporte para elif.
         
         Estructura:
-          <evaluar condición>
-          CMP + JEQ else_label
+          <evaluar condición if>
+          CMP + JEQ elif1_label
           <then_block>
           JMP end_label
+        elif1_label:
+          <evaluar condición elif1>
+          CMP + JEQ elif2_label (o else_label)
+          <elif1_block>
+          JMP end_label
+        elif2_label:
+          ...
         else_label:
           <else_block>
         end_label:
         """
-        else_label = self.new_label("ELSE")
         end_label = self.new_label("ENDIF")
         
-        # Evaluar condición (debe ser booleano)
+        # Evaluar condición principal
         cond_reg = self.visit_expr(node.condition, "booleano")
         
-        # Si la condición es falsa (0), saltar a else
+        # Determinar siguiente etiqueta
+        if node.elif_clauses:
+            next_label = self.new_label("ELIF")
+        elif node.else_block:
+            next_label = self.new_label("ELSE")
+        else:
+            next_label = end_label
+        
+        # Si la condición principal es falsa, saltar a siguiente sección
         self.emit(f"  CMPV R{cond_reg:02d}, 0")
-        self.emit(f"  JEQ {else_label}")
+        self.emit(f"  JEQ {next_label}")
         
         # Bloque then
         self.visit_stmt(node.then_block)
         self.emit(f"  JMP {end_label}")
         
+        # Generar código para cada cláusula elif
+        for i, elif_clause in enumerate(node.elif_clauses):
+            self.emit(f"{next_label}:")
+            
+            # Evaluar condición elif
+            elif_cond_reg = self.visit_expr(elif_clause.condition, "booleano")
+            
+            # Determinar siguiente etiqueta
+            if i < len(node.elif_clauses) - 1:
+                next_label = self.new_label("ELIF")
+            elif node.else_block:
+                next_label = self.new_label("ELSE")
+            else:
+                next_label = end_label
+            
+            # Si la condición elif es falsa, saltar a siguiente sección
+            self.emit(f"  CMPV R{elif_cond_reg:02d}, 0")
+            self.emit(f"  JEQ {next_label}")
+            
+            # Bloque elif
+            self.visit_stmt(elif_clause.block)
+            self.emit(f"  JMP {end_label}")
+        
         # Bloque else (si existe)
-        self.emit(f"{else_label}:")
         if node.else_block:
+            self.emit(f"{next_label}:")
             self.visit_stmt(node.else_block)
         
         self.emit(f"{end_label}:")

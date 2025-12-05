@@ -234,12 +234,31 @@ class SemanticAnalyzer:
             self.error(f"Variable '{var_decl.name}' ya está declarada en este scope", var_decl.lineno)
     
     def _analyze_if(self, if_stmt):
-        """Analiza sentencia if"""
+        """Analiza sentencia if con soporte para elif"""
+        # Validar límite de elif clauses (máximo 10)
+        MAX_ELIF_CLAUSES = 10
+        if len(if_stmt.elif_clauses) > MAX_ELIF_CLAUSES:
+            self.error(
+                f"Máximo {MAX_ELIF_CLAUSES} cláusulas 'si_no_si' permitidas, se encontraron {len(if_stmt.elif_clauses)}",
+                if_stmt.lineno
+            )
+        
+        # Validar condición principal
         cond_type = self._analyze_expression(if_stmt.condition)
         if cond_type and not self._is_boolean_type(cond_type):
             self.error("Condición de 'si' debe ser de tipo booleano", if_stmt.lineno)
         
+        # Analizar bloque then
         self._analyze_statement(if_stmt.then_block)
+        
+        # Analizar cláusulas elif
+        for elif_clause in if_stmt.elif_clauses:
+            elif_cond_type = self._analyze_expression(elif_clause.condition)
+            if elif_cond_type and not self._is_boolean_type(elif_cond_type):
+                self.error("Condición de 'si_no_si' debe ser de tipo booleano", elif_clause.lineno)
+            self._analyze_statement(elif_clause.block)
+        
+        # Analizar bloque else
         if if_stmt.else_block:
             self._analyze_statement(if_stmt.else_block)
     
