@@ -423,22 +423,6 @@ JMP __START_PROGRAM
 ; Estructura de bloque:
 ;   [8 bytes: tamaño] [8 bytes: siguiente bloque libre] [datos...]
 ;
-<<<<<<< HEAD
-; Memoria layout:
-;   0x0000-0x0FFF: Código (4KB)
-;   0x1000-0x2FFF: Globales (8KB)
-;   0x3000-0x7FFF: Strings (20KB)
-;   0x8000-0xBFFF: Heap (16KB) <- Usado por malloc/free
-;   0xC000-0xFFFF: Stack (16KB)
-; ============================================================================
-
-; Constantes (usadas como valores inmediatos en el código)
-; HEAP_START:     0xA000      ; Inicio del heap (40KB desde inicio)
-; HEAP_END:       0xE000      ; Fin del heap (56KB desde inicio)
-; HEAP_SIZE:      0x4000      ; 16KB de heap
-; BLOCK_HEADER:   16          ; Tamaño del header (8B size + 8B next)
-; FREE_LIST_PTR:  0x1000      ; Variable global: puntero al primer bloque libre
-=======
 ; Memoria layout (128KB):
 ;   0x0000-0xFFFF: Código ejecutable y datos constantes (64KB)
 ;   0x10000-0x17FFF: Globales y heap (32KB)
@@ -452,7 +436,6 @@ JMP __START_PROGRAM
 ; HEAP_SIZE:      0x8000      ; 32KB de heap
 ; BLOCK_HEADER:   16          ; Tamaño del header (8B size + 8B next)
 ; FREE_LIST_PTR:  0x10000     ; Variable global: puntero al primer bloque libre
->>>>>>> main
 
 ; ============================================================================
 ; __init_heap: Inicializa el heap con un gran bloque libre
@@ -465,17 +448,10 @@ __init_heap:
     PUSH8 R03
 
     ; Crear primer bloque libre: todo el heap
-<<<<<<< HEAD
-    MOVV8 R01, 0xA000           ; R01 = dirección del primer bloque (HEAP_START)
-
-    ; Escribir tamaño del bloque (0x4000 - 16)
-    MOVV8 R02, 0x4000           ; HEAP_SIZE
-=======
     MOVV8 R01, 0x10000          ; R01 = dirección del primer bloque (HEAP_START)
 
     ; Escribir tamaño del bloque (HEAP_SIZE - header)
     MOVV8 R02, 0x8000           ; HEAP_SIZE
->>>>>>> main
     SUBV8 R02, 16               ; Restar BLOCK_HEADER
     STORER8 R02, R01            ; mem[HEAP_START] = tamaño
 
@@ -485,13 +461,8 @@ __init_heap:
     STORER8 R02, R01            ; mem[HEAP_START+8] = NULL
 
     ; Guardar puntero inicial en FREE_LIST_PTR
-<<<<<<< HEAD
-    MOVV8 R01, 0xA000           ; HEAP_START
-    MOVV8 R03, 0x1000           ; FREE_LIST_PTR
-=======
     MOVV8 R01, 0x10000          ; HEAP_START
     MOVV8 R03, 0x10000          ; FREE_LIST_PTR
->>>>>>> main
     STORER8 R01, R03            ; FREE_LIST_PTR = HEAP_START
 
     POP8 R03
@@ -533,11 +504,7 @@ __malloc:
     ; R06 = auxiliar
 
     ; Cargar FREE_LIST_PTR
-<<<<<<< HEAD
-    MOVV8 R06, 0x1000           ; FREE_LIST_PTR
-=======
     MOVV8 R06, 0x10000          ; FREE_LIST_PTR
->>>>>>> main
     LOADR8 R02, R06             ; R02 = primer bloque libre
     MOVV8 R03, 0                ; R03 = previo (NULL al inicio)
 
@@ -573,11 +540,7 @@ __malloc_loop:
 
 __malloc_update_head:
     ; FREE_LIST_PTR = actual->next
-<<<<<<< HEAD
-    MOVV8 R06, 0x1000           ; FREE_LIST_PTR
-=======
     MOVV8 R06, 0x10000          ; FREE_LIST_PTR
->>>>>>> main
     STORER8 R05, R06            ; FREE_LIST_PTR = siguiente
 
 __malloc_return_block:
@@ -642,22 +605,14 @@ __free:
 
     ; Insertar al inicio de FREE_LIST
     ; bloque->next = FREE_LIST_PTR
-<<<<<<< HEAD
-    MOVV8 R03, 0x1000           ; FREE_LIST_PTR
-=======
     MOVV8 R03, 0x10000          ; FREE_LIST_PTR
->>>>>>> main
     LOADR8 R02, R03             ; R02 = FREE_LIST_PTR
     MOV8 R03, R01
     ADDV8 R03, 8                ; R03 = bloque + 8
     STORER8 R02, R03            ; bloque->next = FREE_LIST_PTR
 
     ; FREE_LIST_PTR = bloque
-<<<<<<< HEAD
-    MOVV8 R03, 0x1000           ; FREE_LIST_PTR
-=======
     MOVV8 R03, 0x10000          ; FREE_LIST_PTR
->>>>>>> main
     STORER8 R01, R03            ; FREE_LIST_PTR = bloque
 
 __free_end:
@@ -672,768 +627,476 @@ __free_end:
 
 ; === SECCIÓN DE DATOS GLOBALES ===
 
-<<<<<<< HEAD
-=======
-; Estructura: Punto
-;   x: entero4 (offset: 0, size: 4)
-;   y: entero4 (offset: 4, size: 4)
-;   Tamaño total: 8 bytes
-
-; Estructura: Punto
-;   z: entero4 (offset: 0, size: 4)
-;   Tamaño total: 4 bytes
-
-; Variable global: global_x (tipo: entero4, tamaño: 4 bytes, dirección: 65536)
-.DATA 00010000 4 74657874 ; NAME=global_x ; RELOCS=
-; global_x = "texto" (string)
-; Variable global: global_x (tipo: entero4, tamaño: 4 bytes, dirección: 65536)
->>>>>>> main
 
 ; === CÓDIGO DE INICIALIZACIÓN ===
 
 __START_PROGRAM:
 ; Inicializar Stack Pointer en una ubicación segura
 ; Inicializar Stack Pointer (R15) y Frame Pointer (R14)
-<<<<<<< HEAD
-MOVV8 R15, 0xC000        ; SP en 48KB (deja espacio para heap)
-MOV8 R14, R15            ; BP = SP (frame inicial)
-
-; Inicializar string literals en memoria (área 0x5000+)
-; __STR0 = "Suma:" @ 0x5000
-  MOVV1 R01, 83  ; 'S'
-  STORE1 R01, 20480  ; Escribir en 0x5000
-  MOVV1 R01, 117  ; 'u'
-  STORE1 R01, 20481  ; Escribir en 0x5001
-  MOVV1 R01, 109  ; 'm'
-  STORE1 R01, 20482  ; Escribir en 0x5002
-  MOVV1 R01, 97  ; 'a'
-  STORE1 R01, 20483  ; Escribir en 0x5003
-  MOVV1 R01, 58  ; ':'
-  STORE1 R01, 20484  ; Escribir en 0x5004
-  MOVV1 R01, 0  ; NULL
-  STORE1 R01, 20485  ; Escribir en 0x5005
-; __STR1 = "OperaciÃ³n no reconocida " @ 0x5006
-  MOVV1 R01, 79  ; 'O'
-  STORE1 R01, 20486  ; Escribir en 0x5006
-  MOVV1 R01, 112  ; 'p'
-  STORE1 R01, 20487  ; Escribir en 0x5007
-  MOVV1 R01, 101  ; 'e'
-  STORE1 R01, 20488  ; Escribir en 0x5008
-  MOVV1 R01, 114  ; 'r'
-  STORE1 R01, 20489  ; Escribir en 0x5009
-  MOVV1 R01, 97  ; 'a'
-  STORE1 R01, 20490  ; Escribir en 0x500A
-  MOVV1 R01, 99  ; 'c'
-  STORE1 R01, 20491  ; Escribir en 0x500B
-  MOVV1 R01, 105  ; 'i'
-  STORE1 R01, 20492  ; Escribir en 0x500C
-  MOVV1 R01, 195  ; 'Ã'
-  STORE1 R01, 20493  ; Escribir en 0x500D
-  MOVV1 R01, 179  ; '³'
-  STORE1 R01, 20494  ; Escribir en 0x500E
-  MOVV1 R01, 110  ; 'n'
-  STORE1 R01, 20495  ; Escribir en 0x500F
-  MOVV1 R01, 32  ; ' '
-  STORE1 R01, 20496  ; Escribir en 0x5010
-  MOVV1 R01, 110  ; 'n'
-  STORE1 R01, 20497  ; Escribir en 0x5011
-  MOVV1 R01, 111  ; 'o'
-  STORE1 R01, 20498  ; Escribir en 0x5012
-  MOVV1 R01, 32  ; ' '
-  STORE1 R01, 20499  ; Escribir en 0x5013
-  MOVV1 R01, 114  ; 'r'
-  STORE1 R01, 20500  ; Escribir en 0x5014
-  MOVV1 R01, 101  ; 'e'
-  STORE1 R01, 20501  ; Escribir en 0x5015
-  MOVV1 R01, 99  ; 'c'
-  STORE1 R01, 20502  ; Escribir en 0x5016
-  MOVV1 R01, 111  ; 'o'
-  STORE1 R01, 20503  ; Escribir en 0x5017
-  MOVV1 R01, 110  ; 'n'
-  STORE1 R01, 20504  ; Escribir en 0x5018
-  MOVV1 R01, 111  ; 'o'
-  STORE1 R01, 20505  ; Escribir en 0x5019
-  MOVV1 R01, 99  ; 'c'
-  STORE1 R01, 20506  ; Escribir en 0x501A
-  MOVV1 R01, 105  ; 'i'
-  STORE1 R01, 20507  ; Escribir en 0x501B
-  MOVV1 R01, 100  ; 'd'
-  STORE1 R01, 20508  ; Escribir en 0x501C
-  MOVV1 R01, 97  ; 'a'
-  STORE1 R01, 20509  ; Escribir en 0x501D
-  MOVV1 R01, 32  ; ' '
-  STORE1 R01, 20510  ; Escribir en 0x501E
-  MOVV1 R01, 0  ; NULL
-  STORE1 R01, 20511  ; Escribir en 0x501F
-=======
 ; Nueva ubicación de stack: colocar al inicio de la zona de stack (0x1C000)
 MOVV8 R15, 0x1C000        ; SP en 0x1C000 (inicio de la región de stack)
 MOV8 R14, R15            ; BP = SP (frame inicial)
 
+; Strings recolectados:
+;   __STR0: 'CalificaciÃ³n: A - Excelente '
+;   __STR1: 'CalificaciÃ³n: B - Muy bueno '
+;   __STR2: 'CalificaciÃ³n: C - Bueno '
+;   __STR3: 'CalificaciÃ³n: D - Suficiente '
+;   __STR4: 'CalificaciÃ³n: F - Reprobado '
 ; Inicializar string literals en memoria (área 0x18000+)
-; __STR0 = "Hola" @ 0x18000
-  MOVV1 R01, 72  ; 'H'
+; __STR0 = "CalificaciÃ³n: A - Excelente " @ 0x18000
+  MOVV1 R01, 67  ; byte 0x43
   STORE1 R01, 98304  ; Escribir en 0x18000
-  MOVV1 R01, 111  ; 'o'
+  MOVV1 R01, 97  ; byte 0x61
   STORE1 R01, 98305  ; Escribir en 0x18001
-  MOVV1 R01, 108  ; 'l'
+  MOVV1 R01, 108  ; byte 0x6C
   STORE1 R01, 98306  ; Escribir en 0x18002
-  MOVV1 R01, 97  ; 'a'
+  MOVV1 R01, 105  ; byte 0x69
   STORE1 R01, 98307  ; Escribir en 0x18003
-  MOVV1 R01, 0  ; NULL
+  MOVV1 R01, 102  ; byte 0x66
   STORE1 R01, 98308  ; Escribir en 0x18004
-; __STR1 = "Mundo" @ 0x18005
-  MOVV1 R01, 77  ; 'M'
+  MOVV1 R01, 105  ; byte 0x69
   STORE1 R01, 98309  ; Escribir en 0x18005
-  MOVV1 R01, 117  ; 'u'
+  MOVV1 R01, 99  ; byte 0x63
   STORE1 R01, 98310  ; Escribir en 0x18006
-  MOVV1 R01, 110  ; 'n'
+  MOVV1 R01, 97  ; byte 0x61
   STORE1 R01, 98311  ; Escribir en 0x18007
-  MOVV1 R01, 100  ; 'd'
+  MOVV1 R01, 99  ; byte 0x63
   STORE1 R01, 98312  ; Escribir en 0x18008
-  MOVV1 R01, 111  ; 'o'
+  MOVV1 R01, 105  ; byte 0x69
   STORE1 R01, 98313  ; Escribir en 0x18009
-  MOVV1 R01, 0  ; NULL
+  MOVV1 R01, 195  ; byte 0xC3
   STORE1 R01, 98314  ; Escribir en 0x1800A
-; __STR2 = "texto" @ 0x1800B
-  MOVV1 R01, 116  ; 't'
+  MOVV1 R01, 131  ; byte 0x83
   STORE1 R01, 98315  ; Escribir en 0x1800B
-  MOVV1 R01, 101  ; 'e'
+  MOVV1 R01, 194  ; byte 0xC2
   STORE1 R01, 98316  ; Escribir en 0x1800C
-  MOVV1 R01, 120  ; 'x'
+  MOVV1 R01, 179  ; byte 0xB3
   STORE1 R01, 98317  ; Escribir en 0x1800D
-  MOVV1 R01, 116  ; 't'
+  MOVV1 R01, 110  ; byte 0x6E
   STORE1 R01, 98318  ; Escribir en 0x1800E
-  MOVV1 R01, 111  ; 'o'
+  MOVV1 R01, 58  ; byte 0x3A
   STORE1 R01, 98319  ; Escribir en 0x1800F
-  MOVV1 R01, 0  ; NULL
+  MOVV1 R01, 32  ; byte 0x20
   STORE1 R01, 98320  ; Escribir en 0x18010
-; __STR3 = "hola" @ 0x18011
-  MOVV1 R01, 104  ; 'h'
+  MOVV1 R01, 65  ; byte 0x41
   STORE1 R01, 98321  ; Escribir en 0x18011
-  MOVV1 R01, 111  ; 'o'
+  MOVV1 R01, 32  ; byte 0x20
   STORE1 R01, 98322  ; Escribir en 0x18012
-  MOVV1 R01, 108  ; 'l'
+  MOVV1 R01, 45  ; byte 0x2D
   STORE1 R01, 98323  ; Escribir en 0x18013
-  MOVV1 R01, 97  ; 'a'
+  MOVV1 R01, 32  ; byte 0x20
   STORE1 R01, 98324  ; Escribir en 0x18014
-  MOVV1 R01, 0  ; NULL
+  MOVV1 R01, 69  ; byte 0x45
   STORE1 R01, 98325  ; Escribir en 0x18015
-; __STR4 = "Error" @ 0x18016
-  MOVV1 R01, 69  ; 'E'
+  MOVV1 R01, 120  ; byte 0x78
   STORE1 R01, 98326  ; Escribir en 0x18016
-  MOVV1 R01, 114  ; 'r'
+  MOVV1 R01, 99  ; byte 0x63
   STORE1 R01, 98327  ; Escribir en 0x18017
-  MOVV1 R01, 114  ; 'r'
+  MOVV1 R01, 101  ; byte 0x65
   STORE1 R01, 98328  ; Escribir en 0x18018
-  MOVV1 R01, 111  ; 'o'
+  MOVV1 R01, 108  ; byte 0x6C
   STORE1 R01, 98329  ; Escribir en 0x18019
-  MOVV1 R01, 114  ; 'r'
+  MOVV1 R01, 101  ; byte 0x65
   STORE1 R01, 98330  ; Escribir en 0x1801A
-  MOVV1 R01, 0  ; NULL
+  MOVV1 R01, 110  ; byte 0x6E
   STORE1 R01, 98331  ; Escribir en 0x1801B
-; __STR5 = "20" @ 0x1801C
-  MOVV1 R01, 50  ; '2'
+  MOVV1 R01, 116  ; byte 0x74
   STORE1 R01, 98332  ; Escribir en 0x1801C
-  MOVV1 R01, 48  ; '0'
+  MOVV1 R01, 101  ; byte 0x65
   STORE1 R01, 98333  ; Escribir en 0x1801D
-  MOVV1 R01, 0  ; NULL
+  MOVV1 R01, 32  ; byte 0x20
   STORE1 R01, 98334  ; Escribir en 0x1801E
->>>>>>> main
+  MOVV1 R01, 0  ; NULL
+  STORE1 R01, 98335  ; Escribir en 0x1801F
+; __STR1 = "CalificaciÃ³n: B - Muy bueno " @ 0x18020
+  MOVV1 R01, 67  ; byte 0x43
+  STORE1 R01, 98336  ; Escribir en 0x18020
+  MOVV1 R01, 97  ; byte 0x61
+  STORE1 R01, 98337  ; Escribir en 0x18021
+  MOVV1 R01, 108  ; byte 0x6C
+  STORE1 R01, 98338  ; Escribir en 0x18022
+  MOVV1 R01, 105  ; byte 0x69
+  STORE1 R01, 98339  ; Escribir en 0x18023
+  MOVV1 R01, 102  ; byte 0x66
+  STORE1 R01, 98340  ; Escribir en 0x18024
+  MOVV1 R01, 105  ; byte 0x69
+  STORE1 R01, 98341  ; Escribir en 0x18025
+  MOVV1 R01, 99  ; byte 0x63
+  STORE1 R01, 98342  ; Escribir en 0x18026
+  MOVV1 R01, 97  ; byte 0x61
+  STORE1 R01, 98343  ; Escribir en 0x18027
+  MOVV1 R01, 99  ; byte 0x63
+  STORE1 R01, 98344  ; Escribir en 0x18028
+  MOVV1 R01, 105  ; byte 0x69
+  STORE1 R01, 98345  ; Escribir en 0x18029
+  MOVV1 R01, 195  ; byte 0xC3
+  STORE1 R01, 98346  ; Escribir en 0x1802A
+  MOVV1 R01, 131  ; byte 0x83
+  STORE1 R01, 98347  ; Escribir en 0x1802B
+  MOVV1 R01, 194  ; byte 0xC2
+  STORE1 R01, 98348  ; Escribir en 0x1802C
+  MOVV1 R01, 179  ; byte 0xB3
+  STORE1 R01, 98349  ; Escribir en 0x1802D
+  MOVV1 R01, 110  ; byte 0x6E
+  STORE1 R01, 98350  ; Escribir en 0x1802E
+  MOVV1 R01, 58  ; byte 0x3A
+  STORE1 R01, 98351  ; Escribir en 0x1802F
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98352  ; Escribir en 0x18030
+  MOVV1 R01, 66  ; byte 0x42
+  STORE1 R01, 98353  ; Escribir en 0x18031
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98354  ; Escribir en 0x18032
+  MOVV1 R01, 45  ; byte 0x2D
+  STORE1 R01, 98355  ; Escribir en 0x18033
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98356  ; Escribir en 0x18034
+  MOVV1 R01, 77  ; byte 0x4D
+  STORE1 R01, 98357  ; Escribir en 0x18035
+  MOVV1 R01, 117  ; byte 0x75
+  STORE1 R01, 98358  ; Escribir en 0x18036
+  MOVV1 R01, 121  ; byte 0x79
+  STORE1 R01, 98359  ; Escribir en 0x18037
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98360  ; Escribir en 0x18038
+  MOVV1 R01, 98  ; byte 0x62
+  STORE1 R01, 98361  ; Escribir en 0x18039
+  MOVV1 R01, 117  ; byte 0x75
+  STORE1 R01, 98362  ; Escribir en 0x1803A
+  MOVV1 R01, 101  ; byte 0x65
+  STORE1 R01, 98363  ; Escribir en 0x1803B
+  MOVV1 R01, 110  ; byte 0x6E
+  STORE1 R01, 98364  ; Escribir en 0x1803C
+  MOVV1 R01, 111  ; byte 0x6F
+  STORE1 R01, 98365  ; Escribir en 0x1803D
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98366  ; Escribir en 0x1803E
+  MOVV1 R01, 0  ; NULL
+  STORE1 R01, 98367  ; Escribir en 0x1803F
+; __STR2 = "CalificaciÃ³n: C - Bueno " @ 0x18040
+  MOVV1 R01, 67  ; byte 0x43
+  STORE1 R01, 98368  ; Escribir en 0x18040
+  MOVV1 R01, 97  ; byte 0x61
+  STORE1 R01, 98369  ; Escribir en 0x18041
+  MOVV1 R01, 108  ; byte 0x6C
+  STORE1 R01, 98370  ; Escribir en 0x18042
+  MOVV1 R01, 105  ; byte 0x69
+  STORE1 R01, 98371  ; Escribir en 0x18043
+  MOVV1 R01, 102  ; byte 0x66
+  STORE1 R01, 98372  ; Escribir en 0x18044
+  MOVV1 R01, 105  ; byte 0x69
+  STORE1 R01, 98373  ; Escribir en 0x18045
+  MOVV1 R01, 99  ; byte 0x63
+  STORE1 R01, 98374  ; Escribir en 0x18046
+  MOVV1 R01, 97  ; byte 0x61
+  STORE1 R01, 98375  ; Escribir en 0x18047
+  MOVV1 R01, 99  ; byte 0x63
+  STORE1 R01, 98376  ; Escribir en 0x18048
+  MOVV1 R01, 105  ; byte 0x69
+  STORE1 R01, 98377  ; Escribir en 0x18049
+  MOVV1 R01, 195  ; byte 0xC3
+  STORE1 R01, 98378  ; Escribir en 0x1804A
+  MOVV1 R01, 131  ; byte 0x83
+  STORE1 R01, 98379  ; Escribir en 0x1804B
+  MOVV1 R01, 194  ; byte 0xC2
+  STORE1 R01, 98380  ; Escribir en 0x1804C
+  MOVV1 R01, 179  ; byte 0xB3
+  STORE1 R01, 98381  ; Escribir en 0x1804D
+  MOVV1 R01, 110  ; byte 0x6E
+  STORE1 R01, 98382  ; Escribir en 0x1804E
+  MOVV1 R01, 58  ; byte 0x3A
+  STORE1 R01, 98383  ; Escribir en 0x1804F
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98384  ; Escribir en 0x18050
+  MOVV1 R01, 67  ; byte 0x43
+  STORE1 R01, 98385  ; Escribir en 0x18051
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98386  ; Escribir en 0x18052
+  MOVV1 R01, 45  ; byte 0x2D
+  STORE1 R01, 98387  ; Escribir en 0x18053
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98388  ; Escribir en 0x18054
+  MOVV1 R01, 66  ; byte 0x42
+  STORE1 R01, 98389  ; Escribir en 0x18055
+  MOVV1 R01, 117  ; byte 0x75
+  STORE1 R01, 98390  ; Escribir en 0x18056
+  MOVV1 R01, 101  ; byte 0x65
+  STORE1 R01, 98391  ; Escribir en 0x18057
+  MOVV1 R01, 110  ; byte 0x6E
+  STORE1 R01, 98392  ; Escribir en 0x18058
+  MOVV1 R01, 111  ; byte 0x6F
+  STORE1 R01, 98393  ; Escribir en 0x18059
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98394  ; Escribir en 0x1805A
+  MOVV1 R01, 0  ; NULL
+  STORE1 R01, 98395  ; Escribir en 0x1805B
+; __STR3 = "CalificaciÃ³n: D - Suficiente " @ 0x1805C
+  MOVV1 R01, 67  ; byte 0x43
+  STORE1 R01, 98396  ; Escribir en 0x1805C
+  MOVV1 R01, 97  ; byte 0x61
+  STORE1 R01, 98397  ; Escribir en 0x1805D
+  MOVV1 R01, 108  ; byte 0x6C
+  STORE1 R01, 98398  ; Escribir en 0x1805E
+  MOVV1 R01, 105  ; byte 0x69
+  STORE1 R01, 98399  ; Escribir en 0x1805F
+  MOVV1 R01, 102  ; byte 0x66
+  STORE1 R01, 98400  ; Escribir en 0x18060
+  MOVV1 R01, 105  ; byte 0x69
+  STORE1 R01, 98401  ; Escribir en 0x18061
+  MOVV1 R01, 99  ; byte 0x63
+  STORE1 R01, 98402  ; Escribir en 0x18062
+  MOVV1 R01, 97  ; byte 0x61
+  STORE1 R01, 98403  ; Escribir en 0x18063
+  MOVV1 R01, 99  ; byte 0x63
+  STORE1 R01, 98404  ; Escribir en 0x18064
+  MOVV1 R01, 105  ; byte 0x69
+  STORE1 R01, 98405  ; Escribir en 0x18065
+  MOVV1 R01, 195  ; byte 0xC3
+  STORE1 R01, 98406  ; Escribir en 0x18066
+  MOVV1 R01, 131  ; byte 0x83
+  STORE1 R01, 98407  ; Escribir en 0x18067
+  MOVV1 R01, 194  ; byte 0xC2
+  STORE1 R01, 98408  ; Escribir en 0x18068
+  MOVV1 R01, 179  ; byte 0xB3
+  STORE1 R01, 98409  ; Escribir en 0x18069
+  MOVV1 R01, 110  ; byte 0x6E
+  STORE1 R01, 98410  ; Escribir en 0x1806A
+  MOVV1 R01, 58  ; byte 0x3A
+  STORE1 R01, 98411  ; Escribir en 0x1806B
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98412  ; Escribir en 0x1806C
+  MOVV1 R01, 68  ; byte 0x44
+  STORE1 R01, 98413  ; Escribir en 0x1806D
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98414  ; Escribir en 0x1806E
+  MOVV1 R01, 45  ; byte 0x2D
+  STORE1 R01, 98415  ; Escribir en 0x1806F
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98416  ; Escribir en 0x18070
+  MOVV1 R01, 83  ; byte 0x53
+  STORE1 R01, 98417  ; Escribir en 0x18071
+  MOVV1 R01, 117  ; byte 0x75
+  STORE1 R01, 98418  ; Escribir en 0x18072
+  MOVV1 R01, 102  ; byte 0x66
+  STORE1 R01, 98419  ; Escribir en 0x18073
+  MOVV1 R01, 105  ; byte 0x69
+  STORE1 R01, 98420  ; Escribir en 0x18074
+  MOVV1 R01, 99  ; byte 0x63
+  STORE1 R01, 98421  ; Escribir en 0x18075
+  MOVV1 R01, 105  ; byte 0x69
+  STORE1 R01, 98422  ; Escribir en 0x18076
+  MOVV1 R01, 101  ; byte 0x65
+  STORE1 R01, 98423  ; Escribir en 0x18077
+  MOVV1 R01, 110  ; byte 0x6E
+  STORE1 R01, 98424  ; Escribir en 0x18078
+  MOVV1 R01, 116  ; byte 0x74
+  STORE1 R01, 98425  ; Escribir en 0x18079
+  MOVV1 R01, 101  ; byte 0x65
+  STORE1 R01, 98426  ; Escribir en 0x1807A
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98427  ; Escribir en 0x1807B
+  MOVV1 R01, 0  ; NULL
+  STORE1 R01, 98428  ; Escribir en 0x1807C
+; __STR4 = "CalificaciÃ³n: F - Reprobado " @ 0x1807D
+  MOVV1 R01, 67  ; byte 0x43
+  STORE1 R01, 98429  ; Escribir en 0x1807D
+  MOVV1 R01, 97  ; byte 0x61
+  STORE1 R01, 98430  ; Escribir en 0x1807E
+  MOVV1 R01, 108  ; byte 0x6C
+  STORE1 R01, 98431  ; Escribir en 0x1807F
+  MOVV1 R01, 105  ; byte 0x69
+  STORE1 R01, 98432  ; Escribir en 0x18080
+  MOVV1 R01, 102  ; byte 0x66
+  STORE1 R01, 98433  ; Escribir en 0x18081
+  MOVV1 R01, 105  ; byte 0x69
+  STORE1 R01, 98434  ; Escribir en 0x18082
+  MOVV1 R01, 99  ; byte 0x63
+  STORE1 R01, 98435  ; Escribir en 0x18083
+  MOVV1 R01, 97  ; byte 0x61
+  STORE1 R01, 98436  ; Escribir en 0x18084
+  MOVV1 R01, 99  ; byte 0x63
+  STORE1 R01, 98437  ; Escribir en 0x18085
+  MOVV1 R01, 105  ; byte 0x69
+  STORE1 R01, 98438  ; Escribir en 0x18086
+  MOVV1 R01, 195  ; byte 0xC3
+  STORE1 R01, 98439  ; Escribir en 0x18087
+  MOVV1 R01, 131  ; byte 0x83
+  STORE1 R01, 98440  ; Escribir en 0x18088
+  MOVV1 R01, 194  ; byte 0xC2
+  STORE1 R01, 98441  ; Escribir en 0x18089
+  MOVV1 R01, 179  ; byte 0xB3
+  STORE1 R01, 98442  ; Escribir en 0x1808A
+  MOVV1 R01, 110  ; byte 0x6E
+  STORE1 R01, 98443  ; Escribir en 0x1808B
+  MOVV1 R01, 58  ; byte 0x3A
+  STORE1 R01, 98444  ; Escribir en 0x1808C
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98445  ; Escribir en 0x1808D
+  MOVV1 R01, 70  ; byte 0x46
+  STORE1 R01, 98446  ; Escribir en 0x1808E
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98447  ; Escribir en 0x1808F
+  MOVV1 R01, 45  ; byte 0x2D
+  STORE1 R01, 98448  ; Escribir en 0x18090
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98449  ; Escribir en 0x18091
+  MOVV1 R01, 82  ; byte 0x52
+  STORE1 R01, 98450  ; Escribir en 0x18092
+  MOVV1 R01, 101  ; byte 0x65
+  STORE1 R01, 98451  ; Escribir en 0x18093
+  MOVV1 R01, 112  ; byte 0x70
+  STORE1 R01, 98452  ; Escribir en 0x18094
+  MOVV1 R01, 114  ; byte 0x72
+  STORE1 R01, 98453  ; Escribir en 0x18095
+  MOVV1 R01, 111  ; byte 0x6F
+  STORE1 R01, 98454  ; Escribir en 0x18096
+  MOVV1 R01, 98  ; byte 0x62
+  STORE1 R01, 98455  ; Escribir en 0x18097
+  MOVV1 R01, 97  ; byte 0x61
+  STORE1 R01, 98456  ; Escribir en 0x18098
+  MOVV1 R01, 100  ; byte 0x64
+  STORE1 R01, 98457  ; Escribir en 0x18099
+  MOVV1 R01, 111  ; byte 0x6F
+  STORE1 R01, 98458  ; Escribir en 0x1809A
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98459  ; Escribir en 0x1809B
+  MOVV1 R01, 0  ; NULL
+  STORE1 R01, 98460  ; Escribir en 0x1809C
 
 ; Llamar a la función principal
-; ADVERTENCIA: No se encontró la función 'principal'
-PARAR
+CALL principal
+JMP END_PROGRAM
 
 ; === FUNCIONES ===
 
-<<<<<<< HEAD
-calculadora:  ; Función: calculadora
-  ; Prólogo de calculadora
+clasificar_calificacion:  ; Función: clasificar_calificacion
+  ; Prólogo de clasificar_calificacion
   PUSH8 R14          ; Guardar BP del caller en stack
   MOV8 R14, R15      ; BP = SP (inicio del frame actual)
   ADDV8 R15, 4  ; Reservar 4 bytes para locales
 
-  ; Cuerpo de calculadora
-  ; Variable local: resultado (offset: 0)
-  MOVV4 R00, 0
+  ; Cuerpo de clasificar_calificacion
+  ; Variable local: nota (offset: 0)
+  MOVV4 R00, 85
   MOV4 R01, R00  ; Guardar valor de R00
   MOVV8 R02, 0
   ADD8 R02, R14  ; Dirección = BP + offset
-  STORER4 R01, R02  ; resultado = valor_inicial
-  MOVV8 R04, -25  ; Offset desde BP
+  STORER4 R01, R02  ; nota = valor_inicial
+  MOVV8 R04, 0  ; Offset desde BP
   ADD8 R04, R14  ; Dirección = BP + offset
-  LOADR1 R03, R04  ; Cargar operacion
-  MOVV1 R05, 43
+  LOADR4 R03, R04  ; Cargar nota
+  MOVV1 R05, 90
   CMP R03, R05
   MOVV1 R06, 0  ; Asumir falso
-  JEQ CMP_TRUE1
+  JGE CMP_TRUE1
   JMP CMP_END2
 CMP_TRUE1:
   MOVV1 R06, 1  ; Verdadero
 CMP_END2:
   CMPV R06, 0
   JEQ ELIF3
-  MOVV8 R08, -20  ; Offset desde BP
-  ADD8 R08, R14  ; Dirección = BP + offset
-  LOADR4 R07, R08  ; Cargar a
-  MOVV8 R10, -24  ; Offset desde BP
-  ADD8 R10, R14  ; Dirección = BP + offset
-  LOADR4 R09, R10  ; Cargar b
-  MOV4 R11, R07
-  ADD4 R11, R09
-  MOVV8 R12, 0  ; Offset desde BP
-  ADD8 R12, R14  ; Dirección = BP + offset
-  STORER4 R11, R12  ; resultado = valor
   ; imprimir()
-  MOVV8 R13, 0x5000  ; __STR0
-  PUSH8 R13
+  MOVV8 R07, 0x18000  ; __STR0
+  PUSH8 R07
   CALL __print_string
   ADDV8 R15, 8  ; Limpiar stack
   CALL __print_newline
   JMP ENDIF0
 ELIF3:
-  MOVV8 R01, -25  ; Offset desde BP
-  ADD8 R01, R14  ; Dirección = BP + offset
-  LOADR1 R00, R01  ; Cargar operacion
-  MOVV1 R02, 45
-  CMP R00, R02
-  MOVV1 R03, 0  ; Asumir falso
-  JEQ CMP_TRUE4
-  JMP CMP_END5
-CMP_TRUE4:
-  MOVV1 R03, 1  ; Verdadero
-CMP_END5:
-  CMPV R03, 0
-  JEQ ELIF6
-  MOVV8 R05, -20  ; Offset desde BP
-  ADD8 R05, R14  ; Dirección = BP + offset
-  LOADR4 R04, R05  ; Cargar a
-  MOVV8 R07, -24  ; Offset desde BP
-  ADD8 R07, R14  ; Dirección = BP + offset
-  LOADR4 R06, R07  ; Cargar b
-  MOV4 R08, R04
-  SUB4 R08, R06
   MOVV8 R09, 0  ; Offset desde BP
   ADD8 R09, R14  ; Dirección = BP + offset
-  STORER4 R08, R09  ; resultado = valor
+  LOADR4 R08, R09  ; Cargar nota
+  MOVV1 R10, 80
+  CMP R08, R10
+  MOVV1 R11, 0  ; Asumir falso
+  JGE CMP_TRUE4
+  JMP CMP_END5
+CMP_TRUE4:
+  MOVV1 R11, 1  ; Verdadero
+CMP_END5:
+  CMPV R11, 0
+  JEQ ELIF6
   ; imprimir()
-  MOVV8 R10, 0  ; ERROR: String no inicializado
-  PUSH8 R10
+  MOVV8 R12, 0x18020  ; __STR1
+  PUSH8 R12
   CALL __print_string
   ADDV8 R15, 8  ; Limpiar stack
   CALL __print_newline
   JMP ENDIF0
 ELIF6:
-  MOVV8 R12, -25  ; Offset desde BP
-  ADD8 R12, R14  ; Dirección = BP + offset
-  LOADR1 R11, R12  ; Cargar operacion
-  MOVV1 R13, 42
-  CMP R11, R13
-  MOVV1 R00, 0  ; Asumir falso
-  JEQ CMP_TRUE7
+  MOVV8 R00, 0  ; Offset desde BP
+  ADD8 R00, R14  ; Dirección = BP + offset
+  LOADR4 R13, R00  ; Cargar nota
+  MOVV1 R01, 70
+  CMP R13, R01
+  MOVV1 R02, 0  ; Asumir falso
+  JGE CMP_TRUE7
   JMP CMP_END8
 CMP_TRUE7:
-  MOVV1 R00, 1  ; Verdadero
+  MOVV1 R02, 1  ; Verdadero
 CMP_END8:
-  CMPV R00, 0
+  CMPV R02, 0
   JEQ ELIF9
-  MOVV8 R02, -20  ; Offset desde BP
-  ADD8 R02, R14  ; Dirección = BP + offset
-  LOADR4 R01, R02  ; Cargar a
-  MOVV8 R04, -24  ; Offset desde BP
-  ADD8 R04, R14  ; Dirección = BP + offset
-  LOADR4 R03, R04  ; Cargar b
-  MOV4 R05, R01
-  MUL4 R05, R03
-  MOVV8 R06, 0  ; Offset desde BP
-  ADD8 R06, R14  ; Dirección = BP + offset
-  STORER4 R05, R06  ; resultado = valor
   ; imprimir()
-  MOVV8 R07, 0  ; ERROR: String no inicializado
-  PUSH8 R07
+  MOVV8 R03, 0x18040  ; __STR2
+  PUSH8 R03
   CALL __print_string
   ADDV8 R15, 8  ; Limpiar stack
   CALL __print_newline
   JMP ENDIF0
 ELIF9:
-  MOVV8 R09, -25  ; Offset desde BP
-  ADD8 R09, R14  ; Dirección = BP + offset
-  LOADR1 R08, R09  ; Cargar operacion
-  MOVV1 R10, 47
-  CMP R08, R10
-  MOVV1 R11, 0  ; Asumir falso
-  JEQ CMP_TRUE10
+  MOVV8 R05, 0  ; Offset desde BP
+  ADD8 R05, R14  ; Dirección = BP + offset
+  LOADR4 R04, R05  ; Cargar nota
+  MOVV1 R06, 60
+  CMP R04, R06
+  MOVV1 R07, 0  ; Asumir falso
+  JGE CMP_TRUE10
   JMP CMP_END11
 CMP_TRUE10:
-  MOVV1 R11, 1  ; Verdadero
+  MOVV1 R07, 1  ; Verdadero
 CMP_END11:
-  CMPV R11, 0
-  JEQ ELIF12
-  MOVV8 R13, -24  ; Offset desde BP
-  ADD8 R13, R14  ; Dirección = BP + offset
-  LOADR4 R12, R13  ; Cargar b
-  MOVV1 R00, 0
-  CMP R12, R00
-  MOVV1 R01, 0  ; Asumir falso
-  JNE CMP_TRUE14
-  JMP CMP_END15
-CMP_TRUE14:
-  MOVV1 R01, 1  ; Verdadero
-CMP_END15:
-  CMPV R01, 0
-  JEQ ELSE16
-  MOVV8 R03, -20  ; Offset desde BP
-  ADD8 R03, R14  ; Dirección = BP + offset
-  LOADR4 R02, R03  ; Cargar a
-  MOVV8 R05, -24  ; Offset desde BP
-  ADD8 R05, R14  ; Dirección = BP + offset
-  LOADR4 R04, R05  ; Cargar b
-  MOV4 R06, R02
-  DIV4 R06, R04
-  MOVV8 R07, 0  ; Offset desde BP
-  ADD8 R07, R14  ; Dirección = BP + offset
-  STORER4 R06, R07  ; resultado = valor
+  CMPV R07, 0
+  JEQ ELSE12
   ; imprimir()
-  MOVV8 R08, 0  ; ERROR: String no inicializado
+  MOVV8 R08, 0x1805C  ; __STR3
   PUSH8 R08
   CALL __print_string
   ADDV8 R15, 8  ; Limpiar stack
   CALL __print_newline
-  JMP ENDIF13
-ELSE16:
+  JMP ENDIF0
+ELSE12:
   ; imprimir()
-  MOVV8 R09, 0  ; ERROR: String no inicializado
+  MOVV8 R09, 0x1807D  ; __STR4
   PUSH8 R09
   CALL __print_string
   ADDV8 R15, 8  ; Limpiar stack
   CALL __print_newline
-  MOVV4 R10, 0
-  MOVV8 R11, 0  ; Offset desde BP
-  ADD8 R11, R14  ; Dirección = BP + offset
-  STORER4 R10, R11  ; resultado = valor
-ENDIF13:
-  JMP ENDIF0
-ELIF12:
-  MOVV8 R13, -25  ; Offset desde BP
-  ADD8 R13, R14  ; Dirección = BP + offset
-  LOADR1 R12, R13  ; Cargar operacion
-  MOVV1 R00, 37
-  CMP R12, R00
-  MOVV1 R01, 0  ; Asumir falso
-  JEQ CMP_TRUE17
-  JMP CMP_END18
-CMP_TRUE17:
-  MOVV1 R01, 1  ; Verdadero
-CMP_END18:
-  CMPV R01, 0
-  JEQ ELSE19
-  MOVV8 R03, -24  ; Offset desde BP
-  ADD8 R03, R14  ; Dirección = BP + offset
-  LOADR4 R02, R03  ; Cargar b
-  MOVV1 R04, 0
-  CMP R02, R04
-  MOVV1 R05, 0  ; Asumir falso
-  JNE CMP_TRUE21
-  JMP CMP_END22
-CMP_TRUE21:
-  MOVV1 R05, 1  ; Verdadero
-CMP_END22:
-  CMPV R05, 0
-  JEQ ELSE23
-  MOVV8 R07, -20  ; Offset desde BP
-  ADD8 R07, R14  ; Dirección = BP + offset
-  LOADR4 R06, R07  ; Cargar a
-  MOVV8 R09, -24  ; Offset desde BP
-  ADD8 R09, R14  ; Dirección = BP + offset
-  LOADR4 R08, R09  ; Cargar b
-  MOV4 R10, R06
-  MOD4 R10, R08
-  MOVV8 R11, 0  ; Offset desde BP
-  ADD8 R11, R14  ; Dirección = BP + offset
-  STORER4 R10, R11  ; resultado = valor
-  ; imprimir()
-  MOVV8 R12, 0  ; ERROR: String no inicializado
-  PUSH8 R12
-  CALL __print_string
-  ADDV8 R15, 8  ; Limpiar stack
-  CALL __print_newline
-  JMP ENDIF20
-ELSE23:
-  ; imprimir()
-  MOVV8 R13, 0  ; ERROR: String no inicializado
-  PUSH8 R13
-  CALL __print_string
-  ADDV8 R15, 8  ; Limpiar stack
-  CALL __print_newline
-  MOVV4 R00, 0
-  MOVV8 R01, 0  ; Offset desde BP
-  ADD8 R01, R14  ; Dirección = BP + offset
-  STORER4 R00, R01  ; resultado = valor
-ENDIF20:
-  JMP ENDIF0
-ELSE19:
-  ; imprimir()
-  MOVV8 R02, 0x5006  ; __STR1
-  PUSH8 R02
-  CALL __print_string
-  ADDV8 R15, 8  ; Limpiar stack
-  CALL __print_newline
-  MOVV4 R03, 0
-  MOVV8 R04, 0  ; Offset desde BP
-  ADD8 R04, R14  ; Dirección = BP + offset
-  STORER4 R03, R04  ; resultado = valor
 ENDIF0:
-  MOVV8 R06, 0  ; Offset desde BP
-  ADD8 R06, R14  ; Dirección = BP + offset
-  LOADR4 R05, R06  ; Cargar resultado
-  MOV4 R00, R05  ; Valor de retorno en R00
-  JMP calculadora_epilogue
 
-calculadora_epilogue:
-  ; Epílogo de calculadora
-=======
-saludar:  ; Función: saludar
-  ; Prólogo de saludar
+clasificar_calificacion_epilogue:
+  ; Epílogo de clasificar_calificacion
+  MOV8 R15, R14      ; SP = BP (liberar locales)
+  POP8 R14           ; Restaurar BP del caller
+  RET                ; Retornar al caller
+
+.LOCAL_REL 0 4 nota ; FUNC=clasificar_calificacion
+principal:  ; Función: principal
+  ; Prólogo de principal
   PUSH8 R14          ; Guardar BP del caller en stack
   MOV8 R14, R15      ; BP = SP (inicio del frame actual)
   ; Sin variables locales
 
-  ; Cuerpo de saludar
-  ; imprimir()
-  MOVV8 R00, 0x18000  ; __STR0
-  PUSH8 R00
-  CALL __print_string
-  ADDV8 R15, 8  ; Limpiar stack
-  CALL __print_newline
+  ; Cuerpo de principal
+  CALL clasificar_calificacion  ; Llamar a clasificar_calificacion
 
-saludar_epilogue:
-  ; Epílogo de saludar
->>>>>>> main
+principal_epilogue:
+  ; Epílogo de principal
   MOV8 R15, R14      ; SP = BP (liberar locales)
   POP8 R14           ; Restaurar BP del caller
   RET                ; Retornar al caller
 
-<<<<<<< HEAD
-=======
-saludar:  ; Función: saludar
-  ; Prólogo de saludar
-  PUSH8 R14          ; Guardar BP del caller en stack
-  MOV8 R14, R15      ; BP = SP (inicio del frame actual)
-  ; Sin variables locales
-
-  ; Cuerpo de saludar
-  ; imprimir()
-  MOVV8 R00, 0x18005  ; __STR1
-  PUSH8 R00
-  CALL __print_string
-  ADDV8 R15, 8  ; Limpiar stack
-  CALL __print_newline
-
-saludar_epilogue:
-  ; Epílogo de saludar
-  MOV8 R15, R14      ; SP = BP (liberar locales)
-  POP8 R14           ; Restaurar BP del caller
-  RET                ; Retornar al caller
-
-sumar:  ; Función: sumar
-  ; Prólogo de sumar
-  PUSH8 R14          ; Guardar BP del caller en stack
-  MOV8 R14, R15      ; BP = SP (inicio del frame actual)
-  ; Sin variables locales
-
-  ; Cuerpo de sumar
-  MOVV8 R01, -20  ; Offset desde BP
-  ADD8 R01, R14  ; Dirección = BP + offset
-  LOADR4 R00, R01  ; Cargar a
-  MOVV8 R03, -24  ; Offset desde BP
-  ADD8 R03, R14  ; Dirección = BP + offset
-  LOADR4 R02, R03  ; Cargar b
-  MOV4 R04, R00
-  ADD4 R04, R02
-  MOV4 R00, R04  ; Valor de retorno en R00
-  JMP sumar_epilogue
-
-sumar_epilogue:
-  ; Epílogo de sumar
-  MOV8 R15, R14      ; SP = BP (liberar locales)
-  POP8 R14           ; Restaurar BP del caller
-  RET                ; Retornar al caller
-
-.LOCAL_REL -20 4 a ; FUNC=sumar
-.LOCAL_REL -24 4 b ; FUNC=sumar
->>>>>>> main
-main:  ; Función: main
-  ; Prólogo de main
-  PUSH8 R14          ; Guardar BP del caller en stack
-  MOV8 R14, R15      ; BP = SP (inicio del frame actual)
-<<<<<<< HEAD
-  ADDV8 R15, 12  ; Reservar 12 bytes para locales
-
-  ; Cuerpo de main
-  ; Variable local: x (offset: 0)
-  MOVV4 R00, 20
-  MOV4 R01, R00  ; Guardar valor de R00
-  MOVV8 R02, 0
-  ADD8 R02, R14  ; Dirección = BP + offset
-  STORER4 R01, R02  ; x = valor_inicial
-  ; Variable local: y (offset: 4)
-  MOVV4 R03, 5
-  MOVV8 R04, 4
-  ADD8 R04, R14  ; Dirección = BP + offset
-  STORER4 R03, R04  ; y = valor_inicial
-  ; Variable local: res (offset: 8)
-  MOVV4 R05, 0
-  MOVV8 R06, 8
-  ADD8 R06, R14  ; Dirección = BP + offset
-  STORER4 R05, R06  ; res = valor_inicial
-  MOVV8 R08, 0  ; Offset desde BP
-  ADD8 R08, R14  ; Dirección = BP + offset
-  LOADR4 R07, R08  ; Cargar x
-  MOVV8 R10, 4  ; Offset desde BP
-  ADD8 R10, R14  ; Dirección = BP + offset
-  LOADR4 R09, R10  ; Cargar y
-  MOVV1 R11, 43
-  PUSH1 R11  ; Push argumento (caracter)
-  PUSH4 R09  ; Push argumento (entero4)
-  PUSH4 R07  ; Push argumento (entero4)
-  CALL calculadora  ; Llamar a calculadora
-  ADDV8 R15, 9  ; Limpiar 3 argumentos del stack
-  MOVV8 R12, 8  ; Offset desde BP
-  ADD8 R12, R14  ; Dirección = BP + offset
-  STORER4 R00, R12  ; res = valor
-  ; imprimir()
-  MOVV8 R00, 8  ; Offset desde BP
-  ADD8 R00, R14  ; Dirección = BP + offset
-  LOADR4 R13, R00  ; Cargar res
-  PUSH8 R13
-  CALL __print_int8
-  ADDV8 R15, 8  ; Limpiar stack
-  CALL __print_newline
-  MOVV8 R02, 0  ; Offset desde BP
-  ADD8 R02, R14  ; Dirección = BP + offset
-  LOADR4 R01, R02  ; Cargar x
-  MOVV8 R04, 4  ; Offset desde BP
-  ADD8 R04, R14  ; Dirección = BP + offset
-  LOADR4 R03, R04  ; Cargar y
-  MOVV1 R05, 45
-  PUSH1 R05  ; Push argumento (caracter)
-  PUSH4 R03  ; Push argumento (entero4)
-  PUSH4 R01  ; Push argumento (entero4)
-  CALL calculadora  ; Llamar a calculadora
-  ADDV8 R15, 9  ; Limpiar 3 argumentos del stack
-  MOVV8 R06, 8  ; Offset desde BP
-  ADD8 R06, R14  ; Dirección = BP + offset
-  STORER4 R00, R06  ; res = valor
-  ; imprimir()
-  MOVV8 R08, 8  ; Offset desde BP
-  ADD8 R08, R14  ; Dirección = BP + offset
-  LOADR4 R07, R08  ; Cargar res
-  PUSH8 R07
-  CALL __print_int8
-  ADDV8 R15, 8  ; Limpiar stack
-  CALL __print_newline
-  MOVV8 R10, 0  ; Offset desde BP
-  ADD8 R10, R14  ; Dirección = BP + offset
-  LOADR4 R09, R10  ; Cargar x
-  MOVV8 R12, 4  ; Offset desde BP
-  ADD8 R12, R14  ; Dirección = BP + offset
-  LOADR4 R11, R12  ; Cargar y
-  MOVV1 R13, 42
-  PUSH1 R13  ; Push argumento (caracter)
-  PUSH4 R11  ; Push argumento (entero4)
-  PUSH4 R09  ; Push argumento (entero4)
-  CALL calculadora  ; Llamar a calculadora
-  ADDV8 R15, 9  ; Limpiar 3 argumentos del stack
-  MOVV8 R00, 8  ; Offset desde BP
-  ADD8 R00, R14  ; Dirección = BP + offset
-  STORER4 R00, R00  ; res = valor
-  ; imprimir()
-  MOVV8 R02, 8  ; Offset desde BP
-  ADD8 R02, R14  ; Dirección = BP + offset
-  LOADR4 R01, R02  ; Cargar res
-  PUSH8 R01
-  CALL __print_int8
-  ADDV8 R15, 8  ; Limpiar stack
-  CALL __print_newline
-  MOVV8 R04, 0  ; Offset desde BP
-  ADD8 R04, R14  ; Dirección = BP + offset
-  LOADR4 R03, R04  ; Cargar x
-  MOVV8 R06, 4  ; Offset desde BP
-  ADD8 R06, R14  ; Dirección = BP + offset
-  LOADR4 R05, R06  ; Cargar y
-  MOVV1 R07, 47
-  PUSH1 R07  ; Push argumento (caracter)
-  PUSH4 R05  ; Push argumento (entero4)
-  PUSH4 R03  ; Push argumento (entero4)
-  CALL calculadora  ; Llamar a calculadora
-  ADDV8 R15, 9  ; Limpiar 3 argumentos del stack
-  MOVV8 R08, 8  ; Offset desde BP
-  ADD8 R08, R14  ; Dirección = BP + offset
-  STORER4 R00, R08  ; res = valor
-  ; imprimir()
-  MOVV8 R10, 8  ; Offset desde BP
-  ADD8 R10, R14  ; Dirección = BP + offset
-  LOADR4 R09, R10  ; Cargar res
-  PUSH8 R09
-  CALL __print_int8
-  ADDV8 R15, 8  ; Limpiar stack
-  CALL __print_newline
-  MOVV8 R12, 0  ; Offset desde BP
-  ADD8 R12, R14  ; Dirección = BP + offset
-  LOADR4 R11, R12  ; Cargar x
-  MOVV8 R00, 4  ; Offset desde BP
-  ADD8 R00, R14  ; Dirección = BP + offset
-  LOADR4 R13, R00  ; Cargar y
-  MOVV1 R01, 37
-  PUSH1 R01  ; Push argumento (caracter)
-  PUSH4 R13  ; Push argumento (entero4)
-  PUSH4 R11  ; Push argumento (entero4)
-  CALL calculadora  ; Llamar a calculadora
-  ADDV8 R15, 9  ; Limpiar 3 argumentos del stack
-  MOVV8 R02, 8  ; Offset desde BP
-  ADD8 R02, R14  ; Dirección = BP + offset
-  STORER4 R00, R02  ; res = valor
-  ; imprimir()
-  MOVV8 R04, 8  ; Offset desde BP
-  ADD8 R04, R14  ; Dirección = BP + offset
-  LOADR4 R03, R04  ; Cargar res
-  PUSH8 R03
-  CALL __print_int8
-  ADDV8 R15, 8  ; Limpiar stack
-  CALL __print_newline
-=======
-  ADDV8 R15, 25  ; Reservar 25 bytes para locales
-
-  ; Cuerpo de main
-  ; Variable local: local_a (offset: 0)
-  MOVV4 R00, 10
-  MOV4 R01, R00  ; Guardar valor de R00
-  MOVV8 R02, 0
-  ADD8 R02, R14  ; Dirección = BP + offset
-  STORER4 R01, R02  ; local_a = valor_inicial
-  ; Variable local: local_a (offset: 0)
-  MOVV4 R03, 20
-  MOVV8 R04, 0
-  ADD8 R04, R14  ; Dirección = BP + offset
-  STORER4 R03, R04  ; local_a = valor_inicial
-  ; ERROR: Variable 'local_b' no encontrada
-  ; Variable local: n (offset: 4)
-  MOVV4 R05, 10
-  MOVV8 R06, 4
-  ADD8 R06, R14  ; Dirección = BP + offset
-  STORER4 R05, R06  ; n = valor_inicial
-  ; Variable local: s (offset: 8)
-  MOVV8 R07, 0x18011  ; __STR3
-  MOVV8 R08, 8
-  ADD8 R08, R14  ; Dirección = BP + offset
-  STORER8 R07, R08  ; s = valor_inicial
-  ; Variable local: res (offset: 16)
-  MOVV8 R10, 4  ; Offset desde BP
-  ADD8 R10, R14  ; Dirección = BP + offset
-  LOADR4 R09, R10  ; Cargar n
-  MOVV8 R12, 8  ; Offset desde BP
-  ADD8 R12, R14  ; Dirección = BP + offset
-  LOADR8 R11, R12  ; Cargar s
-  MOV4 R13, R09
-  ADD4 R13, R11
-  MOVV8 R00, 16
-  ADD8 R00, R14  ; Dirección = BP + offset
-  STORER4 R13, R00  ; res = valor_inicial
-  ; Variable local: b (offset: 20)
-  MOVV1 R01, 10
-  MOVV8 R02, 20
-  ADD8 R02, R14  ; Dirección = BP + offset
-  STORER1 R01, R02  ; b = valor_inicial
-  MOVV8 R04, 4  ; Offset desde BP
-  ADD8 R04, R14  ; Dirección = BP + offset
-  LOADR4 R03, R04  ; Cargar n
-  CMPV R03, 0
-  JEQ ELSE0
-  ; imprimir()
-  MOVV8 R05, 0x18016  ; __STR4
-  PUSH8 R05
-  CALL __print_string
-  ADDV8 R15, 8  ; Limpiar stack
-  CALL __print_newline
-  JMP ENDIF1
-ELSE0:
-ENDIF1:
-  MOVV4 R06, 10
-  PUSH4 R06  ; Push argumento (entero4)
-  CALL sumar  ; Llamar a sumar
-  ADDV8 R15, 4  ; Limpiar 1 argumentos del stack
-  MOVV4 R07, 10
-  MOVV8 R08, 0x1801C  ; __STR5
-  PUSH4 R08  ; Push argumento (entero4)
-  PUSH4 R07  ; Push argumento (entero4)
-  CALL sumar  ; Llamar a sumar
-  ADDV8 R15, 8  ; Limpiar 2 argumentos del stack
-  MOVV8 R09, 100
-  MOV8 R00, R09  ; Valor de retorno en R00
-  JMP main_epilogue
-  ; ERROR: Objeto no encontrado para acceso a miembro
-  ; Variable local: arreglo (offset: 21)
-  MOVV4 R10, 0
-  MOVV8 R11, 0  ; ERROR: String no inicializado
-  MOVV4 R12, 4
-  MUL4 R11, R12
-  MOVV8 R13, 21
-  ADD8 R13, R14  ; Base del array
-  ADD8 R13, R11  ; Dirección del elemento
-  STORER4 R10, R13  ; arr[...] = valor
-  ; ERROR: break fuera de un bucle
->>>>>>> main
-
-main_epilogue:
-  ; Epílogo de main
-  MOV8 R15, R14      ; SP = BP (liberar locales)
-  POP8 R14           ; Restaurar BP del caller
-  RET                ; Retornar al caller
-
-<<<<<<< HEAD
-=======
-.LOCAL_REL 0 4 local_a ; FUNC=main
-.LOCAL_REL 4 4 n ; FUNC=main
-.LOCAL_REL 8 8 s ; FUNC=main
-.LOCAL_REL 16 4 res ; FUNC=main
-.LOCAL_REL 20 1 b ; FUNC=main
-.LOCAL_REL 21 4 arreglo ; FUNC=main
-funcion_sin_retorno:  ; Función: funcion_sin_retorno
-  ; Prólogo de funcion_sin_retorno
-  PUSH8 R14          ; Guardar BP del caller en stack
-  MOV8 R14, R15      ; BP = SP (inicio del frame actual)
-  ; Sin variables locales
-
-  ; Cuerpo de funcion_sin_retorno
-  MOVV8 R01, -20  ; Offset desde BP
-  ADD8 R01, R14  ; Dirección = BP + offset
-  LOADR4 R00, R01  ; Cargar n
-  MOVV1 R02, 0
-  CMP R00, R02
-  MOVV1 R03, 0  ; Asumir falso
-  JGE CMP_TRUE4
-  JMP CMP_END5
-CMP_TRUE4:
-  MOVV1 R03, 1  ; Verdadero
-CMP_END5:
-  CMPV R03, 0
-  JEQ ELSE2
-  MOVV4 R04, 1
-  MOV4 R00, R04  ; Valor de retorno en R00
-  JMP funcion_sin_retorno_epilogue
-  JMP ENDIF3
-ELSE2:
-ENDIF3:
-
-funcion_sin_retorno_epilogue:
-  ; Epílogo de funcion_sin_retorno
-  MOV8 R15, R14      ; SP = BP (liberar locales)
-  POP8 R14           ; Restaurar BP del caller
-  RET                ; Retornar al caller
-
-.LOCAL_REL -20 4 n ; FUNC=funcion_sin_retorno
->>>>>>> main
 
 END_PROGRAM:
 ; Fin del código ejecutable

@@ -67,7 +67,7 @@ funcion entero4 dias_en_mes(entero4 mes, entero4 año) {
     retornar dias;
 }
 
-funcion vacio main() {
+funcion vacio principal() {
     // Prueba de clasificación de temperatura
     imprimir("=== Clasificación de Temperatura ===");
     clasificar_temperatura(42);

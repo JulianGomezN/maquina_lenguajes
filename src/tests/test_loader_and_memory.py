@@ -2,7 +2,7 @@ import logging
 import struct
 from machine.Memory.Memory import Memory
 from compiler.Loader import Loader
-from compiler.instrucctions import IS_INV
+from compiler.instructions import IS_INV
 
 
 def test_memory_write_little_endian():

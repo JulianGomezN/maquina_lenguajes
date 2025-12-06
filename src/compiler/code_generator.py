@@ -674,6 +674,12 @@ class CodeGenerator:
         elif isinstance(node, IfStmt):
             self._collect_string_literals(node.condition)
             self._collect_string_literals(node.then_block)
+            # Also collect strings from any elif clauses
+            if hasattr(node, 'elif_clauses') and node.elif_clauses:
+                for clause in node.elif_clauses:
+                    # ElifClause has .condition and .block
+                    self._collect_string_literals(clause.condition)
+                    self._collect_string_literals(clause.block)
             if node.else_block:
                 self._collect_string_literals(node.else_block)
         
@@ -799,27 +805,35 @@ class CodeGenerator:
         
         # Inicializar string literals en memoria (área separada 0x18000+)
         if self.string_literals:
+            # Diagnostic: list collected strings (helps detect missing literals)
+            self.emit("; Strings recolectados:")
+            for s, lbl in self.string_literals.items():
+                # Emitir una línea resumida (no imprimir contenido binario completo aquí)
+                safe_preview = s.replace('\n', '\\n')[:60]
+                self.emit(f";   {lbl}: '{safe_preview}'")
+
             self.emit("; Inicializar string literals en memoria (área 0x18000+)")
             string_offset = 0
             for string_val, label in self.string_literals.items():
                 addr = self.string_data_base + string_offset
                 self.string_addresses[string_val] = addr
                 self.emit(f"; {label} = \"{string_val}\" @ 0x{addr:X}")
-                
-                # Escribir string completo usando STORE1 (dirección absoluta)
-                for i, char in enumerate(string_val):
+
+                # Escribir string como bytes UTF-8 usando STORE1 (dirección absoluta)
+                val_bytes = string_val.encode('utf-8')
+                for i, b in enumerate(val_bytes):
                     char_addr = addr + i
-                    self.emit(f"  MOVV1 R01, {ord(char)}  ; '{char}'")
+                    self.emit(f"  MOVV1 R01, {b}  ; byte 0x{b:02X}")
                     self.emit(f"  STORE1 R01, {char_addr}  ; Escribir en 0x{char_addr:X}")
-                
+
                 # Escribir NULL terminator
-                null_addr = addr + len(string_val)
+                null_addr = addr + len(val_bytes)
                 self.emit(f"  MOVV1 R01, 0  ; NULL")
                 self.emit(f"  STORE1 R01, {null_addr}  ; Escribir en 0x{null_addr:X}")
-                
-                # Avanzar offset (para el siguiente string)
-                string_offset += len(string_val) + 1
-            
+
+                # Avanzar offset (para el siguiente string) — medir en bytes
+                string_offset += len(val_bytes) + 1
+
             self.emit("")
         
         # Llamar a la función principal

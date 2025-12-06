@@ -4,7 +4,7 @@ from machine.Memory.Memory import Memory
 from machine.IO.IOsystem import IOSystem
 from machine.CPU.Register import Register
 from machine.CPU.Units import ALU, FPU
-from compiler.instrucctions import IS_INV
+from compiler.instructions import IS_INV
 import logging
 import struct
 

@@ -37,7 +37,7 @@ funcion entero4 calculadora(entero4 a, entero4 b, caracter operacion) {
     retornar resultado;
 }
 
-funcion vacio main() {
+funcion vacio principal() {
     entero4 x = 20;
     entero4 y = 5;
     entero4 res = 0;

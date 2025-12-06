@@ -18,6 +18,6 @@ funcion vacio clasificar_calificacion() {
     }
 }
 
-funcion vacio main() {
+funcion vacio principal() {
     clasificar_calificacion();
 }

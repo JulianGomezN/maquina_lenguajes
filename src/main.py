@@ -16,6 +16,7 @@ logging.getLogger("compiler.loader").setLevel(logging.INFO)
 # Keep CPU variable-store messages visible
 logging.getLogger("machine.cpu").setLevel(logging.INFO)
 # By default keep debug logging hidden. To see detailed memory/CPU traces set logging to DEBUG.
+# Memory size increased from 2**16 (64KB) to 2**17 (128KB) to support larger programs and additional features that require more RAM.
 mem = Memory(2**17, memory_file=RAM_FILE, debug_writes=False, debug_stack_writes=False)
 
 io = IOSystem()
