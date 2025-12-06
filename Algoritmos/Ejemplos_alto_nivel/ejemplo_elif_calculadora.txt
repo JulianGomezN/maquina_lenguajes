@@ -1,0 +1,59 @@
+// Ejemplo 2: Calculadora con operaciones múltiples usando si-no-si
+// Demuestra comparación de caracteres y múltiples elif
+
+funcion entero4 calculadora(entero4 a, entero4 b, caracter operacion) {
+    entero4 resultado = 0;
+    
+    si (operacion == '+') {
+        resultado = a + b;
+        imprimir("Suma:");
+    } si_no_si (operacion == '-') {
+        resultado = a - b;
+        imprimir("Resta:");
+    } si_no_si (operacion == '*') {
+        resultado = a * b;
+        imprimir("Multiplicación:");
+    } si_no_si (operacion == '/') {
+        si (b != 0) {
+            resultado = a / b;
+            imprimir("División:");
+        } si_no {
+            imprimir("Error: División por cero");
+            resultado = 0;
+        }
+    } si_no_si (operacion == '%') {
+        si (b != 0) {
+            resultado = a % b;
+            imprimir("Módulo:");
+        } si_no {
+            imprimir("Error: Módulo por cero");
+            resultado = 0;
+        }
+    } si_no {
+        imprimir("Operación no reconocida");
+        resultado = 0;
+    }
+    
+    retornar resultado;
+}
+
+funcion vacio main() {
+    entero4 x = 20;
+    entero4 y = 5;
+    entero4 res = 0;
+    
+    res = calculadora(x, y, '+');
+    imprimir(res);  // 25
+    
+    res = calculadora(x, y, '-');
+    imprimir(res);  // 15
+    
+    res = calculadora(x, y, '*');
+    imprimir(res);  // 100
+    
+    res = calculadora(x, y, '/');
+    imprimir(res);  // 4
+    
+    res = calculadora(x, y, '%');
+    imprimir(res);  // 0
+}
