@@ -490,6 +490,8 @@ class SimuladorGUI:
             # 1. Análisis sintáctico (parsing)
             ast = parse(codigo)
             if not ast:
+                msg = "Error de Sintaxis: No se pudo parsear el código\nRevise la salida del analizador sintáctico para más detalles."
+                self.set_salida(msg)
                 messagebox.showerror("Error de Sintaxis", "No se pudo parsear el código")
                 return
             
@@ -502,6 +504,9 @@ class SimuladorGUI:
                 errores_msg = "\n".join(analyzer.errors[:10])
                 if len(analyzer.errors) > 10:
                     errores_msg += f"\n... y {len(analyzer.errors)-10} errores más"
+                
+                self.set_salida(f"Errores Semánticos:\n{errores_msg}")
+                
                 messagebox.showwarning(
                     f"Advertencias Semánticas ({len(analyzer.errors)})",
                     errores_msg
