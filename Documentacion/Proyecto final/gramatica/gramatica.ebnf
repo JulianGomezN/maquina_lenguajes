@@ -92,7 +92,8 @@ expr_stmt ::= expression? ';'
    SENTENCIAS DE CONTROL DE FLUJO
    ============================================================================ */
 
-if_stmt ::= 'si' '(' expression ')' statement ('si_no' statement)?
+if_stmt ::= 'si' '(' expression ')' statement ('si_no_si' '(' expression ')' statement)* ('si_no' statement)?
+            /* Nota: Máximo 10 cláusulas si_no_si permitidas */
 
 while_stmt ::= 'mientras' '(' expression ')' statement
 

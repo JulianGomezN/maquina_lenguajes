@@ -63,10 +63,17 @@ class Memory:
         self.debug_stack_writes = debug_stack_writes
         self.stack_base = stack_base
         self.stack_end = stack_end or (stack_base + 0x4000)  # default 16KB stack
-        # symbol table populated by Loader (.DATA NAME=...)
-        # symbols: list of dicts {'name', 'addr', 'size'}
+        # Symbol tracking data structures for runtime variable tracking:
+        # self.symbols: List of symbol entries, each a dict with keys:
+        #   - 'name': str, the symbol/variable name
+        #   - 'addr': int, the starting address in memory
+        #   - 'size': int, the size in bytes
         self.symbols: list[dict] = []
+        # self.symbol_table_by_name: Dict mapping symbol names (str) to their symbol dicts.
+        #   Allows fast lookup of symbol information by name.
         self.symbol_table_by_name: dict = {}
+        # self.symbol_table_by_addr: Dict mapping addresses (int) to their symbol dicts.
+        #   Allows fast lookup of symbol information by address.
         self.symbol_table_by_addr: dict = {}
 
     def _check_range(self, addr: int, nbytes: int):
@@ -124,7 +131,8 @@ class Memory:
 
     def register_symbol(self, name: str, addr: int | None, size: int, meta: dict | None = None):
         """Register a symbol name with its address and size for runtime lookup.
-
+        if meta is None:
+            meta = {}
         addr may be None for symbols that are BP-relative; in that case the
         actual address will be resolved at runtime using BP and the stored meta
         field (meta['local_rel']).

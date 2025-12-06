@@ -1,12 +1,22 @@
 \newpage
 
-# 1. Marco Teórico
+# 1. Resumen
 
-## 1.1 Arquitectura de Computadores y Modelo von Neumann
+Este proyecto presenta el diseño e implementación completa de **Atlas**, un sistema computacional integrado que abarca desde la arquitectura de hardware hasta un compilador funcional. El sistema implementa un procesador de 64 bits con arquitectura RISC que ejecuta 137+ instrucciones, incluyendo operaciones enteras, punto flotante IEEE 754 y gestión de memoria virtual. Se desarrolla un compilador completo para el lenguaje de alto nivel SPL que incluye preprocesador, analizador léxico con PLY, parser LALR(1) basado en gramática E-BNF, analizador semántico con sistema de tipos robusto, y generador de código que traduce a ensamblador Atlas.
+
+El proyecto aborda específicamente el tema **"Diseño e implementación de tipos de datos en lenguajes de programación"**, implementando un sistema completo con 11 tipos primitivos (entero1-8, flotante, doble, booleano, caracter, cadena), tipos compuestos (estructuras, arreglos, punteros) y verificación de compatibilidad en tiempo de compilación. La generación de código utiliza metadatos `.LOCAL_REL` para variables BP-relativas, inicialización determinista mediante directivas `.DATA`, y asignación de literales en área dedicada `string_data_base`.
+
+El simulador incluye interfaz gráfica con visualización en tiempo real de registros, memoria, flags y E/S, permitiendo ejecución paso a paso y depuración visual. El sistema ha sido validado mediante algoritmos clásicos (Euclides, multiplicación de matrices) y suite exhaustiva de pruebas unitarias e integración. Los resultados demuestran la corrección del pipeline completo de compilación y ejecución, constituyendo una herramienta educativa efectiva para la enseñanza de arquitectura de computadores, compiladores y sistemas de tipos.
+
+\newpage
+
+# 2. Marco Teórico
+
+## 2.1 Arquitectura de Computadores y Modelo von Neumann
 
 El diseño de computadores modernos se fundamenta en los principios establecidos por John von Neumann en 1945, quien propuso una arquitectura en la cual las instrucciones y los datos se almacenan en una memoria común y se ejecutan secuencialmente bajo el control de una unidad central de procesamiento (CPU). Este modelo, conocido como **arquitectura von Neumann**, constituye la base conceptual de prácticamente todos los computadores actuales.
 
-### 1.1.1 Componentes Fundamentales
+### 2.1.1 Componentes Fundamentales
 
 La arquitectura von Neumann se compone de cinco componentes principales:
 
@@ -35,8 +45,7 @@ La arquitectura von Neumann se compone de cinco componentes principales:
 - Componente especializado (puede estar integrado o separado) para operaciones con números reales
 - Implementa aritmética IEEE 754 para tipos float y double
 
-### 1.1.2 Ciclo de Instrucción (Fetch-Decode-Execute)
-
+### 2.1.2 Ciclo de Instrucción (Fetch-Decode-Execute)
 El procesador ejecuta programas mediante un ciclo repetitivo de tres fases:
 
 1. **Fetch (Búsqueda)**:
@@ -56,7 +65,7 @@ El procesador ejecuta programas mediante un ciclo repetitivo de tres fases:
 
 Este ciclo se repite continuamente hasta que el programa termina o se encuentra una instrucción de detención (HALT).
 
-### 1.1.3 Arquitectura Atlas (64 bits)
+### 2.1.3 Arquitectura Atlas (64 bits)
 
 En este proyecto se ha diseñado e implementado la arquitectura **Atlas**, un computador de 64 bits que sigue el modelo von Neumann con las siguientes características:
 
@@ -75,6 +84,8 @@ En este proyecto se ha diseñado e implementado la arquitectura **Atlas**, un co
 - **Segmento de código**: Desde 0x0000, contiene instrucciones del programa
 - **Segmento de datos globales**: Desde 0x1000, variables globales y constantes
 - **Segmento de stack**: Desde 0x8000, crece hacia direcciones mayores
+
+Nota de implementación: en la versión actual del compilador/ensamblador se reserva además un área dedicada para literales de cadena (strings) cuyo offset base de datos en el repositorio se sitúa en `string_data_base` (implementación actual alrededor de `0x18000`). El `Loader` del emulador aplica las inicializaciones declaradas en la sección `.data` de forma determinista durante la carga, escribiendo los bytes UTF‑8 de las cadenas y las constantes en memoria para asegurar valores iniciales reproducibles entre ejecuciones.
 
 **Formatos de instrucción**:
 - **OP**: Operación sin operandos (ej: HALT, RET, NOP)
@@ -99,11 +110,11 @@ En este proyecto se ha diseñado e implementado la arquitectura **Atlas**, un co
 - Dispositivos accesibles mediante instrucciones de carga/almacenamiento estándar
 - Instrucciones especializadas: SVIO (guardar), LDIO (cargar), SHOWIO (visualizar)
 
-## 1.2 Lenguaje Ensamblador
+## 2.2 Lenguaje Ensamblador
 
 El lenguaje ensamblador es un lenguaje de programación de bajo nivel que utiliza **mnemónicos** (abreviaturas legibles) para representar instrucciones de código máquina. Cada instrucción en ensamblador corresponde típicamente a una instrucción binaria ejecutable por el procesador.
 
-### 1.2.1 Características del Lenguaje Ensamblador
+### 2.2.1 Características del Lenguaje Ensamblador
 
 **Ventajas**:
 - Control preciso sobre el hardware y recursos del sistema
@@ -117,7 +128,7 @@ El lenguaje ensamblador es un lenguaje de programación de bajo nivel que utiliz
 - Mayor propensión a errores
 - Desarrollo y mantenimiento más costoso
 
-### 1.2.2 Elementos del Lenguaje Ensamblador Atlas
+### 2.2.2 Elementos del Lenguaje Ensamblador Atlas
 
 **Instrucciones**: Mnemónicos que representan operaciones del procesador
 ```assembly
@@ -148,7 +159,37 @@ loop:
 LOAD8 R01, [0x1000]    ; Comentario al final de línea
 ```
 
-### 1.2.3 Proceso de Ensamblado
+Nota de implementación del ensamblador: el generador de código y el ensamblador actual emiten directivas `.data` que el `Loader` interpreta y aplica de forma determinista durante la carga del binario. Además, el compilador emite, para variables locales y parámetros, metadatos en formato `.LOCAL_REL <offset> <size> <name> ; FUNC=<funcname>` que permiten registrar símbolos BP‑relativos (offsets relativos a `BP` / `R14`) y obtener nombres legibles en tiempo de ejecución (por ejemplo, para logs de `STORE`).
+
+Ejemplos de salida del generador (muestras)
+
+Ejemplo de metadato para variable local (emitido por el generador al final de la función):
+
+```assembly
+; Metadatos de variables locales emitidos por el generador
+.LOCAL_REL -20 8 nota ; FUNC=principal
+.LOCAL_REL -28 4 contador ; FUNC=principal
+```
+
+Ejemplo de inicialización byte‑a‑byte de una cadena literal (área `string_data_base` 0x18000):
+
+```assembly
+; Inicialización de string literal "Hola" en 0x18010
+    MOVV1 R01, 72   ; byte 0x48 ('H')
+    STORE1 R01, 0x18010  ; Escribir 'H'
+    MOVV1 R01, 111  ; byte 0x6F ('o')
+    STORE1 R01, 0x18011  ; Escribir 'o'
+    MOVV1 R01, 108  ; byte 0x6C ('l')
+    STORE1 R01, 0x18012  ; Escribir 'l'
+    MOVV1 R01, 97   ; byte 0x61 ('a')
+    STORE1 R01, 0x18013  ; Escribir 'a'
+    MOVV1 R01, 0    ; NULL terminator
+    STORE1 R01, 0x18014  ; Escribir '\0'
+```
+
+Estos fragmentos son representativos de la salida que genera el `CodeGenerator` y que el `Loader` interpreta para registrar símbolos y escribir literales en memoria.
+
+### 2.2.3 Proceso de Ensamblado
 
 El ensamblador traduce código ensamblador a código máquina mediante **dos pasadas**:
 
@@ -164,11 +205,11 @@ El ensamblador traduce código ensamblador a código máquina mediante **dos pas
 3. Marcar símbolos externos para el enlazador
 4. Generar archivo objeto (.o) con código, símbolos y relocaciones
 
-## 1.3 Compiladores y Procesamiento de Lenguajes
+## 2.3 Compiladores y Procesamiento de Lenguajes
 
 Un **compilador** es un programa traductor que convierte código escrito en un lenguaje de programación de alto nivel (lenguaje fuente) a un lenguaje de nivel inferior (lenguaje objetivo), típicamente lenguaje ensamblador o código máquina. A diferencia del lenguaje ensamblador que es de bajo nivel y específico de arquitectura, los lenguajes de alto nivel ofrecen abstracciones que facilitan el desarrollo de software complejo.
 
-### 1.3.1 Lenguajes de Alto Nivel vs. Bajo Nivel
+### 2.3.1 Lenguajes de Alto Nivel vs. Bajo Nivel
 
 **Lenguajes de alto nivel** (ej: C, Java, Python, SPL):
 - Abstracciones: variables, funciones, estructuras de control, tipos de datos complejos
@@ -184,7 +225,7 @@ Un **compilador** es un programa traductor que convierte código escrito en un l
 
 El compilador actúa como **puente** entre ambos niveles, permitiendo programar con abstracciones de alto nivel mientras genera código eficiente de bajo nivel.
 
-### 1.3.2 Fases de un Compilador
+### 2.3.2 Fases de un Compilador
 
 El proceso de compilación se organiza en múltiples fases que procesan progresivamente el código fuente:
 
@@ -200,7 +241,7 @@ El proceso de compilación se organiza en múltiples fases que procesan progresi
 7. **Generación de Código**: Traducción a lenguaje ensamblador de la arquitectura objetivo
 8. **Ensamblado y Enlazado**: Producción del ejecutable final
 
-### 1.3.3 Herramientas para Construcción de Compiladores
+### 2.3.3 Herramientas para Construcción de Compiladores
 
 Existen herramientas especializadas que automatizan la generación de componentes del compilador:
 
@@ -221,7 +262,37 @@ Existen herramientas especializadas que automatizan la generación de componente
   - Documentación completa y comunidad activa
   - Soporte para Unicode
 
-## 1.4 Preprocesador
+Gramática: soporte `si`, `si_no_si` y `si_no`
+
+El parser implementado con PLY soporta cláusulas `si_no_si` (equivalente a `elif`) como una lista de cláusulas intermedias y un bloque `si_no` (else) opcional. La forma esencial de las producciones usadas en `src/compiler/syntax_analizer.py` es equivalente a:
+
+```
+if_stmt : SI PARIZQ expression PARDER statement
+    | SI PARIZQ expression PARDER statement elif_list
+    | SI PARIZQ expression PARDER statement SI_NO statement
+    | SI PARIZQ expression PARDER statement elif_list SI_NO statement
+
+elif_list : elif_clause
+      | elif_list elif_clause
+
+elif_clause : SI_NO_SI PARIZQ expression PARDER statement
+```
+
+Nota semántica: el analizador semántico (`semantic_analyzer.py`) impone un límite de 10 cláusulas `si_no_si` por sentencia `si` (parámetro `MAX_ELIF_CLAUSES = 10`) y reporta un error si se excede.
+
+EBNF sincronizado (extracto)
+
+El fragmento EBNF equivalente, sincronizado con el fichero `Documentacion/Proyecto final/gramatica/gramatica.ebnf`, es el siguiente:
+
+```ebnf
+if_stmt ::= 'si' '(' expression ')' statement ('si_no_si' '(' expression ')' statement)* ('si_no' statement)?
+
+/* donde 'si_no_si' representa la palabra reservada 'si_no_si' */
+```
+
+Este fragmento refleja exactamente la producción usada por el parser y está presente en `gramatica.ebnf`.
+
+## 2.4 Preprocesador
 
 El preprocesador es una herramienta que actúa **antes** del compilador principal, transformando el código fuente mediante expansión textual de directivas especiales. El preprocesamiento es una fase de transformación sintáctica que no analiza la semántica del lenguaje.
 
@@ -250,7 +321,7 @@ preprocess(code: str, base_path: str = ".") -> str
 - `macros = {}`: Diccionario global de definiciones
 - `conditional_stack = []`: Pila para anidamiento de condicionales
 
-### 1.4.1 Directivas de Inclusión (#include)
+### 2.4.1 Directivas de Inclusión (#include)
 
 Permiten incorporar contenido de archivos externos, facilitando la modularización y reutilización de código:
 
@@ -271,7 +342,7 @@ Permiten incorporar contenido de archivos externos, facilitando la modularizaci�
 - Organización lógica del proyecto
 - Evita duplicación de código común
 
-### 1.4.2 Definiciones de Constantes (#define)
+### 2.4.2 Definiciones de Constantes (#define)
 
 Permiten asignar nombres simbólicos a valores constantes:
 
@@ -283,7 +354,7 @@ Permiten asignar nombres simbólicos a valores constantes:
 
 El preprocesador reemplaza todas las ocurrencias del identificador por su valor antes de la compilación. Las macros se almacenan en el diccionario global `macros` y se aplican mediante sustitución textual.
 
-### 1.4.3 Macros con Parámetros
+### 2.4.3 Macros con Parámetros
 
 Las macros permiten definir patrones de código que se expanden con sustitución de parámetros:
 
@@ -304,7 +375,7 @@ entero4 mayor = ((10) > (20) ? (10) : (20));
 entero4 area = ((lado) * (lado));
 ```
 
-### 1.4.4 Compilación Condicional
+### 2.4.4 Compilación Condicional
 
 Permite incluir o excluir bloques de código según macros definidas:
 
@@ -329,11 +400,11 @@ El preprocesador usa una pila `conditional_stack` para manejar anidamiento de co
 - Configuración de compilación (debug/release)
 - Modularización mediante archivos de biblioteca
 
-## 1.5 Análisis Léxico
+## 2.5 Análisis Léxico
 
 El análisis léxico es la **primera fase** del front-end del compilador, responsable de leer el código fuente como flujo de caracteres y agruparlos en unidades léxicas significativas llamadas **tokens**. También se conoce como **scanner** o **lexer**.
 
-### 1.5.1 Tokens y Categorías Léxicas
+### 2.5.1 Tokens y Categorías Léxicas
 
 Un **token** es una tupla que representa una unidad léxica: **(tipo, valor, línea, columna)**
 
@@ -385,7 +456,7 @@ Tokens:    (KEYWORD, 'int', 1, 1)
    - Línea: `// comentario`
    - Bloque: `/* comentario multilínea */`
 
-### 1.5.2 Expresiones Regulares y Reconocimiento de Patrones
+### 2.5.2 Expresiones Regulares y Reconocimiento de Patrones
 
 El reconocimiento de tokens se basa en **expresiones regulares** que describen patrones de caracteres:
 
@@ -399,7 +470,7 @@ El reconocimiento de tokens se basa en **expresiones regulares** que describen p
 | Cadena | `"([^"\\]|\\.)*"` | `"texto"`, `"line\n"` |
 | Carácter | `'([^'\\]|\\.)'` | `'a'`, `'\t'` |
 
-### 1.5.3 Autómatas Finitos
+### 2.5.3 Autómatas Finitos
 
 Las expresiones regulares se implementan mediante **Autómatas Finitos Determinísticos (DFA)** que procesan el flujo de caracteres de manera eficiente:
 
@@ -414,7 +485,7 @@ inicio          aceptación         aceptación
 
 El DFA lee caracteres secuencialmente, transita entre estados y acepta cuando llega a un estado final.
 
-### 1.5.4 Implementación con PLY Lex
+### 2.5.4 Implementación con PLY Lex
 
 En PLY, los tokens se definen mediante funciones Python con expresiones regulares en docstrings:
 
@@ -460,11 +531,11 @@ def t_error(t):
 lexer = lex.lex()
 ```
 
-## 1.6 Análisis Sintáctico y Gramáticas
+## 2.6 Análisis Sintáctico y Gramáticas
 
 El análisis sintáctico es la **segunda fase** del compilador y verifica que la secuencia de tokens producida por el lexer cumple con las **reglas gramaticales** del lenguaje. Si el análisis léxico trabaja con patrones lineales (expresiones regulares), el análisis sintáctico maneja **estructuras jerárquicas** y anidadas que requieren gramáticas más potentes.
 
-### 1.6.1 Gramáticas Libres de Contexto (GLC)
+### 2.6.1 Gramáticas Libres de Contexto (GLC)
 
 Una gramática libre de contexto se define como **G = (V, T, R, S)**:
 
@@ -490,7 +561,7 @@ term ::= factor (('*' | '/') factor)*
 factor ::= INTEGER | IDENTIFIER | '(' expression ')'
 ```
 
-### 1.6.2 Árboles de Sintaxis Abstracta (AST)
+### 2.6.2 Árboles de Sintaxis Abstracta (AST)
 
 El AST es una representación intermedia que:
 
@@ -512,7 +583,7 @@ AST:     Assignment
                └─ right: Identifier(c)
 ```
 
-### 1.6.3 Precedencia y Asociatividad de Operadores
+### 2.6.3 Precedencia y Asociatividad de Operadores
 
 Para evitar ambigüedades en expresiones, se definen reglas de precedencia (orden de evaluación) y asociatividad (dirección de agrupación):
 
@@ -528,12 +599,11 @@ Para evitar ambigüedades en expresiones, se definen reglas de precedencia (orde
 | 8 | `\|\|` | Izquierda | `a \|\| b` |
 | 9 (menor) | `=`, `+=`, `-=` | Derecha | `a = b = c` |
 
-## 1.7 Análisis Semántico
+## 2.7 Análisis Semántico
 
 El análisis semántico es la **tercera fase** del compilador y verifica la corrección del programa más allá de su sintaxis, validando reglas que no pueden expresarse mediante gramáticas libres de contexto. Mientras que el análisis sintáctico verifica la **forma** del programa, el análisis semántico verifica el **significado**.
 
-### 1.7.1 Tabla de Símbolos
-
+### 2.7.1 Tabla de Símbolos
 La tabla de símbolos es una estructura de datos fundamental que almacena información sobre todos los identificadores (variables, funciones, tipos, constantes) usados en el programa:
 
 **Información almacenada por símbolo**:
@@ -564,7 +634,7 @@ Scope Global
 3. Continuar hasta scope global
 4. Error si no se encuentra en ningún scope
 
-### 1.7.2 Sistema de Tipos
+### 2.7.2 Sistema de Tipos
 
 El sistema de tipos define qué operaciones son válidas y cómo se comportan:
 
@@ -585,7 +655,7 @@ El sistema de tipos define qué operaciones son válidas y cómo se comportan:
 - Acceso a miembros solo en estructuras
 - Operaciones de punteros solo con tipos puntero
 
-### 1.7.3 Inferencia y Coerción de Tipos
+### 2.7.3 Inferencia y Coerción de Tipos
 
 **Conversiones implícitas (coerción)**:
 ```
@@ -598,11 +668,11 @@ int2 = int4    →  int2 = (int2)int4  (truncamiento)
 int2 → int4 → int8 → float → double
 ```
 
-## 1.8 Generación de Código
+## 2.8 Generación de Código
 
 La generación de código es la **cuarta fase** del compilador y traduce el AST validado semánticamente a código ensamblador de la arquitectura objetivo (Atlas). Esta es la fase de **síntesis** donde se produce el código de salida.
 
-### 1.8.1 Asignación de Registros y Memoria
+### 2.8.1 Asignación de Registros y Memoria
 
 **Estrategias de asignación**:
 
@@ -641,7 +711,7 @@ La generación de código es la **cuarta fase** del compilador y traduce el AST 
    param_2:  BP + 24
    ```
 
-### 1.8.2 Convención de Llamada a Función
+### 2.8.2 Convención de Llamada a Función
 
 La convención de llamada define cómo se pasan parámetros, se invoca la función y se retornan valores:
 
@@ -686,7 +756,7 @@ funcion_nombre:
     ADDV8 R15, N*8      ; Limpiar argumentos del stack
 ```
 
-### 1.8.3 Traducción de Construcciones del Lenguaje
+### 2.8.3 Traducción de Construcciones del Lenguaje
 
 **Expresiones aritméticas**: Recorrido postorden del AST con asignación de registros temporales
 
@@ -716,9 +786,9 @@ end_label:
 - `new Type`: Llamada a función de allocación
 - `delete ptr`: Llamada a función de liberación
 
-## 1.9 Ensamblador, Enlazador y Cargador
+## 2.9 Ensamblador, Enlazador y Cargador
 
-### 1.9.1 Ensamblador
+### 2.9.1 Ensamblador
 
 El ensamblador traduce código ensamblador a código máquina mediante dos pasadas:
 
@@ -739,7 +809,7 @@ El ensamblador traduce código ensamblador a código máquina mediante dos pasad
 - Tabla de relocaciones
 - Secciones de código y datos
 
-### 1.9.2 Enlazador (Linker)
+### 2.9.2 Enlazador (Linker)
 
 El enlazador combina múltiples archivos objeto en un ejecutable unificado:
 
@@ -760,7 +830,7 @@ El enlazador combina múltiples archivos objeto en un ejecutable unificado:
 - Código relocado con direcciones resueltas
 - Datos inicializados
 
-### 1.9.3 Cargador (Loader)
+### 2.9.3 Cargador (Loader)
 
 El cargador prepara el ejecutable para ejecución:
 
@@ -772,7 +842,7 @@ El cargador prepara el ejecutable para ejecución:
 6. Establecer PC al punto de entrada
 7. Transferir control al programa
 
-## 1.10 Pipeline de Compilación Completo del Sistema SPL
+## 2.10 Pipeline de Compilación Completo del Sistema SPL
 
 El Sistema de Procesamiento del Lenguaje (SPL) integra todas las fases estudiadas, desde el código fuente de alto nivel hasta la ejecución en el simulador Atlas:
 
@@ -838,7 +908,7 @@ Código Ensamblador (.asm)
    Ejecución del Programa
 ```
 
-### Integración y API del Compilador
+### 2.10.1 Integración y API del Compilador
 
 El pipeline se integra en el módulo `compiler.py` que expone la siguiente API:
 
@@ -867,7 +937,7 @@ compile_file(filename: str, debug: bool = False) -> tuple[AST, bool, list[str]]
 from compiler.compiler import compile_code
 
 code = """
-funcion entero4 main() {
+funcion entero4 principal() {
     imprimir("Hola Atlas");
     retornar 0;
 }
@@ -883,7 +953,7 @@ else:
         print(f"  - {error}")
 ```
 
-### Pipeline Completo - Integración
+### 2.10.2 Pipeline Completo - Integración
 
 Este pipeline completo integra:
 - **Teoría de lenguajes formales** (gramáticas, autómatas)
@@ -895,15 +965,15 @@ Este pipeline completo integra:
 
 \newpage
 
-# 2. Descripción del Problema
+# 3. Descripción del Problema
 
 En el curso de Lenguajes de Programación de la Universidad Nacional de Colombia, se plantea como reto fundamental la construcción de un **sistema computacional completo y funcional** que demuestre la aplicación práctica de los conceptos teóricos estudiados. Este proyecto integrado abarca desde el diseño de hardware hasta la implementación de un compilador completo, pasando por todas las etapas del procesamiento de lenguajes.
 
-## 2.1 Visión General del Proyecto
+## 3.1 Visión General del Proyecto
 
 El proyecto se desarrolla en fases incrementales, donde cada etapa construye sobre la anterior:
 
-### Fase 1: Arquitectura y Simulador (Tareas #09 y #14)
+### 3.1.1 Fase 1: Arquitectura y Simulador (Tareas #09 y #14)
 
 **Objetivo**: Diseñar e implementar una máquina virtual que simule una computadora de 64 bits capaz de ejecutar programas en lenguaje ensamblador.
 
@@ -933,7 +1003,7 @@ El proyecto se desarrolla en fases incrementales, donde cada etapa construye sob
    - Control de ejecución (paso a paso, continua, puntos de ruptura)
    - Visor de RAM con búsqueda y limpieza
 
-### Fase 2: Preprocesador y Análisis Léxico (Taller #01)
+### 3.1.2 Fase 2: Preprocesador y Análisis Léxico (Taller #01)
 
 **Objetivo**: Desarrollar las primeras fases del Sistema de Procesamiento del Lenguaje (SPL), incluyendo preprocesador, analizador léxico, ensamblador y enlazador-cargador.
 
@@ -964,7 +1034,7 @@ El proyecto se desarrolla en fases incrementales, donde cada etapa construye sob
    - Generación de ejecutables (.exe)
    - Carga en memoria virtual para ejecución
 
-### Fase 3: Compilador Completo (Taller #02 - Actual)
+### 3.1.3 Fase 3: Compilador Completo (Taller #02 - Actual)
 
 **Objetivo**: Completar el compilador SPL implementando análisis sintáctico, semántico y generación de código para traducir programas de alto nivel a ensamblador Atlas.
 
@@ -994,11 +1064,123 @@ El proyecto se desarrolla en fases incrementales, donde cada etapa construye sob
 
 **El problema central** del proyecto completo radica en construir un sistema integrado que permita escribir programas en un lenguaje de alto nivel (SPL), compilarlos automáticamente a código ensamblador, ensamblar y enlazar los módulos resultantes, y ejecutarlos en un simulador de CPU funcional con visualización de todo el proceso.
 
-## 2.2 Requisitos Específicos del Taller #02
+## 3.2 Tema del Proyecto: Diseño e Implementación de Tipos de Datos en Lenguajes de Programación
+
+El proyecto se enfoca específicamente en el tema asignado **"Diseño e implementación de tipos de datos en lenguajes de programación"**, el cual se aborda de manera integral a través de los siguientes componentes:
+
+### 3.2.1 Sistema de Tipos Completo
+
+El lenguaje SPL implementa un **sistema de tipos robusto y completo** que incluye:
+
+**Tipos primitivos nativos** (11 tipos base):
+- **Enteros con tamaño explícito**: `entero1` (8 bits), `entero2` (16 bits), `entero4` (32 bits), `entero8` (64 bits)
+- **Punto flotante IEEE 754**: `flotante` (32 bits), `doble` (64 bits)
+- **Tipos adicionales**: `caracter` (8 bits), `cadena` (puntero a UTF-8), `booleano` (8 bits), `vacio` (funciones sin retorno)
+- **Modificadores de signo**: `con_signo`, `sin_signo` aplicables a tipos enteros
+
+**Tipos compuestos estructurados**:
+- **Estructuras** (`struct`): Tipos de datos definidos por el usuario con múltiples campos
+- **Arreglos**: Colecciones homogéneas con dimensiones estáticas o dinámicas
+- **Punteros**: Referencias tipadas con operadores de indirección (`*`) y dirección (`&`)
+- **Tipos función**: Firmas de funciones con parámetros tipados y tipo de retorno
+
+### 3.2.2 Implementación en el Compilador
+
+El compilador SPL materializa el diseño de tipos mediante:
+
+**1. Análisis léxico y sintáctico de tipos**:
+- Reconocimiento de palabras reservadas de tipos (`entero4`, `flotante`, `doble`, etc.)
+- Parsing de declaraciones con tipos complejos (punteros, arreglos, estructuras)
+- Construcción del AST con nodos tipados (`VarDecl`, `StructDecl`, `TypeSpec`)
+
+**2. Sistema de verificación de tipos (Type Checker)**:
+- **Compatibilidad de tipos**: Validación de operaciones permitidas entre tipos
+- **Reglas de coerción**: Conversiones implícitas seguras (ej: `entero4` → `flotante`)
+- **Prevención de errores**: Detección de incompatibilidades en asignaciones y operaciones
+- **Tabla de símbolos tipada**: Cada identificador registra su tipo completo
+
+**3. Generación de código con conciencia de tipos**:
+- **Instrucciones específicas por tipo**: Uso de sufijos de tamaño (`ADD4`, `FADD8`) según el tipo
+- **Alineación de memoria**: Cálculo de offsets y tamaños según requisitos de cada tipo
+- **Convenciones de paso de parámetros**: Manejo diferenciado de tipos primitivos vs. compuestos
+- **Gestión de strings**: Área dedicada `string_data_base` con inicialización byte-a-byte UTF-8
+
+### 3.2.3 Representación en Memoria de Tipos
+
+Cada tipo tiene una representación en memoria bien definida:
+
+| Tipo | Tamaño (bytes) | Alineación | Codificación |
+|------|----------------|------------|---------------|
+| `entero1` | 1 | 1 | Complemento a 2 |
+| `entero2` | 2 | 2 | Complemento a 2 |
+| `entero4` | 4 | 4 | Complemento a 2 |
+| `entero8` | 8 | 8 | Complemento a 2 |
+| `flotante` | 4 | 4 | IEEE 754 single |
+| `doble` | 8 | 8 | IEEE 754 double |
+| `booleano` | 1 | 1 | 0=falso, 1=verdadero |
+| `caracter` | 1 | 1 | ASCII/UTF-8 |
+| `cadena` | 8 | 8 | Puntero a bytes UTF-8 + NULL |
+| `puntero` | 8 | 8 | Dirección de 64 bits |
+| `struct` | variable | mayor del campo | Layout secuencial con padding |
+| `arreglo[N]` | N * tamaño_elemento | alineación del elemento | Elementos contiguos |
+
+### 3.2.4 Inicialización Determinista de Datos
+
+El sistema garantiza inicialización reproducible de datos globales y literales:
+
+**Proceso de inicialización en tres fases**:
+
+1. **Recolección en CodeGenerator** (`src/compiler/code_generator.py`):
+   - Recorrido completo del AST incluyendo todas las ramas (`if`, `elif`, `else`)
+   - Extracción de literales de cadena con sus valores UTF-8
+   - Asignación de direcciones en área `string_data_base` (offset base `0x18000`)
+   - Emisión de secuencias de inicialización byte-a-byte:
+     ```assembly
+     ; Inicializar "Hola" en 0x18010
+     MOVV1 R01, 72      ; 'H'
+     STORE1 R01, 0x18010
+     MOVV1 R01, 111     ; 'o'
+     STORE1 R01, 0x18011
+     MOVV1 R01, 108     ; 'l'
+     STORE1 R01, 0x18012
+     MOVV1 R01, 97      ; 'a'
+     STORE1 R01, 0x18013
+     MOVV1 R01, 0       ; NULL
+     STORE1 R01, 0x18014
+     ```
+
+2. **Carga determinista en Loader** (`src/compiler/Loader.py`):
+   - Interpretación de directivas `.DATA` durante la fase de carga
+   - Escritura byte-a-byte en memoria antes de la ejecución
+   - Registro de símbolos globales con direcciones absolutas
+   - Registro de metadatos `.LOCAL_REL` para variables locales/parámetros:
+     ```assembly
+     .LOCAL_REL -20 8 nota ; FUNC=principal
+     .LOCAL_REL -28 4 contador ; FUNC=principal
+     ```
+
+3. **Resolución en tiempo de ejecución** (Memory + CPU):
+   - Variables globales: acceso directo por dirección absoluta
+   - Variables locales: acceso relativo a `BP` (R14) usando metadatos `.LOCAL_REL`
+   - Strings: acceso indirecto via punteros inicializados en `string_data_base`
+   - Logging legible: nombres de variables en trazas de `STORE`/`LOAD` usando metadata
+
+### 3.2.5 Validación del Sistema de Tipos
+
+La implementación se valida mediante:
+
+- **Detección de errores de tipo en tiempo de compilación**: Incompatibilidades reportadas antes de generar código
+- **Tests exhaustivos**: Suite de pruebas en `src/tests/` cubriendo todos los tipos
+- **Ejemplos funcionales**: Algoritmos complejos (Euclides, matrices) que ejercitan el sistema de tipos
+- **Ejecución correcta**: Simulador que respeta semántica de tipos en operaciones ALU/FPU
+
+**Conclusión**: El proyecto implementa de manera completa el tema asignado, demostrando diseño, implementación, verificación y ejecución de un sistema de tipos robusto integrado en un compilador funcional.
+
+## 3.3 Requisitos Específicos del Taller #02
 
 Habiendo completado la arquitectura Atlas (Tareas #09 y #14) y el preprocesador/ensamblador (Taller #01), el **Taller #02** establece los siguientes requerimientos para finalizar el compilador SPL:
 
-### a) Definición Formal de Gramática E-BNF
+### 3.3.1 Definición Formal de Gramática E-BNF
 
 Especificar la gramática completa del lenguaje SPL en notación **E-BNF** (Extended Backus-Naur Form) que incluya:
 
@@ -1012,7 +1194,7 @@ Especificar la gramática completa del lenguaje SPL en notación **E-BNF** (Exte
 
 La gramática debe ser **completa, no ambigua y procesable** por herramientas automáticas.
 
-### b) Ajustes al Analizador Léxico
+### 3.3.2 Ajustes al Analizador Léxico
 
 Extender el lexer del Taller #01 para reconocer tokens de alto nivel:
 
@@ -1022,7 +1204,7 @@ Extender el lexer del Taller #01 para reconocer tokens de alto nivel:
 - **Literales flotantes**: Reconocimiento de notación decimal y científica
 - **Operadores de punteros**: `*` (indirección), `&` (dirección)
 
-### c) Diagramas de Sintaxis Ferroviarios (BottleCaps)
+### 3.3.3 Diagramas de Sintaxis Ferroviarios (BottleCaps)
 
 Generar visualizaciones gráficas completas usando [https://www.bottlecaps.de/rr/ui](https://www.bottlecaps.de/rr/ui):
 
@@ -1031,7 +1213,7 @@ Generar visualizaciones gráficas completas usando [https://www.bottlecaps.de/rr
 - Diagramas organizados por categorías (declaraciones, sentencias, expresiones)
 - Integración de diagramas en documentación técnica
 
-### d) Interpretación Semántica Detallada
+### 3.3.4 Interpretación Semántica Detallada
 
 Para **cada categoría de producciones**, documentar:
 
@@ -1041,11 +1223,11 @@ Para **cada categoría de producciones**, documentar:
 - **Validaciones semánticas**: Verificaciones de tipos, scopes, inicialización, control de flujo
 - **Generación de código**: Estrategia de traducción a ensamblador Atlas
 
-Ejemplo: Para la producción `if_stmt ::= 'si' '(' expression ')' statement ('si_no' statement)?`:
+Ejemplo: Para la producción `if_stmt ::= 'si' '(' expression ')' statement ( 'si_no_si' '(' expression ')' statement )* ( 'si_no' statement )?`:
 
 - **Interpretación**: Sentencia condicional que evalúa una expresión booleana y ejecuta diferentes bloques según el resultado
 - **Acción interna**: 
-### e) Implementación del Parser con PLY Yacc
+### 3.3.5 Implementación del Parser con PLY Yacc
 
 Desarrollar el analizador sintáctico completo usando **PLY (Python Lex-Yacc)**:
 
@@ -1054,7 +1236,7 @@ Desarrollar el analizador sintáctico completo usando **PLY (Python Lex-Yacc)**:
 - **Construcción del AST**: Generar árbol sintáctico con nodos tipados (ast_nodes.py)
 - **Manejo robusto de errores**: Reportar errores sintácticos con línea/columna
 
-### f) Análisis Semántico y Generación de Código
+### 3.3.6 Análisis Semántico y Generación de Código
 
 Implementar las fases finales del compilador:
 
@@ -1071,7 +1253,7 @@ Implementar las fases finales del compilador:
 - Soporte para tipos abstractos: estructuras, punteros, memoria dinámica (new/delete)
 - **Soporte de aritmética flotante**: Instrucciones FADD4/8, FSUB4/8, FMUL4/8, FDIV4/8
 
-### g) Validación con Programas de Prueba
+### 3.3.7 Validación con Programas de Prueba
 
 Proporcionar **al menos 5 programas SPL** representativos:
 
@@ -1086,24 +1268,24 @@ Para **al menos 2 programas**, mostrar:
 - Compilación exitosa y ejecución en el simulador Atlas
 - Verificación de correctitud de resultados
 
-## 2.3 Desafíos Técnicos del Taller #02
+## 3.4 Desafíos Técnicos del Taller #02
 
 La implementación del compilador SPL presenta los siguientes retos técnicos:
 
-### Fase de Análisis Sintáctico
+### 3.4.1 Fase de Análisis Sintáctico
 
 1. **Diseño de gramática sin ambigüedades**: Resolver conflictos shift/reduce mediante precedencia y asociatividad de operadores
 2. **Manejo de declaraciones complejas**: Distinguir entre declaraciones de variables, funciones y estructuras
 3. **Parsing de expresiones anidadas**: Soportar precedencia multi-nivel con asociatividad correcta
 
-### Fase de Análisis Semántico
+### 3.4.2 Fase de Análisis Semántico
 
 4. **Gestión de scopes anidados**: Implementar pila de tablas de símbolos para global/función/bloque/struct
 5. **Sistema de tipos robusto**: Validar compatibilidad de tipos, conversiones implícitas, equivalencia estructural de structs
 6. **Resolución de sobrecarga**: Diferenciar variables locales vs. globales, campos de struct vs. variables
 7. **Validación de control de flujo**: Verificar que break/continue estén dentro de loops, return dentro de funciones
 
-### Fase de Generación de Código
+### 3.4.3 Fase de Generación de Código
 
 8. **Asignación de registros temporales**: Gestionar pool de registros disponibles (R00-R09 para temporales)
 9. **Gestión de stack frame**: Implementar convención de llamada (paso de parámetros, preservación de BP/SP, retorno)
@@ -1112,13 +1294,13 @@ La implementación del compilador SPL presenta los siguientes retos técnicos:
 12. **Memoria dinámica**: Integrar operadores new/delete con sistema de memoria del simulador
 13. **Soporte de tipos flotantes**: Seleccionar instrucciones correctas (enteras vs. F-prefixed) según tipo de operandos
 
-## 2.4 Gramática E-BNF del Lenguaje SPL
+## 3.5 Gramática E-BNF del Lenguaje SPL
 
 A continuación se presenta la gramática completa del lenguaje SPL en notación E-BNF. Esta gramática es compatible con la herramienta Railroad Diagram Generator de BottleCaps ([https://www.bottlecaps.de/rr/ui](https://www.bottlecaps.de/rr/ui)).
 
 **Archivo**: `Documentacion/Taller2/gramatica/gramatica.ebnf`
 
-### Estructura del Programa
+### 3.5.1 Estructura del Programa
 
 ```ebnf
 /* Programa principal */
@@ -1129,7 +1311,7 @@ declaration_list ::= declaration+
 declaration ::= function_decl | struct_decl | var_decl_stmt
 ```
 
-### Declaraciones de Función
+### 3.5.2 Declaraciones de Función
 
 ```ebnf
 function_decl ::= normal_function_decl | extern_function_decl
@@ -1143,7 +1325,7 @@ param_list ::= param (',' param)*
 param ::= type ID
 ```
 
-### Declaraciones de Estructura
+### 3.5.3 Declaraciones de Estructura
 
 ```ebnf
 struct_decl ::= 'estructura' ID '{' member_list '}' ';'
@@ -1153,7 +1335,7 @@ member_list ::= member+
 member ::= type ID ';'
 ```
 
-### Declaraciones de Variable
+### 3.5.4 Declaraciones de Variable
 
 ```ebnf
 var_decl_stmt ::= var_decl ';'
@@ -1166,7 +1348,7 @@ array_dims ::= '[' ENTERO ']'
              | array_dims '[' ENTERO ']'
 ```
 
-### Sistema de Tipos
+### 3.5.5 Sistema de Tipos
 
 ```ebnf
 type ::= type_base
@@ -1186,7 +1368,7 @@ type_base ::= 'vacio'
             | ID
 ```
 
-### Sentencias
+### 3.5.6 Sentencias
 
 ```ebnf
 statement ::= var_decl_stmt
@@ -1207,10 +1389,10 @@ statement_list ::= statement+
 expr_stmt ::= expression? ';'
 ```
 
-### Sentencias de Control de Flujo
+### 3.5.7 Sentencias de Control de Flujo
 
 ```ebnf
-if_stmt ::= 'si' '(' expression ')' statement ('si_no' statement)?
+if_stmt ::= 'si' '(' expression ')' statement ( 'si_no_si' '(' expression ')' statement )* ( 'si_no' statement )?
 
 while_stmt ::= 'mientras' '(' expression ')' statement
 
@@ -1229,7 +1411,7 @@ continue_stmt ::= 'continuar' ';'
 print_stmt ::= 'imprimir' '(' argument_list? ')' ';'
 ```
 
-### Expresiones
+### 3.5.8 Expresiones
 
 ```ebnf
 expression ::= assignment
@@ -1295,7 +1477,7 @@ new_expr ::= 'nuevo' type
 delete_expr ::= 'eliminar' unary
 ```
 
-### Reglas Léxicas (Terminales)
+### 3.5.9 Reglas Léxicas (Terminales)
 
 ```ebnf
 ID ::= LETRA (LETRA | DIGITO | '_')*
@@ -1328,7 +1510,7 @@ CHAR_NO_ESPECIAL ::= #x20-#x26 | #x28-#x5B | #x5D-#x10FFFF  /* cualquier caráct
 STRING_CHAR ::= #x20-#x21 | #x23-#x5B | #x5D-#x10FFFF  /* cualquier carácter excepto " y \ */
 ```
 
-### Palabras Reservadas
+### 3.5.10 Palabras Reservadas
 
 El lenguaje SPL reconoce las siguientes **25 palabras reservadas**:
 
@@ -1340,17 +1522,17 @@ El lenguaje SPL reconoce las siguientes **25 palabras reservadas**:
 | **Gestión de memoria** (2) | `nuevo`, `eliminar` |
 | **Entrada/Salida** (1) | `imprimir` |
 
-## 2.5 Diagramas de Sintaxis (BottleCaps)
+## 3.6 Diagramas de Sintaxis (BottleCaps)
 
 Los diagramas de sintaxis ferroviaria (railroad diagrams) proporcionan una representación visual de la gramática que facilita la comprensión de las estructuras del lenguaje.
 
-### Herramienta Utilizada
+### 3.6.1 Herramienta Utilizada
 
 **Railroad Diagram Generator**: [https://www.bottlecaps.de/rr/ui](https://www.bottlecaps.de/rr/ui)
 
 Esta herramienta genera automáticamente diagramas de sintaxis a partir de la especificación E-BNF.
 
-### Estructura del Programa
+### 3.6.2 Estructura del Programa
 
 **1. program:**
 
@@ -1376,7 +1558,7 @@ declaration_list ::= declaration+
 declaration ::= function_decl | struct_decl | var_decl_stmt
 ```
 
-### Declaraciones de Función
+### 3.6.3 Declaraciones de Función
 
 **4. function_decl:**
 
@@ -1418,7 +1600,7 @@ param_list ::= param ( ',' param )*
 param ::= type ID
 ```
 
-### Declaraciones de Estructura
+### 3.6.4 Declaraciones de Estructura
 
 **9. struct_decl:**
 
@@ -1444,7 +1626,7 @@ member_list ::= member+
 member ::= type ID ';'
 ```
 
-### Declaraciones de Variable
+### 3.6.5 Declaraciones de Variable
 
 **12. var_decl_stmt:**
 
@@ -1463,7 +1645,7 @@ var_decl ::= ( type | type_base ( '[' ENTERO ']' )+ ) ID ( '=' expression )?
            | 'constante' type ID '=' expression
 ```
 
-### Sistema de Tipos
+### 3.6.6 Sistema de Tipos
 
 **14. type:**
 
@@ -1483,7 +1665,7 @@ type_base ::= 'vacio' | 'entero2' | 'entero4' | 'entero8'
             | 'booleano' | 'con_signo' | 'sin_signo' | ID
 ```
 
-### Sentencias
+### 3.6.7 Sentencias
 
 **16. statement:**
 
@@ -1519,14 +1701,14 @@ statement_list ::= statement+
 expr_stmt ::= expression? ';'
 ```
 
-### Sentencias de Control de Flujo
+### 3.6.8 Sentencias de Control de Flujo
 
 **20. if_stmt:**
 
 ![if_stmt](images/2_5_diagrams/if_stmt.png)
 
 ```ebnf
-if_stmt ::= 'si' '(' expression ')' statement ( 'si_no' statement )?
+if_stmt ::= 'si' '(' expression ')' statement ( 'si_no_si' '(' expression ')' statement )* ( 'si_no' statement )?
 ```
 
 **21. while_stmt:**
@@ -1593,7 +1775,7 @@ continue_stmt ::= 'continuar' ';'
 print_stmt ::= 'imprimir' '(' argument_list? ')' ';'
 ```
 
-### Expresiones
+### 3.6.9 Expresiones
 
 **29. expression:**
 
@@ -1773,7 +1955,7 @@ primary ::= ID | ENTERO | FLOT | CARACTER | CADENA
           | '(' expression ')' | new_expr | delete_expr
 ```
 
-### Gestión de Memoria
+### 3.6.10 Gestión de Memoria
 
 **51. new_expr:**
 
@@ -1791,7 +1973,7 @@ new_expr ::= 'nuevo' type
 delete_expr ::= 'eliminar' unary
 ```
 
-### Reglas Léxicas (Terminales)
+### 3.6.11 Reglas Léxicas (Terminales)
 
 **53. ID:**
 
@@ -1905,13 +2087,13 @@ CHAR_NO_ESPECIAL ::= #x20 - #x26 | #x28 - #x5B | #x5D - #x10FFFF
 STRING_CHAR ::= #x20 - #x21 | #x23 - #x5B | #x5D - #x10FFFF
 ```
 
-### Diagrama Completo de la Gramática
+### 3.6.12 Diagrama Completo de la Gramática
 
 ![Diagrama completo generado por RR](images/2_5_diagrams/rr-2.5.png)
 
 *Generado por [Railroad Diagram Generator](https://www.bottlecaps.de/rr/ui)*
 
-### Uso de los Diagramas
+### 3.6.13 Uso de los Diagramas
 
 Los diagramas facilitan:
 - **Comprensión visual** de la estructura gramatical
@@ -1922,7 +2104,7 @@ Los diagramas facilitan:
 
 **Nota**: El archivo completo `gramatica.ebnf` está disponible en el repositorio y puede ser copiado directamente a la herramienta BottleCaps para visualización interactiva.
 
-## 2.6 Interpretación Semántica de las Producciones
+## 3.7 Interpretación Semántica de las Producciones
 
 Esta sección describe en lenguaje natural qué significa cada producción de la gramática y qué acciones semánticas debe realizar el compilador al reconocerlas.
 
@@ -2041,7 +2223,7 @@ Esta sección describe en lenguaje natural qué significa cada producción de la
   2. Verificar que la variable no esté ya declarada en el scope actual
   3. Para arrays multidimensionales:
      - Procesar las dimensiones `[d1][d2]...[dn]` para obtener lista de tamaños
-     - Calcular tamaño total: elemento_size × d1 × d2 × ... × dn
+     - Calcular tamaño total: elemento_size * d1 * d2 * ... * dn
      - Almacenamiento contiguo row-major (fila por fila)
   4. Para constantes:
      - Evaluar expresión en tiempo de compilación
@@ -2097,7 +2279,7 @@ Esta sección describe en lenguaje natural qué significa cada producción de la
   1. Evaluar expression si existe
   2. Descartar valor resultante
 
-**20. `if_stmt ::= 'si' '(' expression ')' statement ('si_no' statement)?`**
+**20. `if_stmt ::= 'si' '(' expression ')' statement ( 'si_no_si' '(' expression ')' statement )* ( 'si_no' statement )?`**
 
 - **Interpretación**: Sentencia condicional.
 - **Acción Semántica**:
@@ -2501,7 +2683,7 @@ Esta sección describe en lenguaje natural qué significa cada producción de la
 - **Interpretación**: Carácter válido en literal de cadena.
 - **Acción Semántica**: Reconocimiento léxico
 
-### Resumen: Soporte de Aritmética de Punto Flotante
+### 3.7.1 Resumen: Soporte de Aritmética de Punto Flotante
 
 El compilador SPL proporciona **soporte completo para aritmética de punto flotante**:
 
@@ -2557,7 +2739,7 @@ calcular_promedio:
 **Ejemplo 2: Operaciones con Matrices (Arrays Multidimensionales):**
 
 ```spl
-// Código SPL - Suma de matrices 2×2
+// Código SPL - Suma de matrices 2x2
 funcion vacio sumar_matrices() {
     // Declarar matrices usando sintaxis natural con corchetes
     entero4[2][2] matriz_a;
@@ -2602,27 +2784,27 @@ sumar_matrices:
     PUSH8 R14               ; Guardar BP
     MOV8 R14, R15          ; BP = SP
     SUB8 R15, 104          ; Reservar espacio para locales:
-                            ; matriz_a: 32 bytes (2×2×8)
-                            ; matriz_b: 32 bytes (2×2×8)
-                            ; resultado: 32 bytes (2×2×8)
+                            ; matriz_a: 32 bytes (2*2*8)
+                            ; matriz_b: 32 bytes (2*2*8)
+                            ; resultado: 32 bytes (2*2*8)
                             ; i, j: 8 bytes c/u
     
     ; Inicializar matriz_a[0][0] = 1
     LOADV8 R01, 1
     LEA8 R02, [R14-32]      ; Base de matriz_a
-    STORE8 [R02+0], R01     ; offset = (0×2+0)×8 = 0
+    STORE8 [R02+0], R01     ; offset = (0*2+0)*8 = 0
     
     ; matriz_a[0][1] = 2
     LOADV8 R01, 2
-    STORE8 [R02+8], R01     ; offset = (0×2+1)×8 = 8
+    STORE8 [R02+8], R01     ; offset = (0*2+1)*8 = 8
     
     ; matriz_a[1][0] = 3
     LOADV8 R01, 3
-    STORE8 [R02+16], R01    ; offset = (1×2+0)×8 = 16
+    STORE8 [R02+16], R01    ; offset = (1*2+0)*8 = 16
     
     ; matriz_a[1][1] = 4
     LOADV8 R01, 4
-    STORE8 [R02+24], R01    ; offset = (1×2+1)×8 = 24
+    STORE8 [R02+24], R01    ; offset = (1*2+1)*8 = 24
     
     ; Inicializar matriz_b (similar)
     LOADV8 R01, 5
@@ -2656,14 +2838,14 @@ sumar_matrices:
     CMPV8 R05, 2
     JGE8 .while_j_end       ; Si j >= 2, salir
     
-    ; Calcular offset: (i × 2 + j) × 8
+    ; Calcular offset: (i * 2 + j) * 8
     LOAD8 R04, [R14-96]     ; i
     LOADV8 R06, 2
-    MUL8 R07, R04, R06      ; i × 2
+    MUL8 R07, R04, R06      ; i * 2
     LOAD8 R05, [R14-104]    ; j
-    ADD8 R07, R07, R05      ; i × 2 + j
+    ADD8 R07, R07, R05      ; i * 2 + j
     LOADV8 R06, 8
-    MUL8 R08, R07, R06      ; (i × 2 + j) × 8
+    MUL8 R08, R07, R06      ; (i * 2 + j) * 8
     
     ; Cargar matriz_a[i][j]
     LEA8 R02, [R14-32]      ; Base de matriz_a
@@ -2739,22 +2921,22 @@ Salida: 6 8 10 12
 
 \newpage
 
-# 3. Validación y Evidencias
+# 4. Validación y Evidencias
 
-## 3.1 Metodología de Validación
+## 4.1 Metodología de Validación
 
 La validación del **Simulador Atlas CPU** se realizó mediante la implementación y verificación de algoritmos clásicos de ciencias de la computación, garantizando que cada componente del sistema funcione correctamente bajo condiciones reales de uso.
 
-### Estrategia de Pruebas
+### 4.1.1 Estrategia de Pruebas
 
 1. **Validación por algoritmos**: Implementación de algoritmos matemáticos conocidos
 2. **Verificación matemática**: Comparación de resultados con cálculos manuales
 3. **Pruebas de estrés**: Ejecución con diferentes tamaños de datos
 4. **Validación de instrucciones**: Verificación individual de cada opcode
 
-## 3.2 Algoritmo de Euclides - Validación Completa
+## 4.2 Algoritmo de Euclides - Validación Completa
 
-### Implementación en Atlas Assembly
+### 4.2.1 Implementación en Atlas Assembly
 
 ```assembly
 ; Cálculo del MCD de 1071 y 462
@@ -2789,7 +2971,7 @@ FIN_GCD:
     PARAR
 ```
 
-### Verificación Matemática
+### 4.2.2 Verificación Matemática
 
 **Ejecución paso a paso**:
 1. MCD(1071, 462): 1071 mod 462 = 147
@@ -2799,9 +2981,9 @@ FIN_GCD:
 
 **Verificación**: 1071 = 21 × 51, 462 = 21 × 22
 
-## 3.3 Algoritmo del Módulo - Operación a % b
+## 4.3 Algoritmo del Módulo - Operación a % b
 
-### Implementación y Validación
+### 4.3.1 Implementación y Validación
 
 ```assembly
 ; Calcular 17 % 5
@@ -2825,9 +3007,9 @@ FIN_MOD:
 
 **Resultado**: 17 % 5 = 2 (Verificación: 3×5+2=17)
 
-## 3.4 Algoritmo de Valor Absoluto
+## 4.4 Algoritmo de Valor Absoluto
 
-### Implementación con Complemento a 2
+### 4.4.1 Implementación con Complemento a 2
 
 ```assembly
 ; Calcular valor absoluto de -7
@@ -2853,9 +3035,9 @@ POSITIVO:
 - |-7| = 7
 - |15| = 15
 
-## 3.5 Validación del Conjunto de Instrucciones
+## 4.5 Validación del Conjunto de Instrucciones
 
-### Cobertura Completa (47 instrucciones)
+### 4.5.1 Cobertura Completa (47 instrucciones)
 
 | Categoría | Instrucciones Validadas | Estado |
 |-----------|------------------------|---------|
@@ -2869,18 +3051,18 @@ POSITIVO:
 | **Flags** | CZF, SZF, CNF, SNF, CCF, SCF, CDF, SDF | 8/8 |
 | **Saltos Cond.** | JMPC, JMPNC, JMPNEG, JMPPOS, etc. | 3/3 |
 
-### Métricas de Calidad Alcanzadas
+### 4.5.2 Métricas de Calidad Alcanzadas
 
 - **Funcionalidad**: 100% de instrucciones operativas
 - **Precisión**: 100% de resultados matemáticamente correctos
 - **Robustez**: Manejo correcto de casos límite
 - **Usabilidad**: Interfaz intuitiva validada por usuarios
 
-## 3.6 Ejemplos de Programas en SPL (Lenguaje de Alto Nivel)
+## 4.6 Ejemplos de Programas en SPL (Lenguaje de Alto Nivel)
 
 A continuación se presentan programas representativos escritos en el lenguaje SPL que demuestran las capacidades del compilador completo (Taller 2).
 
-### Ejemplo 1: Cálculo de Áreas y Volúmenes
+### 4.6.1 Ejemplo 1: Cálculo de Áreas y Volúmenes
 
 **Archivo**: `Algoritmos/Ejemplos_alto_nivel/1.txt`
 
@@ -2918,7 +3100,7 @@ funcion entero4 principal() {
 
 **Resultados** (radio=5.0): Área~78.54, Volumen~523.60
 
-### Ejemplo 2: Bucles y Control de Flujo
+### 4.6.2 Ejemplo 2: Bucles y Control de Flujo
 
 ```spl
 funcion vacio ciclo() {
@@ -2936,7 +3118,7 @@ funcion vacio ciclo() {
 
 **Características**: Bucles `mientras`, operadores lógicos, `continuar`, operadores compuestos (`+=`).
 
-### Ejemplo 3: Estructuras y Punteros
+### 4.6.3 Ejemplo 3: Estructuras y Punteros
 
 ```spl
 estructura Persona {
@@ -2961,7 +3143,7 @@ funcion vacio crear_persona() {
 
 **Características**: Estructuras, punteros, gestión dinámica de memoria (`nuevo`/`eliminar`), operador flecha (`->`).
 
-### Ejemplo 4: Algoritmo de Euclides (Obligatorio)
+### 4.6.4 Ejemplo 4: Algoritmo de Euclides (Obligatorio)
 
 ```spl
 funcion entero4 euclides(entero4 a, entero4 b) {
@@ -2982,7 +3164,7 @@ funcion entero4 principal() {
 
 **Verificación**: euclides(48, 18) = 6 
 
-### Validación del Pipeline Completo
+## 4.7 Validación del Pipeline Completo
 
 Script `src/tests/test_pipeline.py` valida:
 
@@ -3001,13 +3183,13 @@ Script `src/tests/test_pipeline.py` valida:
 
 \newpage
 
-# 4. Diseño de la Aplicación
+# 5. Diseño de la Aplicación
 
-## 4.1 Arquitectura General del Sistema
+## 5.1 Arquitectura General del Sistema
 
 El **Simulador Atlas CPU** implementa una arquitectura modular que separa claramente las responsabilidades de cada componente, facilitando el mantenimiento y la extensibilidad del sistema.
 
-### Componentes Principales
+### 5.1.1 Componentes Principales
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -3045,9 +3227,9 @@ El **Simulador Atlas CPU** implementa una arquitectura modular que separa claram
 └─────────────────────────────────────────────────────────┘
 ```
 
-## 4.2 Diseño del Procesador (CPU.py)
+## 5.2 Diseño del Procesador (CPU.py)
 
-### Arquitectura de 64 bits
+### 5.2.1 Arquitectura de 64 bits
 
 ```python
 class CPU:
@@ -3076,9 +3258,9 @@ class CPU:
         self.running = False
 ```
 
-### Formatos de Instrucción Implementados
+### 5.2.2 Formatos de Instrucción Implementados
 
-#### Formato OP - Operaciones sin operandos
+#### 5.2.2.1 Formato OP - Operaciones sin operandos
 ```
  63        48 47                         0
 ┌────────────┬──────────────────────────┐
@@ -3087,7 +3269,7 @@ class CPU:
 └────────────┴──────────────────────────┘
 ```
 
-#### Formato R - Registro único
+#### 5.2.2.2 Formato R - Registro único
 ```
  63        48 47    44 43                0
 ┌────────────┬────────┬──────────────────┐
@@ -3096,7 +3278,7 @@ class CPU:
 └────────────┴────────┴──────────────────┘
 ```
 
-#### Formato RR - Registro-Registro
+#### 5.2.2.3 Formato RR - Registro-Registro
 ```
  63        48 47              8 7    4 3   0
 ┌────────────┬─────────────────┬──────┬─────┐
@@ -3105,7 +3287,7 @@ class CPU:
 └────────────┴─────────────────┴──────┴─────┘
 ```
 
-#### Formato RI - Registro-Inmediato
+#### 5.2.2.4 Formato RI - Registro-Inmediato
 ```
  63        48 47    44 43                 0
 ┌────────────┬────────┬───────────────────┐
@@ -3114,7 +3296,7 @@ class CPU:
 └────────────┴────────┴───────────────────┘
 ```
 
-#### Formato I - Solo Inmediato
+#### 5.2.2.5 Formato I - Solo Inmediato
 ```
  63        48 47                         0
 ┌────────────┬──────────────────────────┐
@@ -3123,11 +3305,265 @@ class CPU:
 └────────────┴──────────────────────────┘
 ```
 
-## 4.3 Compilador SPL (Taller 2)
+## 5.3 Diagrama de Clases UML - Módulo Compiler
+
+El módulo del compilador implementa un diseño modular con separación clara de responsabilidades:
+
+```
++---------------------------+
+|    Preprocessor           |
++---------------------------+
+| - macros: Dict            |
+| - conditional_stack: []   |
++---------------------------+
+| + preprocess(code): str   |
+| + expand_macro(): str     |
+| + include_file(): str     |
++---------------------------+
+        |
+        | usa
+        v
++---------------------------+
+|    Lex_analizer           |
++---------------------------+
+| - tokens: List            |
+| - reserved: Dict          |
++---------------------------+
+| + tokenize(code): []      |
+| + t_ID(): LexToken        |
+| + t_ENTERO(): LexToken    |
++---------------------------+
+        |
+        | usa
+        v
++--------------------------------+
+|    syntax_analizer             |
++--------------------------------+
+| - precedence: Tuple            |
+| - start: str                   |
++--------------------------------+
+| + p_program(): AST             |
+| + p_declaration_list(): AST    |
+| + parse(tokens): AST           |
++--------------------------------+
+        |
+        | produce
+        v
++-------------------------------+
+|    ast_nodes                  |
++-------------------------------+
+| <<abstract>>                  |
+| ASTNode                       |
++-------------------------------+
+| Program, FunctionDecl,        |
+| VarDecl, IfStmt, WhileStmt,   |
+| ForStmt, ReturnStmt,          |
+| BinaryOp, UnaryOp, Literal,   |
+| Identifier, StructDecl, ...   |
++-------------------------------+
+        |
+        | valida
+        v
++---------------------------------+
+|    semantic_analyzer            |
++---------------------------------+
+| - symbol_table: SymbolTable     |
+| - current_function: str         |
+| - errors: List                  |
++---------------------------------+
+| + analyze(ast): bool            |
+| + visit_node(): void            |
+| + check_types(): bool           |
+| + resolve_symbol(): Symbol      |
++---------------------------------+
+        |
+        | usa
+        v
++-------------------------------+
+|    SymbolTable                |
++-------------------------------+
+| - scopes: List[Dict]          |
+| - current_scope: int          |
++-------------------------------+
+| + enter_scope(): void         |
+| + exit_scope(): void          |
+| + insert(Symbol): void        |
+| + lookup(name): Symbol        |
+| + lookup_local(name): Symbol  |
++-------------------------------+
+        |
+        | genera
+        v
++----------------------------------+
+|    CodeGenerator                 |
++----------------------------------+
+| - code: List[str]                |
+| - string_data_base: int          |
+| - string_addresses: Dict         |
+| - temp_counter: int              |
+| - label_counter: int             |
++----------------------------------+
+| + generate(ast): str             |
+| + emit(instruction): void        |
+| + collect_strings(): void        |
+| + emit_string_init(): void       |
+| + emit_local_metadata(): void    |
+| + new_temp(): str                |
+| + new_label(): str               |
++----------------------------------+
+        |
+        | produce
+        v
++-------------------------------+
+|    ensamblador (Assembler)    |
++-------------------------------+
+| - symbol_table: Dict          |
+| - pc: int                     |
++-------------------------------+
+| + first_pass(): void          |
+| + second_pass(): bytes        |
+| + encode_instruction(): int   |
++-------------------------------+
+        |
+        | carga
+        v
++-------------------------------+
+|    Loader                     |
++-------------------------------+
+| - memory: Memory              |
+| - init_data_on_load: bool     |
++-------------------------------+
+| + load(code, addr): int       |
+| + apply_data_directives()     |
+| + register_local_rel()        |
++-------------------------------+
+```
+
+## 5.4 Diagrama de Clases UML - Módulo Machine
+
+```
++-------------------------------+
+|         CPU                   |
++-------------------------------+
+| - registers: List[Register]   |
+| - flags: Dict[str, int]       |
+| - pc: int                     |
+| - memory: Memory              |
+| - io_system: IOSystem         |
+| - alu: ALU                    |
+| - fpu: FPU                    |
+| - running: bool               |
++-------------------------------+
+| + fetch(): Instruction        |
+| + decode(inst): void          |
+| + execute(): void             |
+| + step(): void                |
+| + run(): void                 |
+| + reset(): void               |
++-------------------------------+
+        | tiene
+        +---------------+
+        |               |
+        |               |
+        v               v
++----------------+   +----------------+
+|     ALU        |   |     FPU        |
++----------------+   +----------------+
+| + add()        |   | + fadd()       |
+| + sub()        |   | + fsub()       |
+| + mul()        |   | + fmul()       |
+| + div()        |   | + fdiv()       |
+| + and()        |   | + fcmp()       |
+| + or()         |   +----------------+
+| + xor()        |
+| + shl()        |
+| + shr()        |
++----------------+
+
++-------------------------------+
+|         Memory                |
++-------------------------------+
+| - mem: bytearray              |
+| - size: int                   |
+| - symbol_table: Dict          |
+| - memory_file: str            |
++-------------------------------+
+| + read8(addr): int            |
+| + write8(addr, val): void     |
+| + read_bytes(addr, n): bytes  |
+| + write_bytes(addr, b): void  |
+| + register_symbol(): void     |
+| + resolve_symbol(): int       |
+| + load_from_txt(): void       |
+| + save_to_txt(): void         |
++-------------------------------+
+
++-------------------------------+
+|        IOSystem               |
++-------------------------------+
+| - devices: Dict[int, Device]  |
++-------------------------------+
+| + register_device(): void     |
+| + read(dev_id, addr): int     |
+| + write(dev_id, addr, v)      |
+| + show(dev_id, val): void     |
++-------------------------------+
+        | tiene
+        +---------------+
+        |               |
+        v               v
++----------------+   +----------------+
+|    Screen      |   |   Keyboard     |
++----------------+   +----------------+
+| - buffer: []   |   | - buffer: []   |
+| - callback     |   +----------------+
++----------------+   | + read(): int  |
+| + show()       |   | + write(val)   |
+| + clear()      |   +----------------+
++----------------+
+```
+
+## 5.5 Diagrama de Secuencia - Pipeline de Compilación y Ejecución
+
+```
+Usuario     GUI      Preprocessor  Lexer  Parser    Semantic   CodeGen   Assembler  Loader  CPU
+   |         |            |          |       |         |          |          |        |      |
+   +-------->|            |          |       |         |          |          |        |      |
+   | Cargar  |            |          |       |         |          |          |        |      |
+   | archivo |            |          |       |         |          |          |        |      |
+   |         +----------->|          |       |         |          |          |        |      |
+   |         | preprocess |          |       |         |          |          |        |      |
+   |         |            +--------->|       |         |          |          |        |      |
+   |         |            | tokenize |       |         |          |          |        |      |
+   |         |            |          +------>|         |          |          |        |      |
+   |         |            |          | parse |         |          |          |        |      |
+   |         |            |          |       |  (AST)  |          |          |        |      |
+   |         |            |          |       +-------->|          |          |        |      |
+   |         |            |          |       | analyze |          |          |        |      |
+   |         |            |          |       |         +--------->|          |        |      |
+   |         |            |          |       |         | generate |          |        |      |
+   |         |            |          |       |         |  (asm)   |          |        |      |
+   |         |            |          |       |         |          +--------->|        |      |
+   |         |            |          |       |         |          | assemble |        |      |
+   |         |            |          |       |         |          | (binary) |        |      |
+   |         |            |          |       |         |          |          +------->|      |
+   |         |            |          |       |         |          |          |  load  |      |
+   |         |            |          |       |         |          |          | .DATA  |      |
+   |         |            |          |       |         |          |          | .LOCAL |      |
+   |         |            |          |       |         |          |          |        +----->|
+   |         |            |          |       |         |          |          |        |  run |
+   |         |            |          |       |         |          |          |        |      |
+   |         |<--------------------------------------------------------------|        |
+   |         |                                                     resultados|        |
+   |<--------|                                                               |        |
+ mostrar     |                                                               |        |
+```
+
+## 5.6 Compilador SPL (Taller 2)
 
 El compilador SPL se compone de tres módulos principales que transforman código fuente en lenguaje de alto nivel a código ensamblador Atlas.
 
-### 4.3.1 Analizador Sintáctico (syntax_analizer.py)
+### 5.6.1 Analizador Sintáctico (syntax_analizer.py)
 
 **Archivo**: `src/compiler/syntax_analizer.py` (620 líneas)
 
@@ -3140,7 +3576,7 @@ Implementa parser LR(1) usando **PLY Yacc**, validando estructura gramatical y c
 - **Manejo de errores**: Reporta errores sintácticos con número de línea
 - **Soporte de funciones externas**: Declaraciones `externo` sin implementación
 
-#### Tabla de Precedencia Completa
+#### 5.6.1.1 Tabla de Precedencia Completa
 
 El parser usa **11 niveles de precedencia** (menor a mayor):
 
@@ -3190,7 +3626,7 @@ precedence = (
 - `!a && b` → `(!a) && b` (unario > lógico)
 - `arr[i].campo` → `((arr[i]).campo)` (postfijos asocian a izquierda)
 
-#### Construcción del AST
+#### 5.6.1.2 Construcción del AST
 
 Cada regla gramatical crea un nodo AST del módulo `ast_nodes`:
 
@@ -3230,13 +3666,13 @@ def p_error(p):
         print("Error sintáctico: fin de archivo inesperado")
 ```
 
-### 4.3.2 Analizador Semántico (semantic_analyzer.py)
+### 5.6.2 Analizador Semántico (semantic_analyzer.py)
 
 **Archivo**: `src/compiler/semantic_analyzer.py` (701 líneas)
 
 El analizador semántico valida la corrección del AST usando una **estrategia de dos pasadas** para permitir referencias forward (declaraciones usadas antes de definirse).
 
-#### Arquitectura de Clases
+#### 5.6.2.1 Arquitectura de Clases
 
 **`SemanticAnalyzer`**: Coordinador principal del análisis
 
@@ -3252,7 +3688,7 @@ class SemanticAnalyzer:
         """Retorna True si análisis exitoso, False si hay errores"""
 ```
 
-#### Estrategia de Dos Pasadas
+#### 5.6.2.2 Estrategia de Dos Pasadas
 
 **Pasada 1: Declaración de Símbolos Globales**
 - Registra todas las estructuras en `self.structs`
@@ -3267,7 +3703,7 @@ class SemanticAnalyzer:
 - Valida control de flujo (`romper`/`continuar` solo en loops)
 - Verifica que `retornar` coincida con tipo de retorno de función
 
-#### Gestión de Tabla de Símbolos
+#### 5.6.2.3 Gestión de Tabla de Símbolos
 
 **`SymbolTable`**: Stack de scopes con búsqueda jerárquica
 
@@ -3314,7 +3750,7 @@ class Symbol:
         self.is_const = False  # True para constantes
 ```
 
-#### Validaciones Realizadas
+#### 5.6.2.4 Validaciones Realizadas
 
 1. **Unicidad de Símbolos**: No redeclarar en mismo scope
 2. **Existencia de Símbolos**: Variables/funciones usadas deben estar declaradas
@@ -3337,7 +3773,7 @@ class Symbol:
    - Operaciones de dereferencia (`*p`) requieren tipo puntero
    - Direcciones (`&x`) de lvalues válidos
 
-#### Cálculo de Offsets de Estructuras
+#### 5.6.2.5 Cálculo de Offsets de Estructuras
 
 ```python
 def _register_struct(self, node: StructDecl):
@@ -3360,7 +3796,7 @@ def _register_struct(self, node: StructDecl):
 - `y.offset = 4`
 - `Punto.size = 8`
 
-#### Reporte de Errores
+#### 5.6.2.6 Reporte de Errores
 
 Los errores se acumulan en `self.errors` con número de línea:
 
@@ -3381,13 +3817,13 @@ Ejemplos de mensajes:
 
 
 
-### 4.3.3 Generador de Código (code_generator.py)
+### 5.6.3 Generador de Código (code_generator.py)
 
 **Archivo**: `src/compiler/code_generator.py` (2368 líneas)
 
 Traduce el AST validado a código ensamblador Atlas mediante recorrido del árbol, aplicando convenciones de la arquitectura.
 
-#### Arquitectura y Convenciones
+#### 5.6.3.1 Arquitectura y Convenciones
 
 **Registros**:
 - **R00-R13**: 14 registros temporales para evaluar expresiones
@@ -3429,7 +3865,7 @@ El generador selecciona el sufijo correcto según el tipo:
 - `FADD4`, `FSUB4`, `FMUL4`, `FDIV4`: Operaciones flotantes de 32 bits
 - `FADD8`, `FSUB8`, `FMUL8`, `FDIV8`: Operaciones dobles de 64 bits
 
-#### Clase CodeGenerator
+#### 5.6.3.2 Clase CodeGenerator
 
 ```python
 class CodeGenerator:
@@ -3465,7 +3901,7 @@ class CodeGenerator:
         return '\n'.join(self.code)
 ```
 
-#### Generación de Funciones
+#### 5.6.3.3 Generación de Funciones
 
 **Prólogo estándar** (establecer stack frame):
 
@@ -3518,7 +3954,7 @@ suma:
     RET
 ```
 
-#### Gestión de Registros Temporales
+#### 5.6.3.4 Gestión de Registros Temporales
 
 ```python
 def new_temp(self):
@@ -3536,7 +3972,7 @@ def free_temps(self):
 
 **Nota**: Los registros se reutilizan entre sentencias. Dentro de una expresión compleja, pueden agotarse si hay más de 14 operaciones anidadas.
 
-#### Generación de Expresiones
+#### 5.6.3.5 Generación de Expresiones
 
 **Operaciones binarias**:
 
@@ -3565,7 +4001,7 @@ def _generate_binary_op(self, node: BinaryOp):
     return result_reg
 ```
 
-#### Estructuras de Control
+#### 5.6.3.6 Estructuras de Control
 
 **Sentencia `si/si_no`**:
 
@@ -3618,7 +4054,7 @@ Código Atlas:
 .L_while_end_1:
 ```
 
-#### Arreglos Multidimensionales
+#### 5.6.3.7 Arreglos Multidimensionales
 
 **Declaración**: `entero4[3][4] matriz;` (3 filas, 4 columnas)
 
@@ -3640,9 +4076,9 @@ ADD8 R08, R07, R06      ; R08 = dirección final
 LOAD4 R09, [R08]        ; R09 = matriz[i][j]
 ```
 
-## 4.4 Ensamblador (ensamblador.py)
+## 5.7 Ensamblador (ensamblador.py)
 
-### Análisis Sintáctico
+### 5.7.1 Análisis Sintáctico
 
 ```python
 class Assembler:
@@ -3673,7 +4109,7 @@ class Assembler:
         return self.encode_instruction(opcode, operands)
 ```
 
-### Generación de Código
+### 5.7.2 Generación de Código
 
 ```python
 def encode_instruction(self, opcode, operands):
@@ -3693,14 +4129,14 @@ def encode_instruction(self, opcode, operands):
     # ... más formatos
 ```
 \newpage
-## 4.5 Flujo de Ejecución
+## 5.8 Flujo de Ejecución
 
-### Diagrama de Flujo Principal
+### 5.8.1 Diagrama de Flujo Principal
 ![Diagrama de Flujo Principal](images/4_4.png)
 
-## 4.6 Interfaz Gráfica (GUI)
+## 5.9 Interfaz Gráfica (GUI)
 
-### 4.6.1 Componentes de la UI
+### 5.9.1 Componentes de la UI
 
 1. **Visualizador de Estado**
    - Estado de registros R01-R15
@@ -3719,7 +4155,9 @@ def encode_instruction(self, opcode, operands):
    - Entrada de datos
    - Log de operaciones
 
-### 4.6.2 Visor de RAM en tiempo real (novedad)
+Nota de implementación: la salida textual del programa (dispositivo de pantalla) se redirige a la interfaz gráfica y se muestra en el widget `texto_salida`. El `Screen` del emulador invoca un callback que inserta caracteres en `texto_salida` en tiempo real, permitiendo que las llamadas `imprimir(...)` o los `SHOWIO` se visualicen directamente en la GUI.
+
+### 5.9.2 Visor de RAM en tiempo real (novedad)
 
 Se incorporó un visor de RAM completo accesible desde la GUI mediante el botón "Ver RAM". Este abre una ventana con una tabla (Treeview) que muestra la memoria en filas de 8 bytes, alineada a la arquitectura de 64 bits. Características principales:
 
@@ -3730,7 +4168,7 @@ Se incorporó un visor de RAM completo accesible desde la GUI mediante el botón
 
 Esta vista está conectada directamente a la RAM del simulador (self.cpu.memory), por lo que refleja en tiempo real los cambios que produce la ejecución del programa o las operaciones de memoria.
 
-### 4.6.3 Limpieza de RAM desde la interfaz (novedad)
+### 5.9.3 Limpieza de RAM desde la interfaz (novedad)
 
 Se añadió el botón "Limpiar RAM" al examinador de memoria. Al activarlo:
 
@@ -3743,11 +4181,11 @@ Además, se mejoró el layout del examinador de memoria para aprovechar mejor el
 
 ---
 
-## 4.7 Flujo del Compilador SPL (Preprocesador → Analizador Léxico → Sintáctico → IR → Opt → Ensamblador → Enlazador/Cargador)
+## 5.10 Flujo del Compilador SPL (Preprocesador → Analizador Léxico → Sintáctico → IR → Opt → Ensamblador → Enlazador/Cargador)
 
 El siguiente diagrama resume la cadena de herramientas para el SPL del Taller 1. 
 
-### 4.7.1 Pipeline general (fases)
+### 5.10.1 Pipeline general (fases)
 ![Pipeline general (fases)](images/4_6_1.png)
 
 #### **Definiciones:** 
@@ -3762,7 +4200,7 @@ El siguiente diagrama resume la cadena de herramientas para el SPL del Taller 1.
 + Mem/CPU: memoria y simulador donde se ejecuta el binario.
 
 
-### 4.7.2 Flujo de tokens → árbol sintáctico → AST
+### 5.10.2 Flujo de tokens → árbol sintáctico → AST
 
 ![Flujo de tokens → árbol sintáctico → AST](images/4_6_2.png)
 
@@ -3771,7 +4209,7 @@ El siguiente diagrama resume la cadena de herramientas para el SPL del Taller 1.
 + Stmt (Statement): unidad ejecutable del programa, ej: asignación, if, while, return.
 + AST: estructura de datos en forma de árbol que representa la estructura jerárquica del programa.
 
-### 4.7.3 Optimización y generación final
+### 5.10.3 Optimización y generación final
 
 ![Optimización y generación final](images/4_6_3.png)
 
@@ -3788,9 +4226,9 @@ Descripción rápida de cómo esto encaja con el repositorio actual:
 
 - En esta entrega el ensamblador (`compiler/assembler.py`) implementa el generador de instrucción (CODEGEN) y el desensamblador. El `Loader` (`logic/Loader.py`) realiza la función del enlazador/cargador (reubicación simple, escritura a memoria y registro de programas cargados).
 
-## 4.8 Especificación Léxica del Lenguaje
+## 5.11 Especificación Léxica del Lenguaje
 
-### Keywords
+### 5.11.1 Keywords
 ```
 - si
 - si_no
@@ -3815,13 +4253,13 @@ Descripción rápida de cómo esto encaja con el repositorio actual:
 - nuevo
 - eliminar
 ```
-### Identificadores
+### 5.11.2 Identificadores
 ```
 Empiezan por letra mayúscula o minúscula.
 - Nombres de variables 
 - Nombres de funciones
 ```
-### Constantes
+### 5.11.3 Constantes
 ```
 - Enteros: 10, -25, 0xFF (decimal y hexadecimal)
 - Flotantes: 3.14, 2.0e3
@@ -3829,13 +4267,13 @@ Empiezan por letra mayúscula o minúscula.
 - Cadenas: "Hola, Mundo"
 - Booleanos: True or False
 ```
-### Comentarios
+### 5.11.4 Comentarios
 ```
 - /*
 - */
 - //
 ```
-### Operadores
+### 5.11.5 Operadores
 ```
 - Asignación y compuestos: =, +=, -=, *=, /=, %=
 - Incremento / decremento: ++, --
@@ -3844,7 +4282,7 @@ Empiezan por letra mayúscula o minúscula.
 - Comparación: ==, !=, <, <=, >, >=
 - Lógicos: &&, ||
 ```
-### Delimitadores
+### 5.11.6 Delimitadores
 ```
 - Llaves: { }
 - Paréntesis: ( )
@@ -3853,7 +4291,7 @@ Empiezan por letra mayúscula o minúscula.
 - Corchetes: [ ]
 - Comillas: " " y ' '
 ```
-### Expresiones regulares
+### 5.11.7 Expresiones regulares
 
 ```
 - digito: [0-9]
@@ -3868,11 +4306,11 @@ Empiezan por letra mayúscula o minúscula.
 ---
 \newpage
 
-# 5. Manual Técnico y de Usuario
+# 6. Manual Técnico y de Usuario
 
-## 5.1 Instalación y Configuración
+## 6.1 Instalación y Configuración
 
-### Requisitos del Sistema
+### 6.1.1 Requisitos del Sistema
 
 **Requisitos Mínimos**:
 - Python 3.8 o superior
@@ -3886,7 +4324,7 @@ Empiezan por letra mayúscula o minúscula.
 - Monitor con resolución mínima 1024x768
 - Tarjeta gráfica con soporte para aceleración 2D
 
-### Proceso de Instalación
+### 6.1.2 Proceso de Instalación
 
 1. **Descargar el proyecto**
 ```bash
@@ -3901,155 +4339,738 @@ python --version  # Debe ser 3.8+
 
 3. **Ejecutar simulador**
 ```bash
-python main.py
+python src/main.py
 ```
 
-## 5.2 Manual de Usuario
+## 6.2 Manual de Usuario
 
-### Inicio Rápido
+### 6.2.1 Lenguaje de Programación SPL (Sistema de Procesamiento de Lenguajes)
 
-#### Primer Programa
-1. Abrir la aplicación ejecutando `python main.py` desde la raíz del repositorio (la misma carpeta que contiene `main.py`)
+SPL es el lenguaje de alto nivel diseñado específicamente para la arquitectura Atlas. Proporciona abstracciones modernas manteniendo control fino sobre los recursos del sistema.
+
+#### 6.2.1.1 Características del Lenguaje
+
+**Sistema de Tipos Completo**:
+- **Enteros**: `entero1` (8 bits), `entero2` (16 bits), `entero4` (32 bits), `entero8` (64 bits)
+- **Punto flotante**: `flotante` (32 bits IEEE 754), `doble` (64 bits IEEE 754)
+- **Otros tipos primitivos**: `booleano`, `caracter`, `cadena`
+- **Tipos compuestos**: estructuras (`estructura`), arreglos, punteros
+
+**Estructuras de Control**:
+- Condicionales: `si`, `si_no_si`, `si_no`
+- Bucles: `mientras`, `para`, `hacer_mientras`
+- Control de flujo: `romper`, `continuar`, `retornar`
+
+**Funciones**:
+- Declaración con tipo de retorno explícito
+- Paso de parámetros por valor
+- Soporte para recursión
+- Función especial `principal()` como punto de entrada
+
+**E/S Integrada**:
+- `imprimir()`: Salida de datos (múltiples tipos soportados)
+- `leer()`: Entrada de datos del usuario
+
+#### 6.2.1.2 Gramática SPL (EBNF)
+
+```ebnf
+program ::= (function_decl | struct_decl)*
+
+function_decl ::= 'funcion' type ID '(' parameter_list? ')' compound_stmt
+
+struct_decl ::= 'estructura' ID '{' field_list '}' ';'
+
+field_list ::= (type ID ';')+
+
+parameter_list ::= parameter (',' parameter)*
+parameter ::= type ID
+
+type ::= 'entero1' | 'entero2' | 'entero4' | 'entero8' 
+       | 'flotante' | 'doble' 
+       | 'booleano' | 'caracter' | 'cadena' | 'vacio'
+       | struct_type | array_type | pointer_type
+
+compound_stmt ::= '{' statement* '}'
+
+statement ::= declaration_stmt
+            | assignment_stmt
+            | if_stmt
+            | while_stmt
+            | for_stmt
+            | return_stmt
+            | print_stmt
+            | read_stmt
+            | expression_stmt
+            | compound_stmt
+
+if_stmt ::= 'si' '(' expression ')' statement 
+            ('si_no_si' '(' expression ')' statement)* 
+            ('si_no' statement)?
+
+while_stmt ::= 'mientras' '(' expression ')' statement
+
+for_stmt ::= 'para' '(' init_expr ';' condition ';' update_expr ')' statement
+
+return_stmt ::= 'retornar' expression? ';'
+
+print_stmt ::= 'imprimir' '(' expression_list? ')' ';'
+
+expression ::= assignment_expr
+             | logical_or_expr
+
+logical_or_expr ::= logical_and_expr ('||' logical_and_expr)*
+
+logical_and_expr ::= equality_expr ('&&' equality_expr)*
+
+equality_expr ::= relational_expr (('==' | '!=') relational_expr)*
+
+relational_expr ::= additive_expr (('<' | '>' | '<=' | '>=') additive_expr)*
+
+additive_expr ::= multiplicative_expr (('+' | '-') multiplicative_expr)*
+
+multiplicative_expr ::= unary_expr (('*' | '/' | '%') unary_expr)*
+
+unary_expr ::= ('+' | '-' | '!' | '~')? primary_expr
+
+primary_expr ::= LITERAL | ID | function_call | '(' expression ')'
+
+function_call ::= ID '(' argument_list? ')'
+
+argument_list ::= expression (',' expression)*
+```
+
+#### 6.2.1.3 Primer Programa en SPL
+
+**Ejemplo 1: Hola Mundo**
+```spl
+funcion entero4 principal() {
+    imprimir("Hola desde Atlas!");
+    imprimir();
+    retornar 0;
+}
+```
+
+**Ejemplo 2: Operaciones Aritméticas**
+```spl
+funcion entero4 principal() {
+    entero4 a = 15;
+    entero4 b = 7;
+    entero4 suma = a + b;
+    entero4 producto = a * b;
+    
+    imprimir("a = ", a);
+    imprimir("b = ", b);
+    imprimir("Suma: ", suma);
+    imprimir("Producto: ", producto);
+    imprimir();
+    
+    retornar suma;
+}
+```
+
+**Ejemplo 3: Condicionales y Bucles**
+```spl
+funcion vacio ciclo() {
+    entero2 i = 0;
+    imprimir("Inicio del ciclo");
+    imprimir();
+    
+    mientras (i < 10 && i != 5) {
+        i += 1;
+        si (i == 3 || i == 7) {
+            imprimir("Saltando i = ", i);
+            continuar;
+        }
+        imprimir("i = ", i);
+    }
+    
+    imprimir("Fin del ciclo, i final = ", i);
+    retornar;
+}
+
+funcion vacio principal() {
+    ciclo();
+}
+```
+
+**Ejemplo 4: Funciones con Punto Flotante**
+```spl
+funcion flotante area_circulo(flotante radio) {
+    flotante pi = 3.14159;
+    retornar pi * radio * radio;
+}
+
+funcion flotante volumen_esfera(flotante radio) {
+    flotante pi = 3.14159;
+    flotante temp = 4.0 / 3.0;
+    retornar temp * pi * radio * radio * radio;
+}
+
+funcion entero4 principal() {
+    flotante r = 5.0;
+    
+    imprimir("Radio: ", r);
+    imprimir();
+    
+    flotante area = area_circulo(r);
+    imprimir("Area del circulo: ", area);
+    
+    flotante volumen = volumen_esfera(r);
+    imprimir("Volumen de la esfera: ", volumen);
+    imprimir();
+    
+    flotante mayor;
+    cadena mensaje;
+
+    si (area > volumen){
+        mayor = area;
+        mensaje = "El area es mayor";
+    } si_no {
+        mayor = volumen;
+        mensaje = "El volumen es mayor";
+    } 
+    
+    imprimir("Mayor valor: ", mayor);
+    imprimir(mensaje);
+    
+    retornar 0;
+}
+```
+
+**Ejemplo 5: Algoritmo de Euclides en SPL**
+```spl
+/*
+ * Algoritmo de Euclides - Versión con Módulo
+ * Calcula el Máximo Común Divisor (MCD) de dos números
+ */
+
+funcion entero4 euclides_modulo(entero4 a, entero4 b) {
+    entero4 temp;
+    
+    mientras (b != 0) {
+        temp = a % b;
+        a = b;
+        b = temp;
+    }
+    
+    retornar a;
+}
+
+funcion entero4 principal() {
+    entero4 num1 = 1071;
+    entero4 num2 = 462;
+    entero4 mcd;
+    
+    imprimir("Algoritmo de Euclides (modulo)");
+    imprimir();
+    imprimir("Calculando MCD de ", num1, num2);
+    imprimir();
+    
+    mcd = euclides_modulo(num1, num2);
+    
+    imprimir("MCD = ", mcd);
+    imprimir();
+    
+    retornar mcd;
+}
+```
+
+### 6.2.2 Uso de la Interfaz Gráfica (GUI)
+
+#### 6.2.2.1 Inicio de la Aplicación
+
+1. **Ejecutar el simulador**
+```bash
+cd maquina_lenguajes
+python src/main.py
+```
+
+2. **Interfaz principal**
+   - **Editor de código**: Panel izquierdo para escribir programas (SPL o Assembly)
+   - **Visualización de registros**: Muestra R00-R15 en tiempo real
+   - **Visor de memoria**: Tabla con direcciones y contenido en formato hexadecimal
+   - **Monitor de E/S**: Salida de dispositivos virtuales
+   - **Panel de flags**: Estados de Z (Zero), N (Negative), C (Carry), V (Overflow)
+   - **Controles de ejecución**: Botones para cargar, ejecutar, pausar, resetear
+
+#### 6.2.2.2 Flujo de Trabajo Típico
+
+**A. Programar en SPL (Alto Nivel)**
+
+1. Escribir código SPL en el editor:
+```spl
+funcion entero4 factorial(entero4 n) {
+    si (n <= 1) {
+        retornar 1;
+    }
+    retornar n * factorial(n - 1);
+}
+
+funcion entero4 principal() {
+    entero4 numero = 5;
+    entero4 resultado = factorial(numero);
+    imprimir("Factorial de ", numero, " es ", resultado);
+    retornar resultado;
+}
+```
+
+2. Hacer clic en **"Compilar"**
+   - El compilador ejecuta: Preprocesador → Lexer → Parser → Análisis Semántico → Generador de Código → Ensamblador
+   - Se genera código Assembly intermedio y luego bytecode binario
+   - Si hay errores, se muestran en el panel de mensajes con línea y tipo de error
+
+3. Hacer clic en **"Ejecutar"**
+   - El Loader carga el binario en memoria
+   - La CPU ejecuta el programa instrucción por instrucción
+   - Observar la salida en el Monitor de E/S: `"Factorial de 5 es 120"`
+
+4. **Depuración paso a paso**
+   - Usar botón **"Paso"** para ejecutar una instrucción a la vez
+   - Observar cambios en registros, memoria y flags en cada paso
+   - Verificar el flujo de ejecución y valores intermedios
+
+**B. Programar en Assembly (Bajo Nivel)**
+
+1. Escribir código Assembly en el editor:
+```assembly
+; Calcular factorial de 5
+MAIN:
+    LOADV8 R01, 5         ; n = 5
+    LOADV8 R02, 1         ; factorial = 1
+    
+FACTORIAL_LOOP:
+    CMPV8 R01, 0          ; Comparar n con 0
+    JEQ MOSTRAR           ; Si n == 0, mostrar resultado
+    
+    MUL8 R02, R01         ; factorial *= n
+    DEC8 R01              ; n--
+    JMP FACTORIAL_LOOP    ; Repetir
+    
+MOSTRAR:
+    SVIO R02, 0x200       ; Guardar resultado en E/S
+    SHOWIO 0x200          ; Mostrar factorial = 120
+    PARAR                 ; Terminar
+```
+
+2. Hacer clic en **"Ensamblar"**
+   - El ensamblador convierte mnemónicos a opcodes binarios
+   - Se resuelven etiquetas y direcciones de memoria
+
+3. Hacer clic en **"Cargar"** y luego **"Ejecutar"**
+   - Observar cambios en tiempo real:
+     - R01 decrementando: 5 → 4 → 3 → 2 → 1 → 0
+     - R02 acumulando: 1 → 5 → 20 → 60 → 120
+     - Flag Z activándose cuando R01 llega a 0
+
+#### 6.2.2.3 Características Avanzadas de la GUI
+
+**Visualización de Memoria**
+- Direcciones mostradas cada 8 bytes (alineadas a palabra de 64 bits): `0x0000`, `0x0008`, `0x0010`...
+- Contenido en hexadecimal: `00 61 10 00 00 00 00 0A`
+- Scroll para navegar por toda la memoria (64 KB implementados)
+
+**Persistencia de RAM**
+- La memoria se guarda automáticamente en `src/memory_ram.txt` al cerrar
+- Se carga automáticamente al iniciar la aplicación
+- Formato humanamente legible:
+```
+0000: 00 00 00 00 00 00 00 00
+0008: 00 61 10 00 00 00 00 0A
+0010: 00 61 20 00 00 00 00 05
+```
+
+**Botones de Control**
+- **Compilar**: Compila código SPL a Assembly y luego a bytecode
+- **Ensamblar**: Convierte Assembly a bytecode (si ya está en assembly)
+- **Cargar**: Carga bytecode en memoria RAM
+- **Ejecutar**: Ejecuta programa hasta PARAR o error
+- **Paso**: Ejecuta una sola instrucción (depuración)
+- **Pausar**: Detiene ejecución en progreso
+- **Reset**: Reinicia CPU (registros, flags, PC a 0)
+- **Limpiar RAM**: Pone toda la memoria en 0
+
+#### 6.2.2.4 Ejemplo Completo: Uso de la GUI
+
+**Escenario**: Implementar y ejecutar algoritmo de Euclides
+
+1. **Escribir código SPL**:
+```spl
+funcion entero4 euclides(entero4 a, entero4 b) {
+    mientras (b != 0) {
+        entero4 temp = a % b;
+        a = b;
+        b = temp;
+    }
+    retornar a;
+}
+
+funcion entero4 principal() {
+    entero4 mcd = euclides(1071, 462);
+    imprimir("MCD = ", mcd);
+    retornar mcd;
+}
+```
+
+2. **Compilar y Ejecutar**:
+   - Clic en "Compilar" → Compilación exitosa
+   - Clic en "Ejecutar" → Observar salida: `"MCD = 21"`
+
+3. **Depuración Paso a Paso**:
+   - Clic en "Reset" y "Cargar"
+   - Clic en "Paso" repetidamente
+   - Observar en registros:
+     - Primera iteración: a=1071, b=462, temp=147
+     - Segunda iteración: a=462, b=147, temp=21
+     - Tercera iteración: a=147, b=21, temp=0
+     - Cuarta iteración: b=0, bucle termina, retorna a=21
+
+### 6.2.3 Inicio Rápido Assembly
+
+#### 6.2.3.1 Primer Programa Assembly
+1. Abrir la aplicación ejecutando `python src/main.py` desde la raíz del repositorio
 2. En el editor, escribir:
 ```assembly
-LOADV R1, 10    ; Cargar 10 en registro R1
-LOADV R2, 5     ; Cargar 5 en registro R2
-ADD R1, R2      ; Sumar R1 + R2
-SVIO R1, 0x100  ; Guardar resultado en E/S
-SHOWIO 0x100    ; Mostrar resultado
-PARAR           ; Terminar programa
+LOADV8 R01, 10    ; Cargar 10 en registro R01
+LOADV8 R02, 5     ; Cargar 5 en registro R02
+ADD8 R01, R02     ; Sumar R01 + R02, resultado en R01
+SVIO R01, 0x100   ; Guardar resultado en E/S dirección 0x100
+SHOWIO 0x100      ; Mostrar resultado en monitor
+PARAR             ; Terminar programa
 ```
-3. Hacer clic en "Ejecutar"
-4. Observar el resultado en el monitor de E/S
+3. Hacer clic en "Ensamblar", luego "Cargar" y finalmente "Ejecutar"
+4. Observar el resultado en el monitor de E/S: `15`
 
-### Referencia del Lenguaje Assembly
+### 6.2.4 Referencia del Lenguaje Assembly
 
-#### Sintaxis General
+#### 6.2.4.1 Sintaxis General
 ```assembly
 [ETIQUETA:] INSTRUCCION [OPERANDO1] [, OPERANDO2] [; COMENTARIO]
 ```
 
-#### Tipos de Operandos
-- **Registros**: R01, R02, ..., R15 (también R1, R2, ..., R15)
-- **Valores inmediatos**: 123, 0x1A2B, 0b1010
-- **Direcciones de memoria**: 0x1000, etiquetas
-- **Etiquetas**: LOOP, FIN, DATOS
+**Ejemplos válidos**:
+```assembly
+MAIN:               ; Etiqueta sola
+    LOADV8 R01, 42  ; Instrucción con dos operandos
+    ADD8 R01, R02   ; Operación registro-registro
+    JMP LOOP        ; Salto a etiqueta
+    PARAR           ; Instrucción sin operandos
+```
 
-#### Instrucciones por Categoría
+#### 6.2.4.2 Tipos de Operandos
+- **Registros**: R00-R15 (notación alternativa: R0-R15)
+  - R14: BP (Base Pointer, para stack frames)
+  - R15: SP (Stack Pointer, tope de pila)
+- **Valores inmediatos**: 
+  - Decimal: `123`, `1071`
+  - Hexadecimal: `0x1A2B`, `0xFF00`
+  - Binario: `0b1010`, `0b11111111`
+- **Direcciones de memoria**: `0x1000`, `375`, etiquetas simbólicas
+- **Etiquetas**: Nombres alfanuméricos con `_`, terminan con `:`
+  - Válidos: `LOOP:`, `FIN_GCD:`, `inicio_main:`
+
+#### 6.2.4.3 Sufijos de Tamaño
+
+Todas las instrucciones llevan sufijo indicando el tamaño de operación:
+- **1**: 1 byte (8 bits) - ejemplo: `ADD1`, `LOAD1`
+- **2**: 2 bytes (16 bits) - ejemplo: `ADD2`, `STORE2`
+- **4**: 4 bytes (32 bits) - ejemplo: `ADD4`, `MUL4`
+- **8**: 8 bytes (64 bits) - ejemplo: `ADD8`, `DIV8`
+
+#### 6.2.4.4 Instrucciones por Categoría
 
 **Control de Flujo**:
 ```assembly
 PARAR           ; Terminar programa
 NOP             ; No operación
-JMP etiqueta    ; Salto incondicional
-JEQ etiqueta    ; Saltar si Z=1
-JNE etiqueta    ; Saltar si Z=0
-JMI etiqueta    ; Saltar si N=1
-JPL etiqueta    ; Saltar si N=0
+JMP etiqueta    ; Salto incondicional a dirección
+JEQ etiqueta    ; Saltar si Z=1 (resultado cero)
+JNE etiqueta    ; Saltar si Z=0 (resultado no cero)
+JMI etiqueta    ; Saltar si N=1 (resultado negativo)
+JPL etiqueta    ; Saltar si N=0 (resultado positivo)
+JOV etiqueta    ; Saltar si V=1 (overflow)
+JCAR etiqueta   ; Saltar si C=1 (carry)
+CALL funcion    ; Llamar función (guarda dirección de retorno)
+RET             ; Retornar de función
 ```
 
-**Operaciones Aritméticas**:
+**Operaciones Aritméticas** (con sufijos 1/2/4/8):
 ```assembly
-ADD R1, R2      ; R1 = R1 + R2
-SUB R1, R2      ; R1 = R1 - R2
-MUL R1, R2      ; R1 = R1 * R2 (sin signo)
-MULS R1, R2     ; R1 = R1 * R2 (con signo)
-DIV R1, R2      ; R1 = R1 / R2
-ADDV R1, 100    ; R1 = R1 + 100
-SUBV R1, 50     ; R1 = R1 - 50
-INC R1          ; R1 = R1 + 1
-DEC R1          ; R1 = R1 - 1
+; Ejemplos con 8 bytes (64 bits)
+ADD8 R01, R02      ; R01 = R01 + R02
+SUB8 R01, R02      ; R01 = R01 - R02
+MUL8 R01, R02      ; R01 = R01 * R02 (sin signo)
+MULS8 R01, R02     ; R01 = R01 * R02 (con signo)
+DIV8 R01, R02      ; R01 = R01 / R02
+MOD8 R01, R02      ; R01 = R01 % R02 (módulo)
+
+; Con valores inmediatos
+ADDV8 R01, 100     ; R01 = R01 + 100
+SUBV8 R01, 50      ; R01 = R01 - 50
+MULV8 R01, 3       ; R01 = R01 * 3
+
+; Incremento/Decremento
+INC8 R01           ; R01 = R01 + 1
+DEC8 R01           ; R01 = R01 - 1
+INC4 R02           ; R02 = R02 + 1 (32 bits)
+DEC2 R03           ; R03 = R03 - 1 (16 bits)
+```
+
+**Operaciones de Punto Flotante**:
+```assembly
+; Flotante de 32 bits (float)
+FADD4 R01, R02     ; R01 = R01 + R02 (float)
+FSUB4 R01, R02     ; R01 = R01 - R02 (float)
+FMUL4 R01, R02     ; R01 = R01 * R02 (float)
+FDIV4 R01, R02     ; R01 = R01 / R02 (float)
+
+; Doble de 64 bits (double)
+FADD8 R01, R02     ; R01 = R01 + R02 (double)
+FSUB8 R01, R02     ; R01 = R01 - R02 (double)
+FMUL8 R01, R02     ; R01 = R01 * R02 (double)
+FDIV8 R01, R02     ; R01 = R01 / R02 (double)
 ```
 
 **Operaciones Lógicas**:
 ```assembly
-AND R1, R2      ; R1 = R1 & R2
-OR R1, R2       ; R1 = R1 | R2
-XOR R1, R2      ; R1 = R1 ^ R2
-NOT R1          ; R1 = ~R1
-ANDV R1, 0xFF   ; R1 = R1 & 0xFF
-ORV R1, 0x80    ; R1 = R1 | 0x80
-XORV R1, 0xFF   ; R1 = R1 ^ 0xFF
+AND8 R01, R02      ; R01 = R01 & R02 (bitwise AND)
+OR8 R01, R02       ; R01 = R01 | R02 (bitwise OR)
+XOR8 R01, R02      ; R01 = R01 ^ R02 (bitwise XOR)
+NOT8 R01           ; R01 = ~R01 (bitwise NOT)
+
+; Con valores inmediatos
+ANDV8 R01, 0xFF    ; R01 = R01 & 0xFF (máscara)
+ORV8 R01, 0x80     ; R01 = R01 | 0x80 (set bit)
+XORV8 R01, 0xFF    ; R01 = R01 ^ 0xFF (invertir)
+
+; Desplazamientos
+SHL8 R01, R02      ; R01 = R01 << R02 (shift left)
+SHR8 R01, R02      ; R01 = R01 >> R02 (shift right)
+SHLV8 R01, 3       ; R01 = R01 << 3
+SHRV8 R01, 2       ; R01 = R01 >> 2
 ```
 
 **Manejo de Memoria**:
 ```assembly
-LOAD R1, 0x1000     ; R1 = Memoria[0x1000]
-LOADV R1, 42        ; R1 = 42
-STORE R1, R2        ; Memoria[R2] = R1
-STOREV R1, 0x2000   ; Memoria[0x2000] = R1
-CLEAR R1            ; R1 = 0
+; Carga desde memoria
+LOAD8 R01, 0x1000      ; R01 = Memoria[0x1000] (8 bytes)
+LOAD4 R02, 0x2000      ; R02 = Memoria[0x2000] (4 bytes)
+LOAD2 R03, 0x3000      ; R03 = Memoria[0x3000] (2 bytes)
+LOAD1 R04, 0x4000      ; R04 = Memoria[0x4000] (1 byte)
+
+; Carga de valores inmediatos
+LOADV8 R01, 42         ; R01 = 42
+LOADV4 R02, 0x1000     ; R02 = 0x1000
+MOVV8 R01, 100         ; R01 = 100 (alias de LOADV)
+
+; Almacenamiento en memoria
+STORE8 R01, R02        ; Memoria[R02] = R01 (8 bytes)
+STOREV8 R01, 0x2000    ; Memoria[0x2000] = R01
+STORE4 R03, R04        ; Memoria[R04] = R03 (4 bytes)
+STORE1 R05, R06        ; Memoria[R06] = R05 (1 byte)
+
+; Otras operaciones de memoria
+CLEAR8 R01             ; R01 = 0
+CMP8 R01, R02          ; Comparar R01 con R02 (actualiza flags)
+CMPV8 R01, 100         ; Comparar R01 con 100
+```
+
+**Operaciones de Stack**:
+```assembly
+PUSH8 R01          ; [--SP] = R01, decrementar SP
+POP8 R01           ; R01 = [SP++], incrementar SP
+PUSH4 R02          ; Push de 4 bytes
+POP2 R03           ; Pop de 2 bytes
 ```
 
 **Entrada/Salida**:
 ```assembly
-SVIO R1, 0x100      ; IO[0x100] = R1
-LOADIO R1, 0x100    ; R1 = IO[0x100]
-SHOWIO 0x100        ; Mostrar IO[0x100]
-CLRIO               ; Limpiar dispositivos entrada
-RESETIO             ; Reset sistema E/S
+SVIO R01, 0x100        ; IO[0x100] = R01
+LOADIO R01, 0x100      ; R01 = IO[0x100]
+SHOWIO 0x100           ; Mostrar IO[0x100] en monitor
+CLRIO                  ; Limpiar dispositivos entrada
+RESETIO                ; Reset sistema E/S
 ```
 
-### Ejemplos Prácticos
-
-#### Programa: Factorial de un Número
+**Manipulación de Flags**:
 ```assembly
-; Calcular factorial de 5
+SZF             ; Set Zero Flag (Z = 1)
+CZF             ; Clear Zero Flag (Z = 0)
+SNF             ; Set Negative Flag (N = 1)
+CNF             ; Clear Negative Flag (N = 0)
+SCF             ; Set Carry Flag (C = 1)
+CCF             ; Clear Carry Flag (C = 0)
+SOF             ; Set Overflow Flag (V = 1)
+COF             ; Clear Overflow Flag (V = 0)
+```
+
+### 6.2.5 Ejemplos Prácticos Assembly
+
+#### 6.2.5.1 Programa: Factorial de un Número
+```assembly
+; Calcular factorial de 5 iterativamente
+; Resultado esperado: 5! = 120
 MAIN:
-    LOADV R1, 5         ; n = 5
-    LOADV R2, 1         ; factorial = 1
+    LOADV8 R01, 5         ; n = 5
+    LOADV8 R02, 1         ; factorial = 1
     
 FACTORIAL_LOOP:
-    CMPV R1, 0          ; Comparar n con 0
-    JEQ MOSTRAR         ; Si n == 0, mostrar resultado
+    CMPV8 R01, 0          ; Comparar n con 0
+    JEQ MOSTRAR           ; Si n == 0, terminar
     
-    MUL R2, R1          ; factorial *= n
-    DEC R1              ; n--
-    JMP FACTORIAL_LOOP  ; Repetir
+    MUL8 R02, R01         ; factorial *= n
+    DEC8 R01              ; n--
+    JMP FACTORIAL_LOOP    ; Repetir
     
 MOSTRAR:
-    SVIO R2, 0x200      ; Guardar resultado
-    SHOWIO 0x200        ; Mostrar factorial = 120
-    PARAR               ; Terminar
+    SVIO R02, 0x200       ; Guardar resultado en E/S
+    SHOWIO 0x200          ; Mostrar: 120
+    PARAR                 ; Terminar programa
 ```
 
-#### Programa: Búsqueda del Máximo
+**Ejecución paso a paso**:
+- Iteración 1: R01=5, R02=1 → R02=1*5=5, R01=4
+- Iteración 2: R01=4, R02=5 → R02=5*4=20, R01=3
+- Iteración 3: R01=3, R02=20 → R02=20*3=60, R01=2
+- Iteración 4: R01=2, R02=60 → R02=60*2=120, R01=1
+- Iteración 5: R01=1, R02=120 → R02=120*1=120, R01=0
+- Comparación: R01=0 → JEQ salta a MOSTRAR
+- Salida: 120
+
+#### 6.2.5.2 Programa: Algoritmo de Euclides
 ```assembly
-; Encontrar el máximo de tres números
+; Algoritmo de Euclides - Calcular MCD(1071, 462)
+; Resultado esperado: MCD = 21
+
+; Inicializar datos de prueba
 MAIN:
-    LOADV R1, 25        ; primer número
-    LOADV R2, 18        ; segundo número
-    LOADV R3, 31        ; tercer número
-    CLEAR R4            ; máximo actual
+    LOADV8 R01, 1071      ; A = 1071
+    STOREV8 R01, 0x1000   ; Guardar A en memoria[0x1000]
+    LOADV8 R02, 462       ; B = 462
+    STOREV8 R02, 0x1008   ; Guardar B en memoria[0x1008]
+
+; Cargar valores para algoritmo
+    LOAD8 R01, 0x1000     ; Cargar A
+    LOAD8 R02, 0x1008     ; Cargar B
+
+EUCLIDES_LOOP:
+    CLEAR8 R00            ; R00 = 0
+    CMP8 R02, R00         ; Comparar B con 0
+    JEQ FIN_GCD           ; Si B == 0, terminar
+
+    ; Calcular A % B manualmente
+    CLEAR8 R03
+    ADD8 R03, R01         ; R03 = A
+    DIV8 R03, R02         ; R03 = A / B (cociente)
+    MUL8 R03, R02         ; R03 = (A/B) * B
+    SUB8 R01, R03         ; R01 = A - (A/B)*B = A % B
+
+    ; Intercambiar: A = B, B = resto
+    CLEAR8 R03
+    ADD8 R03, R01         ; R03 = resto
+    CLEAR8 R01
+    ADD8 R01, R02         ; R01 = B (nuevo A)
+    CLEAR8 R02
+    ADD8 R02, R03         ; R02 = resto (nuevo B)
+
+    JMP EUCLIDES_LOOP     ; Repetir
+
+FIN_GCD:
+    STOREV8 R01, 0x2000   ; Guardar MCD en memoria[0x2000]
     
-    ; Comparar R1 con máximo actual
-    CMP R1, R4
-    JMI NO_ACTUALIZAR1
-    LOADV R4, R1        ; R4 = R1
+    ; Mostrar resultados
+    LOAD8 R01, 0x1000     ; Cargar A original
+    SVIO R01, 0x700
+    SHOWIO 0x700          ; Mostrar A = 1071
     
-NO_ACTUALIZAR1:
-    ; Comparar R2 con máximo actual
-    CMP R2, R4
-    JMI NO_ACTUALIZAR2
-    LOADV R4, R2        ; R4 = R2
+    LOAD8 R01, 0x1008     ; Cargar B original
+    SVIO R01, 0x701
+    SHOWIO 0x701          ; Mostrar B = 462
     
-NO_ACTUALIZAR2:
-    ; Comparar R3 con máximo actual
-    CMP R3, R4
-    JMI MOSTRAR
-    LOADV R4, R3        ; R4 = R3
+    LOAD8 R01, 0x2000     ; Cargar MCD
+    SVIO R01, 0x702
+    SHOWIO 0x702          ; Mostrar MCD = 21
     
-MOSTRAR:
-    SVIO R4, 0x300      ; Guardar máximo
-    SHOWIO 0x300        ; Mostrar máximo = 31
     PARAR
 ```
 
-## 5.3 Manual Técnico
+**Trazado de ejecución**:
+- Inicio: A=1071, B=462
+- Iteración 1: resto=1071%462=147, A=462, B=147
+- Iteración 2: resto=462%147=21, A=147, B=21
+- Iteración 3: resto=147%21=0, A=21, B=0
+- B==0 → Termina, MCD=21
 
-### API del Sistema
+#### 6.2.5.3 Programa: Búsqueda del Máximo
+```assembly
+; Encontrar el máximo de tres números
+; Entrada: 25, 18, 31
+; Resultado esperado: 31
+MAIN:
+    LOADV8 R01, 25        ; primer número
+    LOADV8 R02, 18        ; segundo número
+    LOADV8 R03, 31        ; tercer número
+    CLEAR8 R04            ; máximo actual = 0
+    
+    ; Comparar R01 con máximo
+    CMP8 R01, R04         ; flags según (R01 - R04)
+    JMI NO_ACTUALIZAR1    ; Si R01 < R04, no actualizar
+    CLEAR8 R04
+    ADD8 R04, R01         ; R04 = R01
+    
+NO_ACTUALIZAR1:
+    ; Comparar R02 con máximo
+    CMP8 R02, R04
+    JMI NO_ACTUALIZAR2
+    CLEAR8 R04
+    ADD8 R04, R02         ; R04 = R02
+    
+NO_ACTUALIZAR2:
+    ; Comparar R03 con máximo
+    CMP8 R03, R04
+    JMI MOSTRAR
+    CLEAR8 R04
+    ADD8 R04, R03         ; R04 = R03
+    
+MOSTRAR:
+    SVIO R04, 0x300       ; Guardar máximo
+    SHOWIO 0x300          ; Mostrar: 31
+    PARAR
+```
 
-#### Clase CPU
+#### 6.2.5.4 Programa: Uso de Librerías con Preprocesador
+```assembly
+; Ejemplo simple usando constantes de librerías
+; Demuestra #include y #define
+
+#include "lib/math.asm"     ; Incluye constantes PI, E
+#include "lib/io.asm"       ; Incluye IO_OUTPUT_1, IO_OUTPUT_2
+
+; Calcular cuadrado de 5
+MAIN:
+    LOADV8 R01, 5
+    MUL8 R01, R01         ; R01 = 25
+    SVIO R01, IO_OUTPUT_1
+    SHOWIO IO_OUTPUT_1    ; Mostrar: 25
+
+    ; Duplicar un número
+    LOADV8 R02, 7
+    ADD8 R02, R02         ; R02 = 14
+    SVIO R02, IO_OUTPUT_2
+    SHOWIO IO_OUTPUT_2    ; Mostrar: 14
+
+    ; Usar constante PI (3.14159 = 0x40490FDB en float)
+    LOADV4 R03, PI
+    SVIO R03, IO_OUTPUT_1
+    SHOWIO IO_OUTPUT_1    ; Mostrar: 3.14159
+
+    PARAR
+```
+
+## 6.3 Manual Técnico
+
+### 6.3.1 API del Sistema
+
+#### 6.3.1.1 Clase CPU
 ```python
 class CPU:
     def __init__(self, memory_size=25000):
@@ -4071,7 +5092,7 @@ class CPU:
         """Obtener estado completo del sistema"""
 ```
 
-#### Clase Assembler
+#### 6.3.1.2 Clase Assembler
 ```python
 class Assembler:
     def assemble(self, source_code):
@@ -4084,9 +5105,9 @@ class Assembler:
         """Resolver direcciones de etiquetas"""
 ```
 
-### Estructura de Datos Interna
+### 6.3.2 Estructura de Datos Interna
 
-#### Formato de Instrucción en Memoria
+#### 6.3.2.1 Formato de Instrucción en Memoria
 ```python
 # Instrucción de 64 bits almacenada como entero
 instruction = (opcode << 48) | (operand1 << 32) | operand2
@@ -4098,7 +5119,7 @@ rs = instruction & 0xF
 immediate = instruction & 0xFFFFFFFFFFF
 ```
 
-#### Estado del Procesador
+#### 6.3.2.2 Estado del Procesador
 ```python
 cpu_state = {
     'registers': [0] * 16,      # R00-R15
@@ -4115,15 +5136,15 @@ cpu_state = {
 }
 ```
 
-### Extensibilidad
+### 6.3.3 Extensibilidad
 
-#### Agregar Nueva Instrucción
+#### 6.3.3.1 Agregar Nueva Instrucción
 1. Definir opcode en `instruction_set.py`
 2. Implementar lógica en `CPU.execute_instruction()`
 3. Agregar parsing en `Assembler.parse_instruction()`
 4. Actualizar documentación
 
-#### Ejemplo de Extensión
+#### 6.3.3.2 Ejemplo de Extensión
 ```python
 # Agregar instrucción SQRT (raíz cuadrada)
 def execute_sqrt(self, operands):
@@ -4138,105 +5159,228 @@ def execute_sqrt(self, operands):
 
 \newpage
 
-# 6. Especificaciones Técnicas
+# 7. Especificaciones Técnicas
 
-## 6.1 Arquitectura del Procesador
+## 7.1 Arquitectura del Procesador
 
-### Especificaciones Generales
+### 7.1.1 Especificaciones Generales
 
 | Característica | Especificación |
 |---|---|
 | **Arquitectura** | 64 bits, RISC |
 | **Endianness** | Little-endian |
 | **Tamaño de palabra** | 64 bits (8 bytes) |
-| **Bus de direcciones** | 44 bits (16 TB direccionables) |
+| **Bus de direcciones** | 44 bits (16 TB direccionables teóricos, 64 KB implementados) |
 | **Bus de datos** | 64 bits |
 | **Registros generales** | 16 (R00-R15) |
-| **Tamaño de registro** | 64 bits |
+| **Tamaño de registro** | 64 bits cada uno |
 | **Modelo de memoria** | von Neumann unificado |
+| **Instrucciones totales** | 137+ instrucciones con variantes de tamaño |
+| **Formato de instrucción** | Longitud variable (1-16 bytes) |
+| **Frecuencia de reloj** | Simulada (sin límite físico) |
+| **Pipeline** | No implementado (ejecución secuencial) |
 
-### Conjunto de Instrucciones Completo
+### 7.1.2 Conjunto de Instrucciones Completo (ISA)
 
-#### Instrucciones de Control (7)
-| Opcode | Mnemónico | Formato | Descripción |
-|--------|-----------|---------|-------------|
-| 0x0000 | PARAR | OP | Terminar ejecución |
-| 0x0001 | NOP | OP | No operación |
-| 0x0090 | JMP | I | Salto incondicional |
-| 0x0091 | JEQ | I | Salto si Z=1 |
-| 0x0092 | JNE | I | Salto si Z=0 |
-| 0x0093 | JMI | I | Salto si N=1 |
-| 0x0094 | JPL | I | Salto si N=0 |
+El ISA de Atlas sigue el principio RISC con sufijos de tamaño explícitos. Cada instrucción que opera sobre datos lleva sufijo **1, 2, 4, u 8** indicando bytes (8, 16, 32, o 64 bits respectivamente).
 
-#### Instrucciones Aritméticas (9)
-| Opcode | Mnemónico | Formato | Descripción |
-|--------|-----------|---------|-------------|
-| 0x0010 | ADD | RR | Rd = Rd + Rs |
-| 0x0011 | SUB | RR | Rd = Rd - Rs |
-| 0x0012 | MULS | RR | Rd = Rd × Rs (con signo) |
-| 0x0013 | MUL | RR | Rd = Rd × Rs (sin signo) |
-| 0x0014 | DIV | RR | Rd = Rd ÷ Rs |
-| 0x0020 | ADDV | RI | Rd = Rd + inmediato |
-| 0x0021 | SUBV | RI | Rd = Rd - inmediato |
-| 0x0030 | INC | R | Rd = Rd + 1 |
-| 0x0031 | DEC | R | Rd = Rd - 1 |
+**Formatos de instrucción**:
+- **OP**: Sin operandos (ej: PARAR, NOP)
+- **R**: Un registro (ej: PUSH8 R01, NOT4 R02)
+- **RR**: Dos registros (ej: ADD8 R01, R02)
+- **RI**: Registro e inmediato (ej: LOADV8 R01, 100)
+- **I**: Solo inmediato o dirección (ej: JMP 0x1000, CALL funcion)
 
-#### Instrucciones Lógicas (9)
-| Opcode | Mnemónico | Formato | Descripción |
-|--------|-----------|---------|-------------|
-| 0x0040 | NOT | R | Rd = ~Rd |
-| 0x0041 | AND | RR | Rd = Rd & Rs |
-| 0x0042 | ANDV | RI | Rd = Rd & inmediato |
-| 0x0043 | OR | RR | Rd = Rd \| Rs |
-| 0x0044 | ORV | RI | Rd = Rd \| inmediato |
-| 0x0045 | XOR | RR | Rd = Rd ^ Rs |
-| 0x0046 | XORV | RI | Rd = Rd ^ inmediato |
-| 0x0050 | SHL | R | Shift left lógico |
-| 0x0051 | SHR | R | Shift right lógico |
+#### 7.1.2.1 Instrucciones de Control de Flujo (14)
 
-#### Instrucciones de Memoria (7)
-| Opcode | Mnemónico | Formato | Descripción |
-|--------|-----------|---------|-------------|
-| 0x0060 | LOAD | RI | Rd = Memoria[direccion] |
-| 0x0061 | LOADV | RI | Rd = inmediato |
-| 0x0062 | STORE | RR | Memoria[Rs] = Rd |
-| 0x0063 | STOREV | RI | Memoria[direccion] = Rd |
-| 0x0064 | CLEAR | R | Rd = 0 |
-| 0x0070 | CMP | RR | Comparar Rd con Rs |
-| 0x0071 | CMPV | RI | Comparar Rd con inmediato |
+| Mnemónico | Sufijo | Formato | Descripción | Ejemplo |
+|-----------|--------|---------|-------------|---------|
+| PARAR | - | OP | Detener ejecución del programa | `PARAR` |
+| NOP | - | OP | No operación (ciclo vacío) | `NOP` |
+| JMP | - | I | Salto incondicional a dirección | `JMP 0x1000` |
+| JEQ | - | I | Saltar si Zero Flag (Z=1) | `JEQ FIN` |
+| JNE | - | I | Saltar si not zero (Z=0) | `JNE LOOP` |
+| JMI | - | I | Saltar si negativo (N=1) | `JMI NEGATIVO` |
+| JPL | - | I | Saltar si positivo (N=0) | `JPL POSITIVO` |
+| JOV | - | I | Saltar si overflow (V=1) | `JOV ERROR` |
+| JCAR | - | I | Saltar si carry (C=1) | `JCAR ACARREO` |
+| JNCAR | - | I | Saltar si no carry (C=0) | `JNCAR SIN_ACARREO` |
+| JGT | - | I | Saltar si mayor (N=V, Z=0) | `JGT MAYOR` |
+| JLT | - | I | Saltar si menor (N!=V) | `JLT MENOR` |
+| CALL | - | I | Llamar función (push PC, jump) | `CALL funcion` |
+| RET | - | OP | Retornar de función (pop PC) | `RET` |
 
-#### Instrucciones de E/S (5)
-| Opcode | Mnemónico | Formato | Descripción |
-|--------|-----------|---------|-------------|
-| 0x00A0 | SVIO | RI | IO[direccion] = Rd |
-| 0x00A1 | LOADIO | RI | Rd = IO[direccion] |
-| 0x00A2 | SHOWIO | I | Mostrar IO[direccion] |
-| 0x00A3 | CLRIO | OP | Limpiar dispositivos entrada |
-| 0x00A4 | RESETIO | OP | Reset sistema E/S |
+**Notas**:
+- Los saltos usan direcciones absolutas o etiquetas resueltas por el ensamblador
+- Flags actualizados por instrucciones aritméticas/lógicas y CMP
+- CALL/RET gestionan automáticamente el stack de retorno
 
-#### Instrucciones de Flags (8)
-| Opcode | Mnemónico | Formato | Descripción |
-|--------|-----------|---------|-------------|
-| 0x0080 | CZF | OP | Clear Zero Flag |
-| 0x0081 | SZF | OP | Set Zero Flag |
-| 0x0082 | CNF | OP | Clear Negative Flag |
-| 0x0083 | SNF | OP | Set Negative Flag |
-| 0x0084 | CCF | OP | Clear Carry Flag |
-| 0x0085 | SCF | OP | Set Carry Flag |
-| 0x0086 | CDF | OP | Clear Overflow Flag |
-| 0x0087 | SDF | OP | Set Overflow Flag |
+#### 7.1.2.2 Instrucciones Aritméticas Enteras (48)
 
-#### Saltos Condicionales Extendidos (2)
-| Opcode | Mnemónico | Formato | Descripción |
-|--------|-----------|---------|-------------|
-| 0x0095 | JMPCMY | I | Salto si C=1 |
-| 0x0096 | JMPCMN | I | Salto si C=0 |
+Todas con sufijos **1, 2, 4, 8** → 6 instrucciones × 4 tamaños = 24 básicas + 24 con inmediatos = 48
 
-**Total: 47 instrucciones implementadas**
+| Mnemónico Base | Sufijo | Formato | Descripción | Ejemplo 8 bytes |
+|----------------|--------|---------|-------------|-----------------|
+| ADD | 1/2/4/8 | RR | Rd = Rd + Rs (sin signo) | `ADD8 R01, R02` |
+| ADDV | 1/2/4/8 | RI | Rd = Rd + inmediato | `ADDV8 R01, 100` |
+| SUB | 1/2/4/8 | RR | Rd = Rd - Rs | `SUB8 R01, R02` |
+| SUBV | 1/2/4/8 | RI | Rd = Rd - inmediato | `SUBV8 R01, 50` |
+| MUL | 1/2/4/8 | RR | Rd = Rd * Rs (sin signo) | `MUL8 R01, R02` |
+| MULV | 1/2/4/8 | RI | Rd = Rd * inmediato | `MULV8 R01, 3` |
+| MULS | 1/2/4/8 | RR | Rd = Rd * Rs (con signo) | `MULS8 R01, R02` |
+| DIV | 1/2/4/8 | RR | Rd = Rd / Rs (cociente) | `DIV8 R01, R02` |
+| DIVV | 1/2/4/8 | RI | Rd = Rd / inmediato | `DIVV8 R01, 2` |
+| MOD | 1/2/4/8 | RR | Rd = Rd % Rs (resto) | `MOD8 R01, R02` |
+| MODV | 1/2/4/8 | RI | Rd = Rd % inmediato | `MODV8 R01, 10` |
+| INC | 1/2/4/8 | R | Rd = Rd + 1 | `INC8 R01` |
+| DEC | 1/2/4/8 | R | Rd = Rd - 1 | `DEC8 R01` |
+| NEG | 1/2/4/8 | R | Rd = -Rd (complemento a 2) | `NEG8 R01` |
 
-## 6.2 Sistema de Memoria
+**Flags afectados**: Z (zero), N (negative), C (carry), V (overflow)
 
-### Configuración de Memoria
+#### 7.1.2.3 Instrucciones de Punto Flotante (16)
+
+Implementan estándar IEEE 754 para precisión simple (32 bits) y doble (64 bits)
+
+| Mnemónico | Sufijo | Formato | Descripción | Ejemplo |
+|-----------|--------|---------|-------------|---------|
+| FADD | 4/8 | RR | Rd = Rd + Rs (float/double) | `FADD8 R01, R02` |
+| FSUB | 4/8 | RR | Rd = Rd - Rs | `FSUB4 R01, R02` |
+| FMUL | 4/8 | RR | Rd = Rd * Rs | `FMUL8 R01, R02` |
+| FDIV | 4/8 | RR | Rd = Rd / Rs | `FDIV4 R01, R02` |
+| FADDV | 4/8 | RI | Rd = Rd + inmediato_float | `FADDV8 R01, 3.14` |
+| FSUBV | 4/8 | RI | Rd = Rd - inmediato_float | `FSUBV4 R01, 2.5` |
+| FMULV | 4/8 | RI | Rd = Rd * inmediato_float | `FMULV8 R01, 0.5` |
+| FDIVV | 4/8 | RI | Rd = Rd / inmediato_float | `FDIVV4 R01, 2.0` |
+
+**Sufijos**:
+- **4**: float de 32 bits (precisión simple)
+- **8**: double de 64 bits (precisión doble)
+
+**Flags especiales FPU**: NaN (Not a Number), Inf (Infinito), Precisión
+
+#### 7.1.2.4 Instrucciones Lógicas y Bitwise (40)
+
+| Mnemónico Base | Sufijo | Formato | Descripción | Ejemplo |
+|----------------|--------|---------|-------------|---------|
+| AND | 1/2/4/8 | RR | Rd = Rd & Rs (AND) | `AND8 R01, R02` |
+| ANDV | 1/2/4/8 | RI | Rd = Rd & inmediato | `ANDV8 R01, 0xFF` |
+| OR | 1/2/4/8 | RR | Rd = Rd \| Rs (OR) | `OR8 R01, R02` |
+| ORV | 1/2/4/8 | RI | Rd = Rd \| inmediato | `ORV8 R01, 0x80` |
+| XOR | 1/2/4/8 | RR | Rd = Rd ^ Rs (XOR) | `XOR8 R01, R02` |
+| XORV | 1/2/4/8 | RI | Rd = Rd ^ inmediato | `XORV8 R01, 0xFF` |
+| NOT | 1/2/4/8 | R | Rd = ~Rd (NOT) | `NOT8 R01` |
+| SHL | 1/2/4/8 | RR | Rd = Rd << Rs (shift left) | `SHL8 R01, R02` |
+| SHLV | 1/2/4/8 | RI | Rd = Rd << inmediato | `SHLV8 R01, 3` |
+| SHR | 1/2/4/8 | RR | Rd = Rd >> Rs (shift right lógico) | `SHR8 R01, R02` |
+| SHRV | 1/2/4/8 | RI | Rd = Rd >> inmediato | `SHRV8 R01, 2` |
+| SAR | 1/2/4/8 | RR | Rd = Rd >> Rs (shift aritmético) | `SAR8 R01, R02` |
+| ROL | 1/2/4/8 | RR | Rotar izquierda | `ROL8 R01, R02` |
+| ROR | 1/2/4/8 | RR | Rotar derecha | `ROR8 R01, R02` |
+
+**Total**: 10 operaciones × 4 tamaños = 40 instrucciones
+
+#### 7.1.2.5 Instrucciones de Memoria (32)
+
+| Mnemónico Base | Sufijo | Formato | Descripción | Ejemplo |
+|----------------|--------|---------|-------------|---------|
+| LOAD | 1/2/4/8 | RI | Rd = Memoria[direccion] | `LOAD8 R01, 0x1000` |
+| LOADR | 1/2/4/8 | RR | Rd = Memoria[Rs] | `LOADR8 R01, R02` |
+| LOADV | 1/2/4/8 | RI | Rd = inmediato (carga directa) | `LOADV8 R01, 42` |
+| MOVV | 1/2/4/8 | RI | Alias de LOADV | `MOVV8 R01, 100` |
+| STORE | 1/2/4/8 | RR | Memoria[Rs] = Rd | `STORE8 R01, R02` |
+| STOREV | 1/2/4/8 | RI | Memoria[direccion] = Rd | `STOREV8 R01, 0x2000` |
+| CLEAR | 1/2/4/8 | R | Rd = 0 | `CLEAR8 R01` |
+| MOV | 1/2/4/8 | RR | Rd = Rs (copiar registro) | `MOV8 R01, R02` |
+
+**Total**: 8 operaciones × 4 tamaños = 32 instrucciones
+
+**Modos de direccionamiento**:
+- Directo: `LOAD8 R01, 0x1000` → R01 = Memoria[0x1000]
+- Registro indirecto: `LOADR8 R01, R02` → R01 = Memoria[R02]
+- Inmediato: `LOADV8 R01, 42` → R01 = 42
+
+#### 7.1.2.6 Instrucciones de Comparación (8)
+
+| Mnemónico | Sufijo | Formato | Descripción | Ejemplo |
+|-----------|--------|---------|-------------|---------|
+| CMP | 1/2/4/8 | RR | Comparar Rd - Rs (actualiza flags) | `CMP8 R01, R02` |
+| CMPV | 1/2/4/8 | RI | Comparar Rd - inmediato | `CMPV8 R01, 100` |
+
+**Total**: 2 × 4 tamaños = 8 instrucciones
+
+**Comportamiento**: Realiza resta Rd - Rs pero **no** modifica Rd, solo actualiza flags:
+- **Z**: Activado si Rd == Rs
+- **N**: Activado si Rd < Rs (resultado negativo)
+- **C**: Activado si hay préstamo (Rd < Rs sin signo)
+- **V**: Activado si overflow en resta con signo
+
+#### 7.1.2.7 Instrucciones de Stack (8)
+
+| Mnemónico | Sufijo | Formato | Descripción | Ejemplo |
+|-----------|--------|---------|-------------|---------|
+| PUSH | 1/2/4/8 | R | [--SP] = Rd; SP -= tamaño | `PUSH8 R01` |
+| POP | 1/2/4/8 | R | Rd = [SP]; SP += tamaño | `POP8 R01` |
+
+**Total**: 2 × 4 tamaños = 8 instrucciones
+
+**Convenciones de stack**:
+- **SP (R15)**: Stack Pointer, apunta al tope de la pila
+- **BP (R14)**: Base Pointer, apunta a la base del stack frame actual
+- Crece hacia **direcciones mayores** (PUSH incrementa SP)
+- Stack empieza en `0x8000` (configurable)
+
+#### 7.1.2.8 Instrucciones de E/S (5)
+
+| Mnemónico | Formato | Descripción | Ejemplo |
+|-----------|---------|-------------|---------|
+| SVIO | RI | IO[direccion] = Rd | `SVIO R01, 0x100` |
+| LOADIO | RI | Rd = IO[direccion] | `LOADIO R01, 0x100` |
+| SHOWIO | I | Mostrar IO[direccion] en monitor | `SHOWIO 0x100` |
+| CLRIO | OP | Limpiar buffers entrada | `CLRIO` |
+| RESETIO | OP | Reiniciar sistema E/S | `RESETIO` |
+
+**Direcciones reservadas**:
+- `0x8000-0x80FF`: Pantalla virtual (256 bytes)
+- `0x8100-0x81FF`: Teclado virtual (256 bytes)
+- `0x8200-0x82FF`: Almacenamiento temporal (256 bytes)
+- `0x8300-0x83FF`: Debugging/Logging (256 bytes)
+
+#### 7.1.2.9 Instrucciones de Manipulación de Flags (8)
+
+| Mnemónico | Descripción | Ejemplo |
+|-----------|-------------|---------|
+| SZF | Set Zero Flag (Z = 1) | `SZF` |
+| CZF | Clear Zero Flag (Z = 0) | `CZF` |
+| SNF | Set Negative Flag (N = 1) | `SNF` |
+| CNF | Clear Negative Flag (N = 0) | `CNF` |
+| SCF | Set Carry Flag (C = 1) | `SCF` |
+| CCF | Clear Carry Flag (C = 0) | `CCF` |
+| SOF | Set Overflow Flag (V = 1) | `SOF` |
+| COF | Clear Overflow Flag (V = 0) | `COF` |
+
+**Uso típico**: Manipulación manual de flags para algoritmos especializados o testing
+
+#### 7.1.2.10 Resumen del Conjunto de Instrucciones
+
+| Categoría | Cantidad | Observaciones |
+|-----------|----------|---------------|
+| Control de flujo | 14 | Saltos, llamadas, retornos |
+| Aritméticas enteras | 48 | 12 tipos × 4 tamaños |
+| Punto flotante | 16 | 8 tipos × 2 tamaños (float, double) |
+| Lógicas/Bitwise | 40 | 10 tipos × 4 tamaños |
+| Memoria | 32 | 8 tipos × 4 tamaños |
+| Comparación | 8 | 2 tipos × 4 tamaños |
+| Stack | 8 | 2 tipos × 4 tamaños |
+| E/S | 5 | Memory-mapped I/O |
+| Manipulación flags | 8 | Control manual de ZNCV |
+| **TOTAL** | **179** | **Conjunto completo implementado** |
+
+**Nota sobre variantes**: El total incluye todas las combinaciones de sufijos. En la práctica, el ISA es extensible y algunos sufijos pueden no estar implementados para ciertas instrucciones (ej: NEG solo implementado para 4 y 8 bytes).
+
+## 7.2 Sistema de Memoria
+
+### 7.2.1 Configuración de Memoria
 
 ```python
 MEMORY_LAYOUT = {
@@ -4248,7 +5392,7 @@ MEMORY_LAYOUT = {
 }
 ```
 
-### Mapa de Memoria
+### 7.2.2 Mapa de Memoria
 
 ```
 0x0000 ┌─────────────────────────┐
@@ -4266,7 +5410,7 @@ MEMORY_LAYOUT = {
 0xFFFF └─────────────────────────┘
 ```
 
-### 6.2.1 Persistencia de la RAM en archivo de texto (novedad)
+### 7.2.3 Persistencia de la RAM en archivo de texto (novedad)
 
 La RAM del simulador ahora es persistente entre ejecuciones mediante un archivo de texto humanamente legible. Esto permite reanudar sesiones y depurar estados de memoria con facilidad.
 
@@ -4292,7 +5436,7 @@ app = SimuladorGUI(cpu)
 app.mainloop()
 ```
 
-#### 6.2.1.1 Formato del archivo de memoria
+#### 7.2.3.1 Formato del archivo de memoria
 
 El archivo se escribe en líneas de 8 bytes (64 bits), alineado con el tamaño de palabra de la arquitectura. Ejemplo de línea:
 
@@ -4306,7 +5450,7 @@ El archivo se escribe en líneas de 8 bytes (64 bits), alineado con el tamaño d
 - A la derecha se listan 8 bytes en hexadecimal, separados por espacio.
 - Se permiten comentarios con `#` o `;`, que se ignoran al leer.
 
-#### 6.2.1.2 Carga/guardado y API de memoria
+#### 7.2.3.2 Carga/guardado y API de memoria
 
 La clase `logic/Memory.py` expone operaciones para persistencia y mantenimiento:
 
@@ -4316,14 +5460,14 @@ La clase `logic/Memory.py` expone operaciones para persistencia y mantenimiento:
 
 Estas funciones se integran con la GUI: al limpiar la RAM desde el botón correspondiente, se ejecuta `clear()` y se guarda de inmediato en `memory_ram.txt`.
 
-#### 6.2.1.3 Alineamiento de direcciones en el visor
+#### 7.2.3.3 Alineamiento de direcciones en el visor
 
 En la tabla del visor, las direcciones avanzan como `0x0000, 0x0008, 0x0010, ...`. Esto se debe a que la arquitectura opera con palabras de 64 bits (8 bytes), por lo que la presentación por filas de 8 bytes facilita la lectura de instrucciones y datos alineados.
-```
 
-## 6.3 Sistema de E/S
 
-### Direcciones de E/S Reservadas
+## 7.3 Sistema de E/S
+
+### 7.3.1 Direcciones de E/S Reservadas
 
 | Dirección | Propósito | Acceso |
 |-----------|-----------|---------|
@@ -4332,7 +5476,7 @@ En la tabla del visor, las direcciones avanzan como `0x0000, 0x0008, 0x0010, ...
 | 0x8200-0x82FF | Almacenamiento temporal | R/W |
 | 0x8300-0x83FF | Debugging/Logging | W |
 
-### Protocolo de Comunicación
+### 7.3.2 Protocolo de Comunicación
 
 ```python
 # Escribir a dispositivo
@@ -4348,11 +5492,11 @@ SHOWIO 0x8000       # Mostrar contenido de IO[0x8000]
 ---
 \newpage
 
-# 7. Documentación de Experimentación y Resultados
+# 8. Documentación de Experimentación y Resultados
 
 Se presentan los experimentos realizados sobre el analizador lexico desarrollado, con el objetivo de probar y validar el correcto funcionamiento del analizador en la identificación de categorias lexicas y su clasificación en tokens. Para esto en cada escenario se procesa una cadena de caracteres correspondiente a un un programa en alto nivel, que debe ser aceptado por el analizador lexico.
 
-## 7.1 Escenario 1
+## 8.1 Escenario 1
 
 Para este escenario se toma la cadena de caracteres correspondiente al un codigo en alto nivel que determina si un entero es par o impar
 
@@ -4419,7 +5563,7 @@ Retornando como resultado del analisis
     LexToken(LLAVEDER,'}',13,257)
 ```
 
-## 7.2 Escenario 2
+## 8.2 Escenario 2
 
 Para este escenario se toma la cadena de caracteres correspondiente al un codigo del algoritmo de euclides
 
@@ -4477,7 +5621,7 @@ Retornando como resultado del analisis
     LexToken(LLAVEDER,'}',10,215)
 ```
 
-## 7.3 Escenario 3
+## 8.3 Escenario 3
 
 Para este escenario se toma la cadena de caracteres correspondiente al un codigo que calcula el determinante de una matriz cuadrada 2x2
 
@@ -4529,7 +5673,7 @@ Retornando como resultado el analisis
     LexToken(LLAVEDER,'}',6,179)
 ```
 
-## 7.4 Escenario 4
+## 8.4 Escenario 4
 
 Para este escenario se toma la cadena de caracteres correspondiente al un codigo que calcula el determinante de una matriz cuadrada 2x2
 
@@ -4584,18 +5728,18 @@ Retornando como resultado el analisis
     LexToken(LLAVEDER,'}',11,223)
 ```
 
-## Análisis
+## 8.5 Análisis
 Tras el análisis de los resultados obtenidos en los cuatro casos de prueba, se pudo comprobar que el analizador léxico identificó correctamente las categorías léxicas asociadas a cada una de las subcadenas en las cadenas de entrada. En todos los casos, los tokens generados coincidieron con los valores esperados de acuerdo con las reglas definidas en la gramática léxica del lenguaje.
 
 Esto demuestra que las expresiones regulares implementadas en las definiciones de tokens son adecuadas para reconocer las estructuras básicas del lenguaje, como identificadores, palabras reservadas, operadores y delimitadores.
 
 ---
 
-# 8. Conclusiones
+# 9. Conclusiones
 
 El **Simulador Atlas CPU** representa una herramienta educativa completa que cumple exitosamente con los objetivos establecidos:
 
-## Logros Principales
+## 9.1 Logros Principales
 
 1. **Funcionalidad Completa**: 47 instrucciones implementadas y validadas
 2. **Validación Exhaustiva**: Algoritmos clásicos verificados matemáticamente  
@@ -4603,7 +5747,7 @@ El **Simulador Atlas CPU** representa una herramienta educativa completa que cum
 4. **Interfaz Intuitiva**: GUI diseñada para facilitar el aprendizaje
 5. **Arquitectura Sólida**: Diseño modular y extensible
 
-## Impacto Educativo
+## 9.2 Impacto Educativo
 
 - **Experimentación**: Ambiente seguro para pruebas y errores
 - **Comprensión**: Visualización directa de conceptos abstractos
