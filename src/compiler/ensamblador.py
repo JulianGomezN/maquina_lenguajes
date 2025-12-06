@@ -261,6 +261,10 @@ class Ensamblador:
             line = line.strip()
             if not line or line.startswith(';'):
                 continue
+            # Passthrough .DATA and .LOCAL directives for loader; do not count them as instructions
+            if line.upper().startswith('.DATA') or line.upper().startswith('.LOCAL'):
+                # .DATA lines do not occupy instruction slots
+                continue
             
             tokens = self.tokenize_line(line)
             if not tokens:
@@ -285,6 +289,10 @@ class Ensamblador:
         for line in lines:
             line = line.strip()
             if not line or line.startswith(';'):
+                continue
+            # Passthrough .DATA and .LOCAL directives to output unchanged
+            if line.upper().startswith('.DATA') or line.upper().startswith('.LOCAL'):
+                program.append(line + "\n")
                 continue
             
             tokens = self.tokenize_line(line)

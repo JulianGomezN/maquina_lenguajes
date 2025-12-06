@@ -36,6 +36,11 @@ INSTRUCTION_SET = {
     # Memoria básica
     'LOAD':   {'opcode': 0x0060, 'format': 'RI', 'requiresAddress': False},
     'LOADV':  {'opcode': 0x0061, 'format': 'RI', 'requiresAddress': False},
+    # Sized loads (used by code generator: LOAD1/2/4/8)
+    'LOAD1':  {'opcode': 0x0060, 'format': 'RI', 'requiresAddress': False},
+    'LOAD2':  {'opcode': 0x0060, 'format': 'RI', 'requiresAddress': False},
+    'LOAD4':  {'opcode': 0x0060, 'format': 'RI', 'requiresAddress': False},
+    'LOAD8':  {'opcode': 0x0060, 'format': 'RI', 'requiresAddress': False},
     'STORE':  {'opcode': 0x0062, 'format': 'RI', 'requiresAddress': False},
     'STOREV': {'opcode': 0x0063, 'format': 'RI', 'requiresAddress': False},
     'CLEAR':  {'opcode': 0x0064, 'format': 'R',  'requiresAddress': False},

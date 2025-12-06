@@ -8,20 +8,19 @@
 ; Estructura de bloque:
 ;   [8 bytes: tamaño] [8 bytes: siguiente bloque libre] [datos...]
 ;
-; Memoria layout:
-;   0x0000-0x0FFF: Código (4KB)
-;   0x1000-0x2FFF: Globales (8KB)
-;   0x3000-0x7FFF: Strings (20KB)
-;   0x8000-0xBFFF: Heap (16KB) <- Usado por malloc/free
-;   0xC000-0xFFFF: Stack (16KB)
+; Memoria layout (128KB):
+;   0x0000-0xFFFF: Código ejecutable y datos constantes (64KB)
+;   0x10000-0x17FFF: Globales y heap (32KB)
+;   0x18000-0x1BFFF: Strings y datos (16KB)
+;   0x1C000-0x1FFFF: Stack (16KB)
 ; ============================================================================
 
 ; Constantes (usadas como valores inmediatos en el código)
-; HEAP_START:     0xA000      ; Inicio del heap (40KB desde inicio)
-; HEAP_END:       0xE000      ; Fin del heap (56KB desde inicio)
-; HEAP_SIZE:      0x4000      ; 16KB de heap
+; HEAP_START:     0x10000     ; Inicio del heap (64KB desde inicio)
+; HEAP_END:       0x17FFF     ; Fin del heap (96KB desde inicio)
+; HEAP_SIZE:      0x8000      ; 32KB de heap
 ; BLOCK_HEADER:   16          ; Tamaño del header (8B size + 8B next)
-; FREE_LIST_PTR:  0x1000      ; Variable global: puntero al primer bloque libre
+; FREE_LIST_PTR:  0x10000     ; Variable global: puntero al primer bloque libre
 
 ; ============================================================================
 ; __init_heap: Inicializa el heap con un gran bloque libre
@@ -34,10 +33,10 @@ __init_heap:
     PUSH8 R03
     
     ; Crear primer bloque libre: todo el heap
-    MOVV8 R01, 0xA000           ; R01 = dirección del primer bloque (HEAP_START)
+    MOVV8 R01, 0x10000          ; R01 = dirección del primer bloque (HEAP_START)
     
-    ; Escribir tamaño del bloque (0x4000 - 16)
-    MOVV8 R02, 0x4000           ; HEAP_SIZE
+    ; Escribir tamaño del bloque (HEAP_SIZE - header)
+    MOVV8 R02, 0x8000           ; HEAP_SIZE
     SUBV8 R02, 16               ; Restar BLOCK_HEADER
     STORER8 R02, R01            ; mem[HEAP_START] = tamaño
     
@@ -47,8 +46,8 @@ __init_heap:
     STORER8 R02, R01            ; mem[HEAP_START+8] = NULL
     
     ; Guardar puntero inicial en FREE_LIST_PTR
-    MOVV8 R01, 0xA000           ; HEAP_START
-    MOVV8 R03, 0x1000           ; FREE_LIST_PTR
+    MOVV8 R01, 0x10000          ; HEAP_START
+    MOVV8 R03, 0x10000          ; FREE_LIST_PTR
     STORER8 R01, R03            ; FREE_LIST_PTR = HEAP_START
     
     POP8 R03
@@ -90,7 +89,7 @@ __malloc:
     ; R06 = auxiliar
     
     ; Cargar FREE_LIST_PTR
-    MOVV8 R06, 0x1000           ; FREE_LIST_PTR
+    MOVV8 R06, 0x10000          ; FREE_LIST_PTR
     LOADR8 R02, R06             ; R02 = primer bloque libre
     MOVV8 R03, 0                ; R03 = previo (NULL al inicio)
     
@@ -126,7 +125,7 @@ __malloc_loop:
     
 __malloc_update_head:
     ; FREE_LIST_PTR = actual->next
-    MOVV8 R06, 0x1000           ; FREE_LIST_PTR
+    MOVV8 R06, 0x10000          ; FREE_LIST_PTR
     STORER8 R05, R06            ; FREE_LIST_PTR = siguiente
     
 __malloc_return_block:
@@ -191,14 +190,14 @@ __free:
     
     ; Insertar al inicio de FREE_LIST
     ; bloque->next = FREE_LIST_PTR
-    MOVV8 R03, 0x1000           ; FREE_LIST_PTR
+    MOVV8 R03, 0x10000          ; FREE_LIST_PTR
     LOADR8 R02, R03             ; R02 = FREE_LIST_PTR
     MOV8 R03, R01
     ADDV8 R03, 8                ; R03 = bloque + 8
     STORER8 R02, R03            ; bloque->next = FREE_LIST_PTR
     
     ; FREE_LIST_PTR = bloque
-    MOVV8 R03, 0x1000           ; FREE_LIST_PTR
+    MOVV8 R03, 0x10000          ; FREE_LIST_PTR
     STORER8 R01, R03            ; FREE_LIST_PTR = bloque
     
 __free_end:

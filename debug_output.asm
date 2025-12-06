@@ -423,20 +423,19 @@ JMP __START_PROGRAM
 ; Estructura de bloque:
 ;   [8 bytes: tamaño] [8 bytes: siguiente bloque libre] [datos...]
 ;
-; Memoria layout:
-;   0x0000-0x0FFF: Código (4KB)
-;   0x1000-0x2FFF: Globales (8KB)
-;   0x3000-0x7FFF: Strings (20KB)
-;   0x8000-0xBFFF: Heap (16KB) <- Usado por malloc/free
-;   0xC000-0xFFFF: Stack (16KB)
+; Memoria layout (128KB):
+;   0x0000-0xFFFF: Código ejecutable y datos constantes (64KB)
+;   0x10000-0x17FFF: Globales y heap (32KB)
+;   0x18000-0x1BFFF: Strings y datos (16KB)
+;   0x1C000-0x1FFFF: Stack (16KB)
 ; ============================================================================
 
 ; Constantes (usadas como valores inmediatos en el código)
-; HEAP_START:     0xA000      ; Inicio del heap (40KB desde inicio)
-; HEAP_END:       0xE000      ; Fin del heap (56KB desde inicio)
-; HEAP_SIZE:      0x4000      ; 16KB de heap
+; HEAP_START:     0x10000     ; Inicio del heap (64KB desde inicio)
+; HEAP_END:       0x17FFF     ; Fin del heap (96KB desde inicio)
+; HEAP_SIZE:      0x8000      ; 32KB de heap
 ; BLOCK_HEADER:   16          ; Tamaño del header (8B size + 8B next)
-; FREE_LIST_PTR:  0x1000      ; Variable global: puntero al primer bloque libre
+; FREE_LIST_PTR:  0x10000     ; Variable global: puntero al primer bloque libre
 
 ; ============================================================================
 ; __init_heap: Inicializa el heap con un gran bloque libre
@@ -449,10 +448,10 @@ __init_heap:
     PUSH8 R03
 
     ; Crear primer bloque libre: todo el heap
-    MOVV8 R01, 0xA000           ; R01 = dirección del primer bloque (HEAP_START)
+    MOVV8 R01, 0x10000          ; R01 = dirección del primer bloque (HEAP_START)
 
-    ; Escribir tamaño del bloque (0x4000 - 16)
-    MOVV8 R02, 0x4000           ; HEAP_SIZE
+    ; Escribir tamaño del bloque (HEAP_SIZE - header)
+    MOVV8 R02, 0x8000           ; HEAP_SIZE
     SUBV8 R02, 16               ; Restar BLOCK_HEADER
     STORER8 R02, R01            ; mem[HEAP_START] = tamaño
 
@@ -462,8 +461,8 @@ __init_heap:
     STORER8 R02, R01            ; mem[HEAP_START+8] = NULL
 
     ; Guardar puntero inicial en FREE_LIST_PTR
-    MOVV8 R01, 0xA000           ; HEAP_START
-    MOVV8 R03, 0x1000           ; FREE_LIST_PTR
+    MOVV8 R01, 0x10000          ; HEAP_START
+    MOVV8 R03, 0x10000          ; FREE_LIST_PTR
     STORER8 R01, R03            ; FREE_LIST_PTR = HEAP_START
 
     POP8 R03
@@ -505,7 +504,7 @@ __malloc:
     ; R06 = auxiliar
 
     ; Cargar FREE_LIST_PTR
-    MOVV8 R06, 0x1000           ; FREE_LIST_PTR
+    MOVV8 R06, 0x10000          ; FREE_LIST_PTR
     LOADR8 R02, R06             ; R02 = primer bloque libre
     MOVV8 R03, 0                ; R03 = previo (NULL al inicio)
 
@@ -541,7 +540,7 @@ __malloc_loop:
 
 __malloc_update_head:
     ; FREE_LIST_PTR = actual->next
-    MOVV8 R06, 0x1000           ; FREE_LIST_PTR
+    MOVV8 R06, 0x10000          ; FREE_LIST_PTR
     STORER8 R05, R06            ; FREE_LIST_PTR = siguiente
 
 __malloc_return_block:
@@ -606,14 +605,14 @@ __free:
 
     ; Insertar al inicio de FREE_LIST
     ; bloque->next = FREE_LIST_PTR
-    MOVV8 R03, 0x1000           ; FREE_LIST_PTR
+    MOVV8 R03, 0x10000          ; FREE_LIST_PTR
     LOADR8 R02, R03             ; R02 = FREE_LIST_PTR
     MOV8 R03, R01
     ADDV8 R03, 8                ; R03 = bloque + 8
     STORER8 R02, R03            ; bloque->next = FREE_LIST_PTR
 
     ; FREE_LIST_PTR = bloque
-    MOVV8 R03, 0x1000           ; FREE_LIST_PTR
+    MOVV8 R03, 0x10000          ; FREE_LIST_PTR
     STORER8 R01, R03            ; FREE_LIST_PTR = bloque
 
 __free_end:
@@ -637,88 +636,89 @@ __free_end:
 ;   z: entero4 (offset: 0, size: 4)
 ;   Tamaño total: 4 bytes
 
-; Variable global: global_x (tipo: entero4, tamaño: 4 bytes, dirección: 4096)
-  MOVV8 R00, 0  ; ERROR: String no inicializado
-STORE4 R00, 4096  ; global_x = valor_inicial
-; Variable global: global_x (tipo: entero4, tamaño: 4 bytes, dirección: 4096)
+; Variable global: global_x (tipo: entero4, tamaño: 4 bytes, dirección: 65536)
+.DATA 00010000 4 74657874 ; NAME=global_x ; RELOCS=
+; global_x = "texto" (string)
+; Variable global: global_x (tipo: entero4, tamaño: 4 bytes, dirección: 65536)
 
 ; === CÓDIGO DE INICIALIZACIÓN ===
 
 __START_PROGRAM:
 ; Inicializar Stack Pointer en una ubicación segura
 ; Inicializar Stack Pointer (R15) y Frame Pointer (R14)
-MOVV8 R15, 0xC000        ; SP en 48KB (deja espacio para heap)
+; Nueva ubicación de stack: colocar al inicio de la zona de stack (0x1C000)
+MOVV8 R15, 0x1C000        ; SP en 0x1C000 (inicio de la región de stack)
 MOV8 R14, R15            ; BP = SP (frame inicial)
 
-; Inicializar string literals en memoria (área 0x5000+)
-; __STR0 = "Hola" @ 0x5000
+; Inicializar string literals en memoria (área 0x18000+)
+; __STR0 = "Hola" @ 0x18000
   MOVV1 R01, 72  ; 'H'
-  STORE1 R01, 20480  ; Escribir en 0x5000
+  STORE1 R01, 98304  ; Escribir en 0x18000
   MOVV1 R01, 111  ; 'o'
-  STORE1 R01, 20481  ; Escribir en 0x5001
+  STORE1 R01, 98305  ; Escribir en 0x18001
   MOVV1 R01, 108  ; 'l'
-  STORE1 R01, 20482  ; Escribir en 0x5002
+  STORE1 R01, 98306  ; Escribir en 0x18002
   MOVV1 R01, 97  ; 'a'
-  STORE1 R01, 20483  ; Escribir en 0x5003
+  STORE1 R01, 98307  ; Escribir en 0x18003
   MOVV1 R01, 0  ; NULL
-  STORE1 R01, 20484  ; Escribir en 0x5004
-; __STR1 = "Mundo" @ 0x5005
+  STORE1 R01, 98308  ; Escribir en 0x18004
+; __STR1 = "Mundo" @ 0x18005
   MOVV1 R01, 77  ; 'M'
-  STORE1 R01, 20485  ; Escribir en 0x5005
+  STORE1 R01, 98309  ; Escribir en 0x18005
   MOVV1 R01, 117  ; 'u'
-  STORE1 R01, 20486  ; Escribir en 0x5006
+  STORE1 R01, 98310  ; Escribir en 0x18006
   MOVV1 R01, 110  ; 'n'
-  STORE1 R01, 20487  ; Escribir en 0x5007
+  STORE1 R01, 98311  ; Escribir en 0x18007
   MOVV1 R01, 100  ; 'd'
-  STORE1 R01, 20488  ; Escribir en 0x5008
+  STORE1 R01, 98312  ; Escribir en 0x18008
   MOVV1 R01, 111  ; 'o'
-  STORE1 R01, 20489  ; Escribir en 0x5009
+  STORE1 R01, 98313  ; Escribir en 0x18009
   MOVV1 R01, 0  ; NULL
-  STORE1 R01, 20490  ; Escribir en 0x500A
-; __STR2 = "texto" @ 0x500B
+  STORE1 R01, 98314  ; Escribir en 0x1800A
+; __STR2 = "texto" @ 0x1800B
   MOVV1 R01, 116  ; 't'
-  STORE1 R01, 20491  ; Escribir en 0x500B
+  STORE1 R01, 98315  ; Escribir en 0x1800B
   MOVV1 R01, 101  ; 'e'
-  STORE1 R01, 20492  ; Escribir en 0x500C
+  STORE1 R01, 98316  ; Escribir en 0x1800C
   MOVV1 R01, 120  ; 'x'
-  STORE1 R01, 20493  ; Escribir en 0x500D
+  STORE1 R01, 98317  ; Escribir en 0x1800D
   MOVV1 R01, 116  ; 't'
-  STORE1 R01, 20494  ; Escribir en 0x500E
+  STORE1 R01, 98318  ; Escribir en 0x1800E
   MOVV1 R01, 111  ; 'o'
-  STORE1 R01, 20495  ; Escribir en 0x500F
+  STORE1 R01, 98319  ; Escribir en 0x1800F
   MOVV1 R01, 0  ; NULL
-  STORE1 R01, 20496  ; Escribir en 0x5010
-; __STR3 = "hola" @ 0x5011
+  STORE1 R01, 98320  ; Escribir en 0x18010
+; __STR3 = "hola" @ 0x18011
   MOVV1 R01, 104  ; 'h'
-  STORE1 R01, 20497  ; Escribir en 0x5011
+  STORE1 R01, 98321  ; Escribir en 0x18011
   MOVV1 R01, 111  ; 'o'
-  STORE1 R01, 20498  ; Escribir en 0x5012
+  STORE1 R01, 98322  ; Escribir en 0x18012
   MOVV1 R01, 108  ; 'l'
-  STORE1 R01, 20499  ; Escribir en 0x5013
+  STORE1 R01, 98323  ; Escribir en 0x18013
   MOVV1 R01, 97  ; 'a'
-  STORE1 R01, 20500  ; Escribir en 0x5014
+  STORE1 R01, 98324  ; Escribir en 0x18014
   MOVV1 R01, 0  ; NULL
-  STORE1 R01, 20501  ; Escribir en 0x5015
-; __STR4 = "Error" @ 0x5016
+  STORE1 R01, 98325  ; Escribir en 0x18015
+; __STR4 = "Error" @ 0x18016
   MOVV1 R01, 69  ; 'E'
-  STORE1 R01, 20502  ; Escribir en 0x5016
+  STORE1 R01, 98326  ; Escribir en 0x18016
   MOVV1 R01, 114  ; 'r'
-  STORE1 R01, 20503  ; Escribir en 0x5017
+  STORE1 R01, 98327  ; Escribir en 0x18017
   MOVV1 R01, 114  ; 'r'
-  STORE1 R01, 20504  ; Escribir en 0x5018
+  STORE1 R01, 98328  ; Escribir en 0x18018
   MOVV1 R01, 111  ; 'o'
-  STORE1 R01, 20505  ; Escribir en 0x5019
+  STORE1 R01, 98329  ; Escribir en 0x18019
   MOVV1 R01, 114  ; 'r'
-  STORE1 R01, 20506  ; Escribir en 0x501A
+  STORE1 R01, 98330  ; Escribir en 0x1801A
   MOVV1 R01, 0  ; NULL
-  STORE1 R01, 20507  ; Escribir en 0x501B
-; __STR5 = "20" @ 0x501C
+  STORE1 R01, 98331  ; Escribir en 0x1801B
+; __STR5 = "20" @ 0x1801C
   MOVV1 R01, 50  ; '2'
-  STORE1 R01, 20508  ; Escribir en 0x501C
+  STORE1 R01, 98332  ; Escribir en 0x1801C
   MOVV1 R01, 48  ; '0'
-  STORE1 R01, 20509  ; Escribir en 0x501D
+  STORE1 R01, 98333  ; Escribir en 0x1801D
   MOVV1 R01, 0  ; NULL
-  STORE1 R01, 20510  ; Escribir en 0x501E
+  STORE1 R01, 98334  ; Escribir en 0x1801E
 
 ; Llamar a la función principal
 ; ADVERTENCIA: No se encontró la función 'principal'
@@ -734,7 +734,7 @@ saludar:  ; Función: saludar
 
   ; Cuerpo de saludar
   ; imprimir()
-  MOVV8 R00, 0x5000  ; __STR0
+  MOVV8 R00, 0x18000  ; __STR0
   PUSH8 R00
   CALL __print_string
   ADDV8 R15, 8  ; Limpiar stack
@@ -754,7 +754,7 @@ saludar:  ; Función: saludar
 
   ; Cuerpo de saludar
   ; imprimir()
-  MOVV8 R00, 0x5005  ; __STR1
+  MOVV8 R00, 0x18005  ; __STR1
   PUSH8 R00
   CALL __print_string
   ADDV8 R15, 8  ; Limpiar stack
@@ -790,6 +790,8 @@ sumar_epilogue:
   POP8 R14           ; Restaurar BP del caller
   RET                ; Retornar al caller
 
+.LOCAL_REL -20 4 a ; FUNC=sumar
+.LOCAL_REL -24 4 b ; FUNC=sumar
 main:  ; Función: main
   ; Prólogo de main
   PUSH8 R14          ; Guardar BP del caller en stack
@@ -815,7 +817,7 @@ main:  ; Función: main
   ADD8 R06, R14  ; Dirección = BP + offset
   STORER4 R05, R06  ; n = valor_inicial
   ; Variable local: s (offset: 8)
-  MOVV8 R07, 0x5011  ; __STR3
+  MOVV8 R07, 0x18011  ; __STR3
   MOVV8 R08, 8
   ADD8 R08, R14  ; Dirección = BP + offset
   STORER8 R07, R08  ; s = valor_inicial
@@ -842,7 +844,7 @@ main:  ; Función: main
   CMPV R03, 0
   JEQ ELSE0
   ; imprimir()
-  MOVV8 R05, 0x5016  ; __STR4
+  MOVV8 R05, 0x18016  ; __STR4
   PUSH8 R05
   CALL __print_string
   ADDV8 R15, 8  ; Limpiar stack
@@ -855,7 +857,7 @@ ENDIF1:
   CALL sumar  ; Llamar a sumar
   ADDV8 R15, 4  ; Limpiar 1 argumentos del stack
   MOVV4 R07, 10
-  MOVV8 R08, 0x501C  ; __STR5
+  MOVV8 R08, 0x1801C  ; __STR5
   PUSH4 R08  ; Push argumento (entero4)
   PUSH4 R07  ; Push argumento (entero4)
   CALL sumar  ; Llamar a sumar
@@ -881,6 +883,12 @@ main_epilogue:
   POP8 R14           ; Restaurar BP del caller
   RET                ; Retornar al caller
 
+.LOCAL_REL 0 4 local_a ; FUNC=main
+.LOCAL_REL 4 4 n ; FUNC=main
+.LOCAL_REL 8 8 s ; FUNC=main
+.LOCAL_REL 16 4 res ; FUNC=main
+.LOCAL_REL 20 1 b ; FUNC=main
+.LOCAL_REL 21 4 arreglo ; FUNC=main
 funcion_sin_retorno:  ; Función: funcion_sin_retorno
   ; Prólogo de funcion_sin_retorno
   PUSH8 R14          ; Guardar BP del caller en stack
@@ -914,6 +922,7 @@ funcion_sin_retorno_epilogue:
   POP8 R14           ; Restaurar BP del caller
   RET                ; Retornar al caller
 
+.LOCAL_REL -20 4 n ; FUNC=funcion_sin_retorno
 
 END_PROGRAM:
 ; Fin del código ejecutable
