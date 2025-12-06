@@ -107,6 +107,22 @@ def literal_to_ieee_int(literal: str) -> int:
     else:  # tipo == 'd'
         return struct.unpack('>Q', struct.pack('>d', number))[0]
 
+
+class Codigorelo:
+    """Gaurda los metadatos del codigo relocalizable"""
+    
+    def __init__(self):
+        self.extern_labels = {}
+        self.labels = {}
+        self.codigo = ""
+
+    def save_to_file(self, filename="metadata.reloc"):
+        with open(filename, "w") as f:
+            f.write(str(self.extern_labels) + "\n")
+            f.write(str(self.labels) + "\n")
+            f.write(self.codigo)
+
+
 # =============================================
 # ENSAMBLADOR PRINCIPAL
 # =============================================
@@ -118,7 +134,9 @@ class Ensamblador:
         self.lexer = lex.lex()
         # Tabla de símbolos (etiquetas y direcciones)
         self.labels = {}
+        self.extern_labels = {}
         self.current_address = 0
+        self.codigorelo = Codigorelo()
     
     
     def tokenize_line(self, line):
@@ -177,7 +195,9 @@ class Ensamblador:
                 # Debe ser una etiqueta
                 imm_upper = imm_str.upper()
                 if imm_upper not in self.labels:
-                    raise ValueError(f"Etiqueta no definida: {imm_str}")
+                    if imm_upper not in self.extern_labels:
+                        self.extern_labels [imm_upper] = len(self.extern_labels)
+                    return self.extern_labels [imm_upper]
                 return self.labels[imm_upper]
     
     def assemble_tokens(self, tokens):
@@ -234,6 +254,10 @@ class Ensamblador:
             imm = self.parse_immediate(tokens[1])
 
             if address:
+                imm_str = tokens[1].value if hasattr(tokens[1], 'value') else tokens[1]
+                if imm_str.upper() in self.extern_labels:
+                    return f"{opcode:04X}{0:012X}\n{{{imm:016X}}}\n"
+                
                 return f"{opcode:04X}{0:012X}\n[{imm:016X}]\n"
             return f"{opcode:04X}{0:012X}\n{imm:016X}\n"
         
@@ -301,6 +325,12 @@ class Ensamblador:
                     program.append(instruction)
                     self.current_address += 8
         
+        self.codigorelo.labels = self.labels
+        self.codigorelo.extern_labels = self.extern_labels
+        self.codigorelo.codigo = "".join(program)
+
+        self.codigorelo.save_to_file()
+
         return "".join(program)
     
 
