@@ -10,6 +10,9 @@ class Device:
 class Screen(Device):
     def __init__(self):
         self.buffer = ""  # guarda lo que se imprimió
+        # Optional callback that GUI can set to receive characters as they're shown.
+        # Signature: callable(char: str) -> None
+        self.on_show = None
 
     def write(self, value):
         char = chr(value & 0xFF)
@@ -18,8 +21,19 @@ class Screen(Device):
     def show(self):
         """Imprime el último carácter escrito en el buffer"""
         if self.buffer:
-            # Imprimir el último carácter añadido
-            print(self.buffer[-1], end='', flush=True)
+            # Prefer callback to update GUI. If not set, fall back to logging (no console prints).
+            ch = self.buffer[-1]
+            if callable(self.on_show):
+                try:
+                    # send the last character to the GUI callback
+                    self.on_show(ch)
+                except Exception:
+                    # swallow callbacks errors to avoid breaking VM
+                    pass
+            else:
+                # Do not print to console; use a logger so CLI remains clean.
+                import logging
+                logging.getLogger("machine.io").debug("Screen output: %s", ch)
     
 class Keyboard(Device):
 

@@ -4,8 +4,8 @@
 ; ============================================
 
 ; Constantes de pila
-#define STACK_SIZE 256
-#define STACK_BASE 0x1000
+#define STACK_SIZE 16384    ; 16KB stack (0x4000)
+#define STACK_BASE 0x1C000  ; Stack base for layout where code ends at 0xFFFF
 
 ; Macros de pila para diferentes tamaños
 .macro PUSH_BYTE reg

@@ -16,13 +16,15 @@ class IOSystem:
         if device:
             device.write(value)
         else:
-            print(f"[WARN] Dispositivo en {hex(addr)} no existe")
+            import logging
+            logging.getLogger("machine.io").warning("Dispositivo en %s no existe", hex(addr))
 
     def read(self, addr):
         device = self.devices.get(addr)
         if device:
             return device.read()
-        print(f"[WARN] Dispositivo en {hex(addr)} no existe")
+        import logging
+        logging.getLogger("machine.io").warning("Dispositivo en %s no existe", hex(addr))
         return 0
     
     def show(self, addr):

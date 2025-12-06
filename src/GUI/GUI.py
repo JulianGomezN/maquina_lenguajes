@@ -32,6 +32,20 @@ class SimuladorGUI:
         self.machine_out = sdtout
         self.machine_in = stdin
 
+        # Wire device callback so Screen.show forwards characters to GUI output
+        try:
+            # append raw without a leading newline
+            def _on_machine_show(ch: str):
+                try:
+                    self.texto_salida.insert('end', ch)
+                    self.texto_salida.see('end')
+                except Exception:
+                    pass
+            self.machine_out.on_show = _on_machine_show
+        except Exception:
+            # If anything fails here, continue without GUI forwarding
+            pass
+
         self.assembler = Ensamblador()
         self.loader = Loader(self.cpu.memory)
         self.programa_actual = [] ##??
@@ -490,6 +504,8 @@ class SimuladorGUI:
             # 1. Análisis sintáctico (parsing)
             ast = parse(codigo)
             if not ast:
+                msg = "Error de Sintaxis: No se pudo parsear el código\nRevise la salida del analizador sintáctico para más detalles."
+                self.set_salida(msg)
                 messagebox.showerror("Error de Sintaxis", "No se pudo parsear el código")
                 return
             
@@ -502,6 +518,9 @@ class SimuladorGUI:
                 errores_msg = "\n".join(analyzer.errors[:10])
                 if len(analyzer.errors) > 10:
                     errores_msg += f"\n... y {len(analyzer.errors)-10} errores más"
+                
+                self.set_salida(f"Errores Semánticos:\n{errores_msg}")
+                
                 messagebox.showwarning(
                     f"Advertencias Semánticas ({len(analyzer.errors)})",
                     errores_msg
