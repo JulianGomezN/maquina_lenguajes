@@ -1,0 +1,72 @@
+// test_semantic_errors.txt
+// Este archivo contiene errores semánticos intencionales para probar el analizador
+
+// 1. Declaración duplicada de estructura
+estructura Punto {
+    entero4 x;
+    entero4 y;
+};
+
+estructura Punto { // Error: Estructura ya declarada
+    entero4 z;
+};
+
+// 2. Declaración duplicada de función y argumentos incorrectos
+funcion vacio saludar() {
+    imprimir("Hola");
+}
+
+funcion vacio saludar() { // Error: Función ya declarada
+    imprimir("Mundo");
+}
+
+funcion entero4 sumar(entero4 a, entero4 b) {
+    retornar a + b;
+}
+
+// 3. Variables Globales: Inicialización incompatible y duplicada
+entero4 global_x = "texto"; // Error: Tipo incompatible (entero4 vs cadena)
+entero4 global_x;           // Error: Variable ya declarada
+
+funcion vacio main() {
+    // 4. Variables Locales: Uso de no declarada y duplicación
+    entero4 local_a = 10;
+    entero4 local_a = 20;   // Error: Variable ya declarada en scope
+    local_b = 30;           // Error: Variable no declarada (local_b)
+    
+    // 5. Incompatibilidad de tipos en operaciones
+    entero4 n = 10;
+    cadena s = "hola";
+    entero4 res = n + s;    // Error: Operador '+' requiere numéricos
+    booleano b = 10;        // Error: Incompatibilidad en asignación
+    
+    // 6. Condicionales no booleanos
+    si (n) {                // Error: Condición debe ser booleana
+        imprimir("Error");
+    }
+    
+    // 7. Llamadas a función incorrectas
+    sumar(10);              // Error: Argumentos insuficientes (espera 2)
+    sumar(10, "20");        // Error: Tipo de argumento incorrecto
+    
+    // 8. Retorno incorrecto
+    // main es vacio, si intentamos retornar algo:
+    retornar 100;           // Error: Tipo retorno incompatible
+    
+    // 9. Errores en Structs y Arrays
+    estructura Punto p;
+    p.z = 5;                // Error: Miembro no existe en Punto
+    
+    entero4 arreglo[5];
+    arreglo["indice"] = 0;  // Error: Índice debe ser entero
+    
+    // 10. Uso de break/continue fuera de ciclo
+    romper;                 // Error: romper fuera de ciclo
+}
+
+funcion entero4 funcion_sin_retorno(entero4 n) {
+    si (n > 0) {
+        retornar 1;
+    }
+    // Error: No garantiza retorno en todos los caminos
+}

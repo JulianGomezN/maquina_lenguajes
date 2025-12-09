@@ -109,17 +109,31 @@ class Block(ASTNode):
         return f"Block(statements={len(self.statements)})"
 
 
+class ElifClause(ASTNode):
+    """Cláusula si-no-si (elif)"""
+    def __init__(self, condition, block, lineno=None, lexpos=None):
+        super().__init__(lineno, lexpos)
+        self.condition = condition  # Expression
+        self.block = block  # Statement
+    
+    def __repr__(self):
+        return f"ElifClause()"
+
+
 class IfStmt(ASTNode):
-    """Sentencia if / if-else"""
-    def __init__(self, condition, then_block, else_block=None, lineno=None, lexpos=None):
+    """Sentencia if / if-elif-else"""
+    def __init__(self, condition, then_block, elif_clauses=None, else_block=None, lineno=None, lexpos=None):
         super().__init__(lineno, lexpos)
         self.condition = condition  # Expression
         self.then_block = then_block  # Statement
+        self.elif_clauses = elif_clauses or []  # List of ElifClause
         self.else_block = else_block  # Statement o None
     
     def __repr__(self):
+        elif_count = len(self.elif_clauses)
         has_else = " with else" if self.else_block else ""
-        return f"IfStmt({has_else})"
+        elif_info = f" with {elif_count} elif" if elif_count > 0 else ""
+        return f"IfStmt({elif_info}{has_else})"
 
 
 class WhileStmt(ASTNode):

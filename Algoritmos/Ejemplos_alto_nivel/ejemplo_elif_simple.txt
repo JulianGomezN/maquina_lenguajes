@@ -1,0 +1,23 @@
+// Ejemplo 1: Clasificación de calificaciones con si-no-si
+// Este ejemplo demuestra el uso básico de si-no-si (elif)
+
+funcion vacio clasificar_calificacion() {
+    entero4 nota = 85;
+    
+    // Clasificación de calificaciones usando si-no-si
+    si (nota >= 90) {
+        imprimir("Calificación: A - Excelente");
+    } si_no_si (nota >= 80) {
+        imprimir("Calificación: B - Muy bueno");
+    } si_no_si (nota >= 70) {
+        imprimir("Calificación: C - Bueno");
+    } si_no_si (nota >= 60) {
+        imprimir("Calificación: D - Suficiente");
+    } si_no {
+        imprimir("Calificación: F - Reprobado");
+    }
+}
+
+funcion vacio principal() {
+    clasificar_calificacion();
+}

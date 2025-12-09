@@ -1,0 +1,211 @@
+/* ============================================================================
+   GRAMÁTICA DEL LENGUAJE EN NOTACIÓN EBNF
+   Analizador Sintáctico - Lenguaje de Alto Nivel
+   ============================================================================ */
+
+/* Programa principal */
+program ::= declaration_list
+
+declaration_list ::= declaration+
+
+declaration ::= function_decl | struct_decl | var_decl_stmt
+
+/* ============================================================================
+   DECLARACIONES DE FUNCIÓN
+   ============================================================================ */
+
+function_decl ::= normal_function_decl | extern_function_decl
+
+normal_function_decl ::= 'funcion' type ID '(' param_list? ')' block
+
+extern_function_decl ::= 'externo' 'funcion' type ID '(' param_list? ')' ';'
+
+param_list ::= param (',' param)*
+
+param ::= type ID
+
+/* ============================================================================
+   DECLARACIONES DE ESTRUCTURA
+   ============================================================================ */
+
+struct_decl ::= 'estructura' ID '{' member_list '}' ';'
+
+member_list ::= member+
+
+member ::= type ID ';'
+
+/* ============================================================================
+   DECLARACIONES DE VARIABLE
+   ============================================================================ */
+
+var_decl_stmt ::= var_decl ';'
+
+var_decl ::= type ID ('=' expression)?
+           | type_base array_dims ID ('=' expression)?
+           | 'constante' type ID '=' expression
+
+array_dims ::= '[' ENTERO ']'
+             | array_dims '[' ENTERO ']'
+
+/* ============================================================================
+   TIPOS
+   ============================================================================ */
+
+type ::= type_base
+       | type '*'
+
+type_base ::= 'vacio'
+            | 'entero2'
+            | 'entero4'
+            | 'entero8'
+            | 'caracter'
+            | 'cadena'
+            | 'flotante'
+            | 'doble'
+            | 'booleano'
+            | 'con_signo'
+            | 'sin_signo'
+            | ID
+
+/* ============================================================================
+   SENTENCIAS
+   ============================================================================ */
+
+statement ::= var_decl_stmt
+            | expr_stmt
+            | if_stmt
+            | while_stmt
+            | for_stmt
+            | return_stmt
+            | break_stmt
+            | continue_stmt
+            | print_stmt
+            | block
+
+block ::= '{' statement_list? '}'
+
+statement_list ::= statement+
+
+expr_stmt ::= expression? ';'
+
+/* ============================================================================
+   SENTENCIAS DE CONTROL DE FLUJO
+   ============================================================================ */
+
+if_stmt ::= 'si' '(' expression ')' statement ('si_no_si' '(' expression ')' statement)* ('si_no' statement)?
+            /* Nota: Máximo 10 cláusulas si_no_si permitidas */
+
+while_stmt ::= 'mientras' '(' expression ')' statement
+
+for_stmt ::= 'para' '(' for_init_opt ';' expr_opt ';' expr_opt ')' statement
+
+for_init_opt ::= var_decl | expression | /* empty */
+
+expr_opt ::= expression | /* empty */
+
+return_stmt ::= 'retornar' expression? ';'
+
+break_stmt ::= 'romper' ';'
+
+continue_stmt ::= 'continuar' ';'
+
+print_stmt ::= 'imprimir' '(' argument_list? ')' ';'
+
+/* ============================================================================
+   EXPRESIONES
+   ============================================================================ */
+
+expression ::= assignment
+
+assignment ::= logical (assignment_op assignment)?
+
+assignment_op ::= '=' | '+=' | '-=' | '*=' | '/=' | '%='
+
+logical ::= logical_or
+
+logical_or ::= logical_and ('||' logical_and)*
+
+logical_and ::= bitwise_or ('&&' bitwise_or)*
+
+bitwise_or ::= bitwise_xor ('|' bitwise_xor)*
+
+bitwise_xor ::= bitwise_and ('^' bitwise_and)*
+
+bitwise_and ::= equality ('&' equality)*
+
+equality ::= relational (equality_op relational)*
+
+equality_op ::= '==' | '!='
+
+relational ::= additive (relational_op additive)*
+
+relational_op ::= '<' | '<=' | '>' | '>='
+
+additive ::= multiplicative (additive_op multiplicative)*
+
+additive_op ::= '+' | '-'
+
+multiplicative ::= unary (multiplicative_op unary)*
+
+multiplicative_op ::= '*' | '/' | '%'
+
+unary ::= unary_op unary | postfix
+
+unary_op ::= '!' | '-' | '++' | '--' | '*' | '&'
+
+postfix ::= primary postfix_op*
+
+postfix_op ::= '++'
+             | '--'
+             | '.' ID
+             | '->' ID
+             | '[' expression ']'
+             | '(' argument_list? ')'
+
+argument_list ::= expression (',' expression)*
+
+primary ::= ID
+          | ENTERO
+          | FLOT
+          | CARACTER
+          | CADENA
+          | '(' expression ')'
+          | new_expr
+          | delete_expr
+
+new_expr ::= 'nuevo' type
+
+delete_expr ::= 'eliminar' unary
+
+/* ============================================================================
+   REGLAS LÉXICAS (TERMINALES)
+   ============================================================================ */
+
+ID ::= LETRA (LETRA | DIGITO | '_')*
+
+ENTERO ::= DECIMAL | HEXADECIMAL
+
+DECIMAL ::= DIGITO+
+
+HEXADECIMAL ::= '0' ('x' | 'X') HEX_DIGITO+
+
+FLOT ::= DIGITO+ '.' DIGITO* EXPONENTE?
+       | DIGITO* '.' DIGITO+ EXPONENTE?
+
+EXPONENTE ::= ('e' | 'E') ('+' | '-')? DIGITO+
+
+CARACTER ::= "'" (ESCAPE_CHAR | CHAR_NO_ESPECIAL) "'"
+
+CADENA ::= '"' (ESCAPE_CHAR | STRING_CHAR)* '"'
+
+ESCAPE_CHAR ::= '\\' ('n' | 't' | 'r' | '\\' | "'" | '"' | '0')
+
+LETRA ::= [a-zA-Z]
+
+DIGITO ::= [0-9]
+
+HEX_DIGITO ::= [0-9a-fA-F]
+
+CHAR_NO_ESPECIAL ::= #x20-#x26 | #x28-#x5B | #x5D-#x10FFFF  /* cualquier carácter excepto ' y \ */
+
+STRING_CHAR ::= #x20-#x21 | #x23-#x5B | #x5D-#x10FFFF  /* cualquier carácter excepto " y \ */

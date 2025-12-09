@@ -157,7 +157,7 @@ referenced by:
 ![var_decl](diagram/var_decl.png)
 
 ```
-var_decl ::= type ID ( '=' expression )?
+var_decl ::= ( type | type_base ( '[' ENTERO ']' )+ ) ID ( '=' expression )?
            | 'constante' type ID '=' expression
 ```
 
@@ -206,6 +206,7 @@ type_base
 referenced by:
 
 * type
+* var_decl
 
 **statement:**
 
@@ -221,6 +222,7 @@ statement
            | return_stmt
            | break_stmt
            | continue_stmt
+           | print_stmt
            | block
 ```
 
@@ -275,8 +277,10 @@ referenced by:
 ![if_stmt](diagram/if_stmt.png)
 
 ```
-if_stmt  ::= 'si' '(' expression ')' statement ( 'si_no' statement )?
+if_stmt  ::= 'si' '(' expression ')' statement ( 'si_no_si' '(' expression ')' statement )* ( 'si_no' statement )?
 ```
+
+Nota: Se permite un máximo de 10 cláusulas `si_no_si` consecutivas.
 
 referenced by:
 
@@ -365,6 +369,19 @@ referenced by:
 ```
 continue_stmt
          ::= 'continuar' ';'
+```
+
+referenced by:
+
+* statement
+
+**print_stmt:**
+
+![print_stmt](diagram/print_stmt.png)
+
+```
+print_stmt
+         ::= 'imprimir' '(' argument_list? ')' ';'
 ```
 
 referenced by:
@@ -668,6 +685,7 @@ argument_list
 referenced by:
 
 * postfix_op
+* print_stmt
 
 **primary:**
 
@@ -745,6 +763,7 @@ ENTERO   ::= DECIMAL
 referenced by:
 
 * primary
+* var_decl
 
 **DECIMAL:**
 

@@ -225,20 +225,46 @@ Existen herramientas especializadas que automatizan la generación de componente
 
 El preprocesador es una herramienta que actúa **antes** del compilador principal, transformando el código fuente mediante expansión textual de directivas especiales. El preprocesamiento es una fase de transformación sintáctica que no analiza la semántica del lenguaje.
 
+### Implementación
+
+El preprocesador está implementado en `Preprocessor.py` usando **PLY Lex** para análisis léxico de directivas.
+
+**Función principal**:
+```python
+preprocess(code: str, base_path: str = ".") -> str
+```
+
+**Tokens del preprocesador**:
+- `DIRECTIVE`: Palabras clave (define, include, ifdef, ifndef, endif)
+- `TEXT`: Texto normal del código fuente
+- `NEWLINE`: Saltos de línea (preservados para números de línea)
+- `HASH`: Símbolo `#` que inicia directivas
+
+**Directivas soportadas**:
+1. `#include "archivo"`: Inclusión de archivos (busca en `lib/`)
+2. `#define NOMBRE valor`: Macros simples
+3. `#define NOMBRE(a, b) expresion`: Macros con parámetros
+4. `#ifdef NOMBRE` / `#ifndef NOMBRE` / `#endif`: Compilación condicional
+
+**Estado interno**:
+- `macros = {}`: Diccionario global de definiciones
+- `conditional_stack = []`: Pila para anidamiento de condicionales
+
 ### 1.4.1 Directivas de Inclusión (#include)
 
 Permiten incorporar contenido de archivos externos, facilitando la modularización y reutilización de código:
 
-```assembly
-#include "lib/io.asm"     ; Incluir biblioteca de E/S
-#include "lib/math.asm"   ; Incluir funciones matemáticas
+```spl
+#include "io.asm"     ; Incluir biblioteca de E/S
+#include "math.asm"   ; Incluir funciones matemáticas
 ```
 
 **Funcionamiento**:
-1. El preprocesador busca el archivo en rutas configuradas (. , ./lib, etc.)
+1. El preprocesador busca el archivo en el directorio `lib/` del proyecto: `{base_path}/lib/{archivo}`
 2. Lee el contenido completo del archivo
 3. Inserta el contenido en el punto exacto de la directiva
 4. Procesa recursivamente los #include dentro del archivo incluido
+5. Previene inclusiones recursivas infinitas mediante tracking de archivos procesados
 
 **Ventajas**:
 - Separación de código en módulos reutilizables (bibliotecas)
@@ -249,38 +275,59 @@ Permiten incorporar contenido de archivos externos, facilitando la modularizaci�
 
 Permiten asignar nombres simbólicos a valores constantes:
 
-```assembly
-#define IO_BASE 0x100
+```spl
+#define PI 3.14159
 #define MAX_SIZE 1024
-#define PI 3.14159265359
+#define IO_BASE 0x100
 ```
 
-El preprocesador reemplaza todas las ocurrencias del identificador por su valor antes de la compilación.
+El preprocesador reemplaza todas las ocurrencias del identificador por su valor antes de la compilación. Las macros se almacenan en el diccionario global `macros` y se aplican mediante sustitución textual.
 
 ### 1.4.3 Macros con Parámetros
 
 Las macros permiten definir patrones de código que se expanden con sustitución de parámetros:
 
-```assembly
-.macro PRINT_REG reg, addr
-    SVIO reg, addr
-    SHOWIO addr
-.endmacro
-
-; Uso:
-PRINT_REG R01, 0x100
+```spl
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define CUADRADO(x) ((x) * (x))
 ```
 
-**Expansión** (lo que ve el ensamblador):
-```assembly
-SVIO R01, 0x100
-SHOWIO 0x100
+**Uso**:
+```spl
+entero4 mayor = MAX(10, 20);
+entero4 area = CUADRADO(lado);
 ```
 
-**Ventajas**:
+**Expansión** (lo que ve el compilador):
+```spl
+entero4 mayor = ((10) > (20) ? (10) : (20));
+entero4 area = ((lado) * (lado));
+```
+
+### 1.4.4 Compilación Condicional
+
+Permite incluir o excluir bloques de código según macros definidas:
+
+```spl
+#define DEBUG
+
+#ifdef DEBUG
+    imprimir("Modo debug activo");
+#endif
+
+#ifndef RELEASE
+    // Código solo en versión desarrollo
+#endif
+```
+
+El preprocesador usa una pila `conditional_stack` para manejar anidamiento de condicionales.
+
+**Ventajas del preprocesador**:
 - Reducción de código repetitivo
 - Abstracción de patrones comunes
 - Mantenibilidad (cambio único en la definición)
+- Configuración de compilación (debug/release)
+- Modularización mediante archivos de biblioteca
 
 ## 1.5 Análisis Léxico
 
@@ -791,6 +838,53 @@ Código Ensamblador (.asm)
    Ejecución del Programa
 ```
 
+### Integración y API del Compilador
+
+El pipeline se integra en el módulo `compiler.py` que expone la siguiente API:
+
+**Función principal**:
+```python
+compile_code(code: str, debug: bool = False) -> tuple[AST, bool, list[str]]
+```
+
+**Retorna una tupla con**:
+- `ast`: Nodo raíz `Program` del AST (o `None` si hay errores)
+- `success`: `bool` indicando si la compilación fue exitosa
+- `errors`: Lista de mensajes de error (vacía si `success=True`)
+
+**Fases ejecutadas**:
+1. **Preprocesamiento**: `preprocess(code, base_path=".")` → código expandido
+2. **Análisis Sintáctico**: `parse(code)` → AST o None
+3. **Análisis Semántico**: `SemanticAnalyzer().analyze(ast)` → bool + errores
+
+**Variante para archivos**:
+```python
+compile_file(filename: str, debug: bool = False) -> tuple[AST, bool, list[str]]
+```
+
+**Ejemplo de uso**:
+```python
+from compiler.compiler import compile_code
+
+code = """
+funcion entero4 main() {
+    imprimir("Hola Atlas");
+    retornar 0;
+}
+"""
+
+ast, success, errors = compile_code(code)
+if success:
+    print("Compilación exitosa")
+    # Proceder a generación de código
+else:
+    print("Errores encontrados:")
+    for error in errors:
+        print(f"  - {error}")
+```
+
+### Pipeline Completo - Integración
+
 Este pipeline completo integra:
 - **Teoría de lenguajes formales** (gramáticas, autómatas)
 - **Teoría de compiladores** (análisis léxico, sintáctico, semántico, generación de código)
@@ -1065,29 +1159,46 @@ member ::= type ID ';'
 var_decl_stmt ::= var_decl ';'
 
 var_decl ::= type ID ('=' expression)?
+           | type_base array_dims ID ('=' expression)?
            | 'constante' type ID '=' expression
+
+array_dims ::= '[' ENTERO ']'
+             | array_dims '[' ENTERO ']'
 ```
 
 ### Sistema de Tipos
 
 ```ebnf
-type ::= type_base '*'*
+type ::= type_base
+       | type '*'
 
 type_base ::= 'vacio'
-            | 'entero2' | 'entero4' | 'entero8'
-            | 'caracter' | 'cadena'
-            | 'flotante' | 'doble'
+            | 'entero2'
+            | 'entero4'
+            | 'entero8'
+            | 'caracter'
+            | 'cadena'
+            | 'flotante'
+            | 'doble'
             | 'booleano'
-            | 'con_signo' | 'sin_signo'
+            | 'con_signo'
+            | 'sin_signo'
             | ID
 ```
 
 ### Sentencias
 
 ```ebnf
-statement ::= var_decl_stmt | expr_stmt | if_stmt | while_stmt 
-            | for_stmt | return_stmt | break_stmt 
-            | continue_stmt | block
+statement ::= var_decl_stmt
+            | expr_stmt
+            | if_stmt
+            | while_stmt
+            | for_stmt
+            | return_stmt
+            | break_stmt
+            | continue_stmt
+            | print_stmt
+            | block
 
 block ::= '{' statement_list? '}'
 
@@ -1114,12 +1225,16 @@ return_stmt ::= 'retornar' expression? ';'
 break_stmt ::= 'romper' ';'
 
 continue_stmt ::= 'continuar' ';'
+
+print_stmt ::= 'imprimir' '(' argument_list? ')' ';'
 ```
 
-### Expresiones (con Precedencia)
+### Expresiones
 
 ```ebnf
-expression ::= logical (assignment_op logical)*
+expression ::= assignment
+
+assignment ::= logical (assignment_op assignment)?
 
 assignment_op ::= '=' | '+=' | '-=' | '*=' | '/=' | '%='
 
@@ -1157,13 +1272,23 @@ unary_op ::= '!' | '-' | '++' | '--' | '*' | '&'
 
 postfix ::= primary postfix_op*
 
-postfix_op ::= '++' | '--' | '.' ID | '->' ID 
-             | '[' expression ']' | '(' argument_list? ')'
+postfix_op ::= '++'
+             | '--'
+             | '.' ID
+             | '->' ID
+             | '[' expression ']'
+             | '(' argument_list? ')'
 
 argument_list ::= expression (',' expression)*
 
-primary ::= ID | ENTERO | FLOT | CARACTER | CADENA 
-          | '(' expression ')' | new_expr | delete_expr
+primary ::= ID
+          | ENTERO
+          | FLOT
+          | CARACTER
+          | CADENA
+          | '(' expression ')'
+          | new_expr
+          | delete_expr
 
 new_expr ::= 'nuevo' type
 
@@ -1197,18 +1322,23 @@ LETRA ::= [a-zA-Z]
 DIGITO ::= [0-9]
 
 HEX_DIGITO ::= [0-9a-fA-F]
+
+CHAR_NO_ESPECIAL ::= #x20-#x26 | #x28-#x5B | #x5D-#x10FFFF  /* cualquier carácter excepto ' y \ */
+
+STRING_CHAR ::= #x20-#x21 | #x23-#x5B | #x5D-#x10FFFF  /* cualquier carácter excepto " y \ */
 ```
 
 ### Palabras Reservadas
 
-El lenguaje SPL reconoce las siguientes palabras reservadas:
+El lenguaje SPL reconoce las siguientes **25 palabras reservadas**:
 
 | Categoría | Palabras |
 |-----------|----------|
-| **Control de flujo** | `si`, `si_no`, `mientras`, `para`, `retornar`, `romper`, `continuar` |
-| **Declaraciones** | `funcion`, `estructura`, `externo`, `constante` |
-| **Tipos primitivos** | `vacio`, `entero2`, `entero4`, `entero8`, `flotante`, `doble`, `caracter`, `cadena`, `booleano`, `con_signo`, `sin_signo` |
-| **Gestión de memoria** | `nuevo`, `eliminar` |
+| **Control de flujo** (7) | `si`, `si_no`, `mientras`, `para`, `retornar`, `romper`, `continuar` |
+| **Declaraciones** (4) | `funcion`, `estructura`, `externo`, `constante` |
+| **Tipos primitivos** (11) | `vacio`, `entero2`, `entero4`, `entero8`, `flotante`, `doble`, `caracter`, `cadena`, `booleano`, `con_signo`, `sin_signo` |
+| **Gestión de memoria** (2) | `nuevo`, `eliminar` |
+| **Entrada/Salida** (1) | `imprimir` |
 
 ## 2.5 Diagramas de Sintaxis (BottleCaps)
 
@@ -1329,7 +1459,7 @@ var_decl_stmt ::= var_decl ';'
 ![var_decl](images/2_5_diagrams/var_decl.png)
 
 ```ebnf
-var_decl ::= type ID ( '=' expression )?
+var_decl ::= ( type | type_base ( '[' ENTERO ']' )+ ) ID ( '=' expression )?
            | 'constante' type ID '=' expression
 ```
 
@@ -1361,7 +1491,8 @@ type_base ::= 'vacio' | 'entero2' | 'entero4' | 'entero8'
 
 ```ebnf
 statement ::= var_decl_stmt | expr_stmt | if_stmt | while_stmt 
-            | for_stmt | return_stmt | break_stmt | continue_stmt | block
+            | for_stmt | return_stmt | break_stmt | continue_stmt 
+            | print_stmt | block
 ```
 
 **17. block:**
@@ -1454,9 +1585,17 @@ break_stmt ::= 'romper' ';'
 continue_stmt ::= 'continuar' ';'
 ```
 
+**28. print_stmt:**
+
+![print_stmt](images/2_5_diagrams/print_stmt.png)
+
+```ebnf
+print_stmt ::= 'imprimir' '(' argument_list? ')' ';'
+```
+
 ### Expresiones
 
-**28. expression:**
+**29. expression:**
 
 ![expression](images/2_5_diagrams/expression.png)
 
@@ -1464,7 +1603,7 @@ continue_stmt ::= 'continuar' ';'
 expression ::= logical ( assignment_op logical )*
 ```
 
-**29. assignment_op:**
+**30. assignment_op:**
 
 ![assignment_op](images/2_5_diagrams/assignment_op.png)
 
@@ -1472,7 +1611,7 @@ expression ::= logical ( assignment_op logical )*
 assignment_op ::= '=' | '+=' | '-=' | '*=' | '/=' | '%='
 ```
 
-**30. logical:**
+**31. logical:**
 
 ![logical](images/2_5_diagrams/logical.png)
 
@@ -1480,7 +1619,7 @@ assignment_op ::= '=' | '+=' | '-=' | '*=' | '/=' | '%='
 logical ::= logical_or
 ```
 
-**31. logical_or:**
+**32. logical_or:**
 
 ![logical_or](images/2_5_diagrams/logical_or.png)
 
@@ -1488,7 +1627,7 @@ logical ::= logical_or
 logical_or ::= logical_and ( '||' logical_and )*
 ```
 
-**32. logical_and:**
+**33. logical_and:**
 
 ![logical_and](images/2_5_diagrams/logical_and.png)
 
@@ -1496,7 +1635,7 @@ logical_or ::= logical_and ( '||' logical_and )*
 logical_and ::= bitwise_or ( '&&' bitwise_or )*
 ```
 
-**33. bitwise_or:**
+**34. bitwise_or:**
 
 ![bitwise_or](images/2_5_diagrams/bitwise_or.png)
 
@@ -1504,7 +1643,7 @@ logical_and ::= bitwise_or ( '&&' bitwise_or )*
 bitwise_or ::= bitwise_xor ( '|' bitwise_xor )*
 ```
 
-**34. bitwise_xor:**
+**35. bitwise_xor:**
 
 ![bitwise_xor](images/2_5_diagrams/bitwise_xor.png)
 
@@ -1512,7 +1651,7 @@ bitwise_or ::= bitwise_xor ( '|' bitwise_xor )*
 bitwise_xor ::= bitwise_and ( '^' bitwise_and )*
 ```
 
-**35. bitwise_and:**
+**36. bitwise_and:**
 
 ![bitwise_and](images/2_5_diagrams/bitwise_and.png)
 
@@ -1520,7 +1659,7 @@ bitwise_xor ::= bitwise_and ( '^' bitwise_and )*
 bitwise_and ::= equality ( '&' equality )*
 ```
 
-**36. equality:**
+**37. equality:**
 
 ![equality](images/2_5_diagrams/equality.png)
 
@@ -1528,7 +1667,7 @@ bitwise_and ::= equality ( '&' equality )*
 equality ::= relational ( equality_op relational )*
 ```
 
-**37. equality_op:**
+**38. equality_op:**
 
 ![equality_op](images/2_5_diagrams/equality_op.png)
 
@@ -1536,7 +1675,7 @@ equality ::= relational ( equality_op relational )*
 equality_op ::= '==' | '!='
 ```
 
-**38. relational:**
+**39. relational:**
 
 ![relational](images/2_5_diagrams/relational.png)
 
@@ -1544,7 +1683,7 @@ equality_op ::= '==' | '!='
 relational ::= additive ( relational_op additive )*
 ```
 
-**39. relational_op:**
+**40. relational_op:**
 
 ![relational_op](images/2_5_diagrams/relational_op.png)
 
@@ -1552,7 +1691,7 @@ relational ::= additive ( relational_op additive )*
 relational_op ::= '<' | '<=' | '>' | '>='
 ```
 
-**40. additive:**
+**41. additive:**
 
 ![additive](images/2_5_diagrams/additive.png)
 
@@ -1560,7 +1699,7 @@ relational_op ::= '<' | '<=' | '>' | '>='
 additive ::= multiplicative ( additive_op multiplicative )*
 ```
 
-**41. additive_op:**
+**42. additive_op:**
 
 ![additive_op](images/2_5_diagrams/additive_op.png)
 
@@ -1568,7 +1707,7 @@ additive ::= multiplicative ( additive_op multiplicative )*
 additive_op ::= '+' | '-'
 ```
 
-**42. multiplicative:**
+**43. multiplicative:**
 
 ![multiplicative](images/2_5_diagrams/multiplicative.png)
 
@@ -1576,7 +1715,7 @@ additive_op ::= '+' | '-'
 multiplicative ::= unary ( multiplicative_op unary )*
 ```
 
-**43. multiplicative_op:**
+**44. multiplicative_op:**
 
 ![multiplicative_op](images/2_5_diagrams/multiplicative_op.png)
 
@@ -1584,7 +1723,7 @@ multiplicative ::= unary ( multiplicative_op unary )*
 multiplicative_op ::= '*' | '/' | '%'
 ```
 
-**44. unary:**
+**45. unary:**
 
 ![unary](images/2_5_diagrams/unary.png)
 
@@ -1592,7 +1731,7 @@ multiplicative_op ::= '*' | '/' | '%'
 unary ::= unary_op* postfix
 ```
 
-**45. unary_op:**
+**46. unary_op:**
 
 ![unary_op](images/2_5_diagrams/unary_op.png)
 
@@ -1600,7 +1739,7 @@ unary ::= unary_op* postfix
 unary_op ::= '!' | '-' | '++' | '--' | '*' | '&'
 ```
 
-**46. postfix:**
+**47. postfix:**
 
 ![postfix](images/2_5_diagrams/postfix.png)
 
@@ -1608,7 +1747,7 @@ unary_op ::= '!' | '-' | '++' | '--' | '*' | '&'
 postfix ::= primary postfix_op*
 ```
 
-**47. postfix_op:**
+**48. postfix_op:**
 
 ![postfix_op](images/2_5_diagrams/postfix_op.png)
 
@@ -1617,7 +1756,7 @@ postfix_op ::= '++' | '--' | ( '.' | '->' ) ID
              | '[' expression ']' | '(' argument_list? ')'
 ```
 
-**48. argument_list:**
+**49. argument_list:**
 
 ![argument_list](images/2_5_diagrams/argument_list.png)
 
@@ -1625,7 +1764,7 @@ postfix_op ::= '++' | '--' | ( '.' | '->' ) ID
 argument_list ::= expression ( ',' expression )*
 ```
 
-**49. primary:**
+**50. primary:**
 
 ![primary](images/2_5_diagrams/primary.png)
 
@@ -1636,7 +1775,7 @@ primary ::= ID | ENTERO | FLOT | CARACTER | CADENA
 
 ### Gestión de Memoria
 
-**50. new_expr:**
+**51. new_expr:**
 
 ![new_expr](images/2_5_diagrams/new_expr.png)
 
@@ -1644,7 +1783,7 @@ primary ::= ID | ENTERO | FLOT | CARACTER | CADENA
 new_expr ::= 'nuevo' type
 ```
 
-**51. delete_expr:**
+**52. delete_expr:**
 
 ![delete_expr](images/2_5_diagrams/delete_expr.png)
 
@@ -1654,7 +1793,7 @@ delete_expr ::= 'eliminar' unary
 
 ### Reglas Léxicas (Terminales)
 
-**52. ID:**
+**53. ID:**
 
 ![ID](images/2_5_diagrams/ID.png)
 
@@ -1662,7 +1801,7 @@ delete_expr ::= 'eliminar' unary
 ID ::= LETRA ( LETRA | DIGITO | '_' )*
 ```
 
-**53. ENTERO:**
+**54. ENTERO:**
 
 ![ENTERO](images/2_5_diagrams/ENTERO.png)
 
@@ -1670,7 +1809,7 @@ ID ::= LETRA ( LETRA | DIGITO | '_' )*
 ENTERO ::= DECIMAL | HEXADECIMAL
 ```
 
-**54. DECIMAL:**
+**55. DECIMAL:**
 
 ![DECIMAL](images/2_5_diagrams/DECIMAL.png)
 
@@ -1678,7 +1817,7 @@ ENTERO ::= DECIMAL | HEXADECIMAL
 DECIMAL ::= DIGITO+
 ```
 
-**55. HEXADECIMAL:**
+**56. HEXADECIMAL:**
 
 ![HEXADECIMAL](images/2_5_diagrams/HEXADECIMAL.png)
 
@@ -1686,7 +1825,7 @@ DECIMAL ::= DIGITO+
 HEXADECIMAL ::= '0' ( 'x' | 'X' ) HEX_DIGITO+
 ```
 
-**56. FLOT:**
+**57. FLOT:**
 
 ![FLOT](images/2_5_diagrams/FLOT.png)
 
@@ -1694,7 +1833,7 @@ HEXADECIMAL ::= '0' ( 'x' | 'X' ) HEX_DIGITO+
 FLOT ::= DIGITO* ( DIGITO '.' | '.' DIGITO ) DIGITO* EXPONENTE?
 ```
 
-**57. EXPONENTE:**
+**58. EXPONENTE:**
 
 ![EXPONENTE](images/2_5_diagrams/EXPONENTE.png)
 
@@ -1702,7 +1841,7 @@ FLOT ::= DIGITO* ( DIGITO '.' | '.' DIGITO ) DIGITO* EXPONENTE?
 EXPONENTE ::= ( 'e' | 'E' ) ( '+' | '-' )? DIGITO+
 ```
 
-**58. CARACTER:**
+**59. CARACTER:**
 
 ![CARACTER](images/2_5_diagrams/CARACTER.png)
 
@@ -1710,7 +1849,7 @@ EXPONENTE ::= ( 'e' | 'E' ) ( '+' | '-' )? DIGITO+
 CARACTER ::= "'" ( ESCAPE_CHAR | CHAR_NO_ESPECIAL ) "'"
 ```
 
-**59. CADENA:**
+**60. CADENA:**
 
 ![CADENA](images/2_5_diagrams/CADENA.png)
 
@@ -1718,7 +1857,7 @@ CARACTER ::= "'" ( ESCAPE_CHAR | CHAR_NO_ESPECIAL ) "'"
 CADENA ::= '"' ( ESCAPE_CHAR | STRING_CHAR )* '"'
 ```
 
-**60. ESCAPE_CHAR:**
+**61. ESCAPE_CHAR:**
 
 ![ESCAPE_CHAR](images/2_5_diagrams/ESCAPE_CHAR.png)
 
@@ -1726,7 +1865,7 @@ CADENA ::= '"' ( ESCAPE_CHAR | STRING_CHAR )* '"'
 ESCAPE_CHAR ::= '\\' ( 'n' | 't' | 'r' | '\\' | "'" | '"' | '0' )
 ```
 
-**61. LETRA:**
+**62. LETRA:**
 
 ![LETRA](images/2_5_diagrams/LETRA.png)
 
@@ -1734,7 +1873,7 @@ ESCAPE_CHAR ::= '\\' ( 'n' | 't' | 'r' | '\\' | "'" | '"' | '0' )
 LETRA ::= [a-zA-Z]
 ```
 
-**62. DIGITO:**
+**63. DIGITO:**
 
 ![DIGITO](images/2_5_diagrams/DIGITO.png)
 
@@ -1742,7 +1881,7 @@ LETRA ::= [a-zA-Z]
 DIGITO ::= [0-9]
 ```
 
-**63. HEX_DIGITO:**
+**64. HEX_DIGITO:**
 
 ![HEX_DIGITO](images/2_5_diagrams/HEX_DIGITO.png)
 
@@ -1750,7 +1889,7 @@ DIGITO ::= [0-9]
 HEX_DIGITO ::= [0-9a-fA-F]
 ```
 
-**64. CHAR_NO_ESPECIAL:**
+**65. CHAR_NO_ESPECIAL:**
 
 ![CHAR_NO_ESPECIAL](images/2_5_diagrams/CHAR_NO_ESPECIAL.png)
 
@@ -1894,20 +2033,28 @@ Esta sección describe en lenguaje natural qué significa cada producción de la
 - **Interpretación**: Sentencia de declaración de variable (envuelve var_decl).
 - **Acción Semántica**: Procesar declaración de variable y terminar con punto y coma
 
-**13. `var_decl ::= type ID ('=' expression)?`**
+**13. `var_decl ::= ( type | type_base ( '[' ENTERO ']' )+ ) ID ( '=' expression )? | 'constante' type ID '=' expression`**
 
-- **Interpretación**: Declaración de variable con inicialización opcional.
+- **Interpretación**: Declaración de variable simple, array multidimensional o constante, con inicialización opcional.
 - **Acción Semántica**:
   1. Verificar que el tipo sea válido
   2. Verificar que la variable no esté ya declarada en el scope actual
-  3. Si hay inicialización:
+  3. Para arrays multidimensionales:
+     - Procesar las dimensiones `[d1][d2]...[dn]` para obtener lista de tamaños
+     - Calcular tamaño total: elemento_size × d1 × d2 × ... × dn
+     - Almacenamiento contiguo row-major (fila por fila)
+  4. Para constantes:
+     - Evaluar expresión en tiempo de compilación
+     - Almacenar valor constante en tabla de símbolos
+  5. Si hay inicialización:
      - Evaluar expresión de inicialización
      - Verificar compatibilidad de tipos (type y tipo de expression)
      - Puede requerir conversión implícita
-  4. Agregar símbolo a tabla de símbolos con offset asignado
-  5. **Generación de código**:
+  6. Agregar símbolo a tabla de símbolos con offset asignado
+  7. **Generación de código**:
      - Global: reservar espacio en sección .data
      - Local: asignar offset negativo desde BP, inicializar en prólogo si es necesario
+     - Arrays: reservar espacio contiguo (tamaño_total bytes)
 
 **14. `type ::= type_base ('*')*`**
 
@@ -1917,12 +2064,12 @@ Esta sección describe en lenguaje natural qué significa cada producción de la
   2. Por cada `*`, incrementar nivel de puntero
   3. Tamaño final siempre 8 bytes si es puntero
 
-**15. `type_base ::= 'entero' | 'flotante' | 'doble' | 'caracter' | 'cadena' | 'vacio' | ID`**
+**15. `type_base ::= 'entero2' | 'entero4' | 'entero8' | 'flotante' | 'doble' | 'caracter' | 'cadena' | 'booleano' | 'vacio' | ID`**
 
 - **Interpretación**: Tipos primitivos y definidos por usuario.
 - **Acción Semántica**:
   1. Validar tipo conocido
-  2. Asignar tamaño (entero/flotante/doble/punteros: 8 bytes, caracter: 1 byte, vacio: 0 bytes)
+  2. Asignar tamaño (entero2: 2 bytes, entero4: 4 bytes, entero8/doble/punteros: 8 bytes, flotante: 4 bytes, caracter/booleano: 1 byte, cadena: puntero 8 bytes, vacio: 0 bytes)
   3. Para ID, verificar estructura declarada
 
 **16. `statement ::= block | var_decl_stmt | if_stmt | while_stmt | for_stmt | return_stmt | break_stmt | continue_stmt | expr_stmt`**
@@ -2036,7 +2183,31 @@ Esta sección describe en lenguaje natural qué significa cada producción de la
 - **Interpretación**: Siguiente iteración.
 - **Acción Semántica**: Saltar a `.loop_continue`
 
-**28. `expression ::= logical (assignment_op logical)*`**
+**28. `print_stmt ::= 'imprimir' '(' argument_list? ')' ';'`**
+
+- **Interpretación**: Sentencia de impresión para mostrar valores en la salida estándar.
+- **Acción Semántica**:
+  1. Procesar argument_list (lista opcional de expresiones)
+  2. Evaluar cada expresión en orden
+  3. Para cada argumento:
+     - Determinar tipo (entero, flotante, cadena, carácter)
+     - Invocar función de impresión correspondiente del runtime
+  4. Formato de salida: valores separados por espacios
+  5. **Generación de código**:
+     ```asm
+     ; Para cada argumento:
+     ; Evaluar expresión → resultado en Rtemp
+     SVIO Rtemp, IO_ADDR      ; Guardar en dispositivo I/O
+     SHOWIO IO_ADDR           ; Mostrar valor
+     ```
+  6. Casos especiales:
+     - Cadenas: imprimir como texto
+     - Enteros: conversión a string decimal
+     - Flotantes: conversión con precisión por defecto
+     - Arrays: imprimir múltiples elementos separados por espacios
+  7. Ejemplo: `imprimir(a, b, c);` → salida: "1 2 3"
+
+**29. `expression ::= logical (assignment_op logical)*`**
 
 - **Interpretación**: Una expresión puede consistir en una secuencia de operaciones lógicas con operadores de asignación intermedios (asociatividad izquierda iterativa).
 - **Acción Semántica**: 
@@ -2051,7 +2222,7 @@ Esta sección describe en lenguaje natural qué significa cada producción de la
      - Calcular dirección del lvalue
      - Almacenar valor en la dirección
 
-**29. `assignment_op ::= '=' | '+=' | '-=' | '*=' | '/=' | '%='`**
+**30. `assignment_op ::= '=' | '+=' | '-=' | '*=' | '/=' | '%='`**
 
 - **Interpretación**: Operadores de asignación simple y compuesta.
 - **Acción Semántica**: 
@@ -2060,12 +2231,12 @@ Esta sección describe en lenguaje natural qué significa cada producción de la
   - Validar que ambos operandos sean compatibles
   - El resultado de la asignación es el valor asignado
 
-**30. `logical ::= logical_or`**
+**31. `logical ::= logical_or`**
 
 - **Interpretación**: Expresiones lógicas.
 - **Acción Semántica**: Delegar a logical_or
 
-**31. `logical_or ::= logical_and ('||' logical_and)*`**
+**32. `logical_or ::= logical_and ('||' logical_and)*`**
 
 - **Interpretación**: OR lógico con cortocircuito.
 - **Acción Semántica**:
@@ -2084,7 +2255,7 @@ Esta sección describe en lenguaje natural qué significa cada producción de la
      .or_end:
      ```
 
-**32. `logical_and ::= bitwise_or ('&&' bitwise_or)*`**
+**33. `logical_and ::= bitwise_or ('&&' bitwise_or)*`**
 
 - **Interpretación**: AND lógico con cortocircuito.
 - **Acción Semántica**: Si uno es false, retornar false sin evaluar resto
@@ -2094,17 +2265,17 @@ Esta sección describe en lenguaje natural qué significa cada producción de la
 - **Interpretación**: OR bit a bit.
 - **Acción Semántica**: Operandos enteros, `OR8 Rdest, Rleft, Rright`
 
-**34. `bitwise_xor ::= bitwise_and ('^' bitwise_and)*`**
+**35. `bitwise_xor ::= bitwise_and ('^' bitwise_and)*`**
 
 - **Interpretación**: XOR bit a bit.
 - **Acción Semántica**: `XOR8 Rdest, Rleft, Rright`
 
-**35. `bitwise_and ::= equality ('&' equality)*`**
+**36. `bitwise_and ::= equality ('&' equality)*`**
 
 - **Interpretación**: AND bit a bit.
 - **Acción Semántica**: `AND8 Rdest, Rleft, Rright`
 
-**36. `equality ::= relational (equality_op relational)*`**
+**37. `equality ::= relational (equality_op relational)*`**
 
 - **Interpretación**: Comparación de igualdad/desigualdad.
 - **Acción Semántica**:
@@ -2120,7 +2291,7 @@ Esta sección describe en lenguaje natural qué significa cada producción de la
 - **Interpretación**: Operadores de igualdad.
 - **Acción Semántica**: Seleccionar SETE o SETNE
 
-**37. `relational ::= additive (relational_op additive)*`**
+**39. `relational ::= additive (relational_op additive)*`**
 
 - **Interpretación**: Comparaciones de orden.
 - **Acción Semántica**:
@@ -2132,12 +2303,12 @@ Esta sección describe en lenguaje natural qué significa cada producción de la
      ; o FCMP8/FSETL8 para flotantes
      ```
 
-**39. `relational_op ::= '<' | '<=' | '>' | '>='`**
+**40. `relational_op ::= '<' | '<=' | '>' | '>='`**
 
 - **Interpretación**: Operadores relacionales.
 - **Acción Semántica**: Seleccionar instrucción de comparación
 
-**39. `additive ::= multiplicative (additive_op multiplicative)*`**
+**41. `additive ::= multiplicative (additive_op multiplicative)*`**
 
 - **Interpretación**: Suma y resta.
 - **Acción Semántica**:
@@ -2149,12 +2320,12 @@ Esta sección describe en lenguaje natural qué significa cada producción de la
      FADDD8 Rdest, Rleft, Rright    ; flotantes double
      ```
 
-**41. `additive_op ::= '+' | '-'`**
+**42. `additive_op ::= '+' | '-'`**
 
 - **Interpretación**: Operadores de suma y resta.
 - **Acción Semántica**: Seleccionar ADD/SUB o FADD/FSUB
 
-**42. `multiplicative ::= unary (multiplicative_op unary)*`**
+**43. `multiplicative ::= unary (multiplicative_op unary)*`**
 
 - **Interpretación**: Multiplicación, división y módulo.
 - **Acción Semántica**:
@@ -2168,17 +2339,17 @@ Esta sección describe en lenguaje natural qué significa cada producción de la
      MOD8 Rdest, Rleft, Rright      ; módulo (solo enteros)
      ```
 
-**43. `multiplicative_op ::= '*' | '/' | '%'`**
+**44. `multiplicative_op ::= '*' | '/' | '%'`**
 
 - **Interpretación**: Operadores multiplicativos.
 - **Acción Semántica**: Para %, verificar que sean enteros
 
-**44. `unary ::= unary_op unary | postfix`**
+**45. `unary ::= unary_op unary | postfix`**
 
 - **Interpretación**: Operadores unarios o expresión postfija.
 - **Acción Semántica**: Aplicar operador unario recursivamente
 
-**45. `unary_op ::= '!' | '-' | '++' | '--' | '*' | '&'`**
+**46. `unary_op ::= '!' | '-' | '++' | '--' | '*' | '&'`**
 
 - **Interpretación**: Operadores unarios.
 - **Acción Semántica**:
@@ -2188,12 +2359,12 @@ Esta sección describe en lenguaje natural qué significa cada producción de la
   - `*`: Dereferencia
   - `&`: Dirección
 
-**46. `postfix ::= primary postfix_op*`**
+**47. `postfix ::= primary postfix_op*`**
 
 - **Interpretación**: Expresión primaria con operadores postfijos.
 - **Acción Semántica**: Evaluar primaria y aplicar postfijos
 
-**47. `postfix_op ::= '++' | '--' | '.' ID | '->' ID | '[' expression ']' | '(' argument_list? ')'`**
+**48. `postfix_op ::= '++' | '--' | '.' ID | '->' ID | '[' expression ']' | '(' argument_list? ')'`**
 
 - **Interpretación**: Operadores postfijos.
 - **Acción Semántica**:
@@ -2203,12 +2374,12 @@ Esta sección describe en lenguaje natural qué significa cada producción de la
   - `[]`: Subíndice (aritmética de punteros)
   - `()`: Llamada a función
 
-**48. `argument_list ::= expression (',' expression)*`**
+**49. `argument_list ::= expression (',' expression)*`**
 
 - **Interpretación**: Lista de argumentos.
 - **Acción Semántica**: Verificar número y tipos con firma de función
 
-**49. `primary ::= ID | ENTERO | FLOT | CARACTER | CADENA | '(' expression ')'`**
+**50. `primary ::= ID | ENTERO | FLOT | CARACTER | CADENA | '(' expression ')'`**
 
 - **Interpretación**: Expresiones primarias.
 - **Acción Semántica**:
@@ -2219,7 +2390,7 @@ Esta sección describe en lenguaje natural qué significa cada producción de la
   - CADENA: Puntero a .rodata
   - (expression): Tipo de subexpresión
 
-**50. `new_expr ::= 'nuevo' type`**
+**51. `new_expr ::= 'nuevo' type`**
 
 - **Interpretación**: Reserva memoria dinámica.
 - **Acción Semántica**:
@@ -2231,7 +2402,7 @@ Esta sección describe en lenguaje natural qué significa cada producción de la
      CALL __heap_alloc
      ```
 
-**51. `delete_expr ::= 'eliminar' unary`**
+**52. `delete_expr ::= 'eliminar' unary`**
 
 - **Interpretación**: Libera memoria dinámica.
 - **Acción Semántica**:
@@ -2241,12 +2412,12 @@ Esta sección describe en lenguaje natural qué significa cada producción de la
      CALL __heap_free
      ```
 
-**52. `ID ::= LETRA (LETRA | DIGITO | '_')*`**
+**53. `ID ::= LETRA (LETRA | DIGITO | '_')*`**
 
 - **Interpretación**: Identificador.
 - **Acción Semántica**: Buscar en tabla de símbolos, verificar declaración
 
-**53. `ENTERO ::= DECIMAL | HEXADECIMAL`**
+**54. `ENTERO ::= DECIMAL | HEXADECIMAL`**
 
 - **Interpretación**: Literal entero.
 - **Acción Semántica**:
@@ -2254,17 +2425,17 @@ Esta sección describe en lenguaje natural qué significa cada producción de la
   2. Inferir tipo según rango (entero2/entero4/entero8)
   3. **Generación de código**: `LOADV8 Rdest, valor`
 
-**54. `DECIMAL ::= DIGITO+`**
+**55. `DECIMAL ::= DIGITO+`**
 
 - **Interpretación**: Número decimal.
 - **Acción Semántica**: Parsear dígitos, convertir a entero
 
-**55. `HEXADECIMAL ::= '0' ('x' | 'X') HEX_DIGITO+`**
+**56. `HEXADECIMAL ::= '0' ('x' | 'X') HEX_DIGITO+`**
 
 - **Interpretación**: Número hexadecimal (0xFF, 0x1A2B).
 - **Acción Semántica**: Parsear dígitos hexadecimales
 
-**56. `FLOT ::= DIGITO+ '.' DIGITO* EXPONENTE? | DIGITO* '.' DIGITO+ EXPONENTE?`**
+**57. `FLOT ::= DIGITO+ '.' DIGITO* EXPONENTE? | DIGITO* '.' DIGITO+ EXPONENTE?`**
 
 - **Interpretación**: Literal de punto flotante.
 - **Acción Semántica**:
@@ -2276,17 +2447,17 @@ Esta sección describe en lenguaje natural qué significa cada producción de la
      ```
   4. **Soporte completo IEEE 754**
 
-**57. `EXPONENTE ::= ('e' | 'E') ('+' | '-')? DIGITO+`**
+**58. `EXPONENTE ::= ('e' | 'E') ('+' | '-')? DIGITO+`**
 
 - **Interpretación**: Notación científica (1.5e10, 3E-5).
 - **Acción Semántica**: Calcular valor con exponente
 
-**58. `CARACTER ::= "'" (ESCAPE_CHAR | CHAR_NO_ESPECIAL) "'"`**
+**59. `CARACTER ::= "'" (ESCAPE_CHAR | CHAR_NO_ESPECIAL) "'"`**
 
 - **Interpretación**: Literal de carácter (1 byte).
 - **Acción Semántica**: `LOADV8 Rdest, codigo_ascii`
 
-**59. `CADENA ::= '"' (ESCAPE_CHAR | STRING_CHAR)* '"'`**
+**60. `CADENA ::= '"' (ESCAPE_CHAR | STRING_CHAR)* '"'`**
 
 - **Interpretación**: Literal de cadena.
 - **Acción Semántica**:
@@ -2300,32 +2471,32 @@ Esta sección describe en lenguaje natural qué significa cada producción de la
      LEA8 Rdest, str_label
      ```
 
-**60. `ESCAPE_CHAR ::= '\\' ('n' | 't' | 'r' | '\\' | "'" | '"' | '0')`**
+**61. `ESCAPE_CHAR ::= '\\' ('n' | 't' | 'r' | '\\' | "'" | '"' | '0')`**
 
 - **Interpretación**: Secuencias de escape.
 - **Acción Semántica**: Mapear a ASCII (`\n`→10, `\t`→9, `\r`→13, `\\`→92, `\'`→39, `\"`→34, `\0`→0)
 
-**61. `LETRA ::= [a-zA-Z]`**
+**62. `LETRA ::= [a-zA-Z]`**
 
 - **Interpretación**: Letra del alfabeto.
 - **Acción Semántica**: Reconocimiento léxico
 
-**62. `DIGITO ::= [0-9]`**
+**63. `DIGITO ::= [0-9]`**
 
 - **Interpretación**: Dígito decimal.
 - **Acción Semántica**: Reconocimiento léxico
 
-**63. `HEX_DIGITO ::= [0-9a-fA-F]`**
+**64. `HEX_DIGITO ::= [0-9a-fA-F]`**
 
 - **Interpretación**: Dígito hexadecimal.
 - **Acción Semántica**: Reconocimiento léxico
 
-**64. `CHAR_NO_ESPECIAL ::= [cualquier carácter excepto '\', "'", newline]`**
+**65. `CHAR_NO_ESPECIAL ::= [cualquier carácter excepto '\', "'", newline]`**
 
 - **Interpretación**: Carácter válido en literal de carácter.
 - **Acción Semántica**: Reconocimiento léxico
 
-**65. `STRING_CHAR ::= [cualquier carácter excepto '\', '"', newline]`**
+**66. `STRING_CHAR ::= [cualquier carácter excepto '\', '"', newline]`**
 
 - **Interpretación**: Carácter válido en literal de cadena.
 - **Acción Semántica**: Reconocimiento léxico
@@ -2348,7 +2519,7 @@ El compilador SPL proporciona **soporte completo para aritmética de punto flota
    - `FNEG8`, `FNEGD8` (negación)
 7. **Funciones matemáticas**: Soporte para llamadas a biblioteca de funciones trascendentales (sin, cos, sqrt, etc.)
 
-**Ejemplo de generación de código con flotantes:**
+**Ejemplo 1: Generación de código con flotantes:**
 
 ```spl
 // Código SPL
@@ -2381,6 +2552,187 @@ calcular_promedio:
     MOV8 R15, R14          ; Restaurar SP
     POP8 R14               ; Restaurar BP
     RET8
+```
+
+**Ejemplo 2: Operaciones con Matrices (Arrays Multidimensionales):**
+
+```spl
+// Código SPL - Suma de matrices 2×2
+funcion vacio sumar_matrices() {
+    // Declarar matrices usando sintaxis natural con corchetes
+    entero4[2][2] matriz_a;
+    entero4[2][2] matriz_b;
+    entero4[2][2] resultado;
+    
+    // Inicializar matriz_a
+    matriz_a[0][0] = 1;
+    matriz_a[0][1] = 2;
+    matriz_a[1][0] = 3;
+    matriz_a[1][1] = 4;
+    
+    // Inicializar matriz_b
+    matriz_b[0][0] = 5;
+    matriz_b[0][1] = 6;
+    matriz_b[1][0] = 7;
+    matriz_b[1][1] = 8;
+    
+    // Sumar matrices elemento por elemento
+    entero4 i = 0;
+    mientras (i < 2) {
+        entero4 j = 0;
+        mientras (j < 2) {
+            resultado[i][j] = matriz_a[i][j] + matriz_b[i][j];
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    
+    // Imprimir resultado (debería mostrar: 6 8 10 12)
+    imprimir(resultado[0][0], resultado[0][1], 
+             resultado[1][0], resultado[1][1]);
+    
+    retornar;
+}
+```
+
+**Código ensamblador generado:**
+
+```asm
+sumar_matrices:
+    PUSH8 R14               ; Guardar BP
+    MOV8 R14, R15          ; BP = SP
+    SUB8 R15, 104          ; Reservar espacio para locales:
+                            ; matriz_a: 32 bytes (2×2×8)
+                            ; matriz_b: 32 bytes (2×2×8)
+                            ; resultado: 32 bytes (2×2×8)
+                            ; i, j: 8 bytes c/u
+    
+    ; Inicializar matriz_a[0][0] = 1
+    LOADV8 R01, 1
+    LEA8 R02, [R14-32]      ; Base de matriz_a
+    STORE8 [R02+0], R01     ; offset = (0×2+0)×8 = 0
+    
+    ; matriz_a[0][1] = 2
+    LOADV8 R01, 2
+    STORE8 [R02+8], R01     ; offset = (0×2+1)×8 = 8
+    
+    ; matriz_a[1][0] = 3
+    LOADV8 R01, 3
+    STORE8 [R02+16], R01    ; offset = (1×2+0)×8 = 16
+    
+    ; matriz_a[1][1] = 4
+    LOADV8 R01, 4
+    STORE8 [R02+24], R01    ; offset = (1×2+1)×8 = 24
+    
+    ; Inicializar matriz_b (similar)
+    LOADV8 R01, 5
+    LEA8 R03, [R14-64]      ; Base de matriz_b
+    STORE8 [R03+0], R01
+    
+    LOADV8 R01, 6
+    STORE8 [R03+8], R01
+    
+    LOADV8 R01, 7
+    STORE8 [R03+16], R01
+    
+    LOADV8 R01, 8
+    STORE8 [R03+24], R01
+    
+    ; i = 0
+    LOADV8 R04, 0
+    STORE8 [R14-96], R04
+    
+.while_i_start:
+    LOAD8 R04, [R14-96]     ; Cargar i
+    CMPV8 R04, 2
+    JGE8 .while_i_end       ; Si i >= 2, salir
+    
+    ; j = 0
+    LOADV8 R05, 0
+    STORE8 [R14-104], R05
+    
+.while_j_start:
+    LOAD8 R05, [R14-104]    ; Cargar j
+    CMPV8 R05, 2
+    JGE8 .while_j_end       ; Si j >= 2, salir
+    
+    ; Calcular offset: (i × 2 + j) × 8
+    LOAD8 R04, [R14-96]     ; i
+    LOADV8 R06, 2
+    MUL8 R07, R04, R06      ; i × 2
+    LOAD8 R05, [R14-104]    ; j
+    ADD8 R07, R07, R05      ; i × 2 + j
+    LOADV8 R06, 8
+    MUL8 R08, R07, R06      ; (i × 2 + j) × 8
+    
+    ; Cargar matriz_a[i][j]
+    LEA8 R02, [R14-32]      ; Base de matriz_a
+    ADD8 R09, R02, R08      ; Dirección efectiva
+    LOAD8 R10, [R09]        ; matriz_a[i][j]
+    
+    ; Cargar matriz_b[i][j]
+    LEA8 R03, [R14-64]      ; Base de matriz_b
+    ADD8 R11, R03, R08      ; Dirección efectiva
+    LOAD8 R12, [R11]        ; matriz_b[i][j]
+    
+    ; Sumar
+    ADD8 R13, R10, R12      ; matriz_a[i][j] + matriz_b[i][j]
+    
+    ; Guardar en resultado[i][j]
+    LEA8 R14_temp, [R14-96] ; Base de resultado
+    ADD8 R15_temp, R14_temp, R08
+    STORE8 [R15_temp], R13
+    
+    ; j++
+    LOAD8 R05, [R14-104]
+    INC8 R05
+    STORE8 [R14-104], R05
+    JMP8 .while_j_start
+    
+.while_j_end:
+    ; i++
+    LOAD8 R04, [R14-96]
+    INC8 R04
+    STORE8 [R14-96], R04
+    JMP8 .while_i_start
+    
+.while_i_end:
+    ; Imprimir resultado
+    LEA8 R01, [R14-96]
+    LOAD8 R02, [R01+0]      ; resultado[0][0] = 6
+    SVIO R02, 0x100
+    SHOWIO 0x100
+    
+    LOAD8 R03, [R01+8]      ; resultado[0][1] = 8
+    SVIO R03, 0x100
+    SHOWIO 0x100
+    
+    LOAD8 R04, [R01+16]     ; resultado[1][0] = 10
+    SVIO R04, 0x100
+    SHOWIO 0x100
+    
+    LOAD8 R05, [R01+24]     ; resultado[1][1] = 12
+    SVIO R05, 0x100
+    SHOWIO 0x100
+    
+    MOV8 R15, R14           ; Restaurar SP
+    POP8 R14                ; Restaurar BP
+    RET8
+```
+
+**Características destacadas de arrays multidimensionales:**
+
+1. **Sintaxis natural**: `tipo[dim1][dim2]...[dimN] nombre` similar a C/Java
+2. **Almacenamiento contiguo**: Row-major (fila por fila) para óptima localidad de caché
+3. **Acceso directo**: Cálculo de offset: `(i × D2 + j) × element_size` para 2D
+4. **Generalización N-dimensional**: Fórmula recursiva para tensores de cualquier dimensión
+5. **Sin overhead de punteros**: Almacenamiento plano sin arrays de punteros intermedios
+6. **Type-safe**: Verificación de tipos en tiempo de compilación
+7. **Compatible con paso por referencia**: Decay a puntero para funciones
+
+**Resultado de ejecución:**
+```
+Salida: 6 8 10 12
 ```
 
 ---
@@ -2777,33 +3129,71 @@ El compilador SPL se compone de tres módulos principales que transforman códig
 
 ### 4.3.1 Analizador Sintáctico (syntax_analizer.py)
 
-Implementado con **PLY Yacc**, construye el Árbol de Sintaxis Abstracta (AST) a partir de los tokens.
+**Archivo**: `src/compiler/syntax_analizer.py` (620 líneas)
+
+Implementa parser LR(1) usando **PLY Yacc**, validando estructura gramatical y construyendo Árbol de Sintaxis Abstracta (AST).
 
 **Características**:
 - **Reglas gramaticales**: 80+ producciones que implementan la gramática E-BNF completa
-- **Tabla de precedencia**: Resuelve ambigüedades entre operadores
-- **Construcción de AST**: Cada regla produce un nodo AST apropiado
+- **Tabla de precedencia**: 11 niveles resuelven ambigüedades entre operadores
+- **Construcción de AST**: Cada regla produce nodos del módulo `ast_nodes`
 - **Manejo de errores**: Reporta errores sintácticos con número de línea
+- **Soporte de funciones externas**: Declaraciones `externo` sin implementación
 
-**Precedencia de operadores** (menor a mayor):
+#### Tabla de Precedencia Completa
+
+El parser usa **11 niveles de precedencia** (menor a mayor):
+
 ```python
 precedence = (
-    ('right', 'ASIGNAR', 'PLUSEQ', 'MINUSEQ'),  # Asignación
-    ('left', 'ORLOG'),                           # OR lógico
-    ('left', 'ANDLOG'),                          # AND lógico
-    ('left', 'OR'),                              # OR bitwise
-    ('left', 'XOR'),                             # XOR bitwise
-    ('left', 'AND'),                             # AND bitwise
-    ('left', 'IGUAL', 'DISTINTO'),               # Igualdad
-    ('left', 'MENOR', 'MENORIGUAL', 'MAYOR', 'MAYORIGUAL'),  # Relacional
-    ('left', 'MAS', 'MENOS'),                    # Aditivo
-    ('left', 'MULT', 'DIV', 'MOD'),              # Multiplicativo
-    ('right', 'UNARY'),                          # Unarios
-    ('left', 'PUNTO', 'FLECHA', 'CORCHIZQ'),     # Postfijos
+    # Nivel 1: Asignación (asociatividad derecha)
+    ('right', 'ASIGNAR', 'PLUSEQ', 'MINUSEQ', 'MULTEQ', 'DIVEQ', 'MODEQ'),
+    
+    # Nivel 2: OR lógico
+    ('left', 'ORLOG'),  # ||
+    
+    # Nivel 3: AND lógico
+    ('left', 'ANDLOG'),  # &&
+    
+    # Nivel 4: OR bitwise
+    ('left', 'OR'),  # |
+    
+    # Nivel 5: XOR bitwise
+    ('left', 'XOR'),  # ^
+    
+    # Nivel 6: AND bitwise
+    ('left', 'AND'),  # &
+    
+    # Nivel 7: Igualdad
+    ('left', 'IGUAL', 'DIFERENTE'),  # ==, !=
+    
+    # Nivel 8: Relacional
+    ('left', 'MENOR', 'MENORIGUAL', 'MAYOR', 'MAYORIGUAL'),  # <, <=, >, >=
+    
+    # Nivel 9: Aditivo
+    ('left', 'MAS', 'MENOS'),  # +, -
+    
+    # Nivel 10: Multiplicativo
+    ('left', 'MULT', 'DIV', 'MOD'),  # *, /, %
+    
+    # Nivel 11: Unarios (asociatividad derecha)
+    ('right', 'UNARY'),  # !, ~, -, &, *, ++, --
+    
+    # Nivel 12: Postfijos (mayor precedencia)
+    ('left', 'PUNTO', 'FLECHA', 'CORCHIZQ'),  # ., ->, []
 )
 ```
 
-**Ejemplo de regla** (`if_stmt`):
+**Ejemplos de precedencia**:
+- `a + b * c` → `a + (b * c)` (multiplicativo > aditivo)
+- `a = b = c` → `a = (b = c)` (asignación asocia a derecha)
+- `!a && b` → `(!a) && b` (unario > lógico)
+- `arr[i].campo` → `((arr[i]).campo)` (postfijos asocian a izquierda)
+
+#### Construcción del AST
+
+Cada regla gramatical crea un nodo AST del módulo `ast_nodes`:
+
 ```python
 def p_if_stmt(p):
     '''if_stmt : SI PARIZQ expression PARDER statement
@@ -2812,132 +3202,443 @@ def p_if_stmt(p):
     then_block = p[5]
     else_block = p[7] if len(p) == 8 else None
     p[0] = IfStmt(condition, then_block, else_block, lineno=p.lineno(1))
+
+def p_function_decl(p):
+    '''function_decl : type_spec ID PARIZQ parameter_list PARDER compound_stmt
+                     | type_spec ID PARIZQ PARDER compound_stmt
+                     | EXTERNO type_spec ID PARIZQ parameter_list PARDER PUNTOCOMA
+                     | EXTERNO type_spec ID PARIZQ PARDER PUNTOCOMA'''
+    is_extern = (p[1] == 'externo')
+    # ... construcción del nodo FunctionDecl
+```
+
+**Nodos AST generados**:
+- **Declaraciones**: `Program`, `FunctionDecl`, `StructDecl`, `VarDecl`
+- **Sentencias**: `Block`, `IfStmt`, `WhileStmt`, `ForStmt`, `ReturnStmt`, `BreakStmt`, `ContinueStmt`, `PrintStmt`, `ExprStmt`
+- **Expresiones**: `BinaryOp`, `UnaryOp`, `Assignment`, `FunctionCall`, `MemberAccess`, `ArrayAccess`, `NewExpr`, `DeleteExpr`
+- **Literales**: `Identifier`, `IntLiteral`, `FloatLiteral`, `StringLiteral`, `CharLiteral`, `BoolLiteral`
+- **Tipos**: `Type` (con `is_pointer`, `is_array`, `dimensions`)
+
+Todos los nodos incluyen `lineno` y `lexpos` para reporte de errores.
+
+**Manejo de errores sintácticos**:
+```python
+def p_error(p):
+    if p:
+        print(f"Error sintáctico en línea {p.lineno}: token inesperado '{p.value}'")
+    else:
+        print("Error sintáctico: fin de archivo inesperado")
 ```
 
 ### 4.3.2 Analizador Semántico (semantic_analyzer.py)
 
-Valida la corrección semántica del AST y construye la tabla de símbolos.
+**Archivo**: `src/compiler/semantic_analyzer.py` (701 líneas)
 
-**Responsabilidades**:
+El analizador semántico valida la corrección del AST usando una **estrategia de dos pasadas** para permitir referencias forward (declaraciones usadas antes de definirse).
 
-1. **Gestión de Tabla de Símbolos**: Scopes anidados (global, función, bloque)
-2. **Validación de Tipos**: Compatibilidad entre operandos y operadores
-3. **Resolución de Símbolos**: Verificar que variables/funciones estén declaradas antes de usarse
-4. **Validación de Control de Flujo**: `break`/`continue` solo en loops, `retornar` coincide con tipo de función
-5. **Gestión de Estructuras**: Registrar miembros, calcular offsets y tamaños
+#### Arquitectura de Clases
 
-**Clase SymbolTable**:
+**`SemanticAnalyzer`**: Coordinador principal del análisis
+
+```python
+class SemanticAnalyzer:
+    def __init__(self):
+        self.symbol_table = SymbolTable()  # Gestión de scopes anidados
+        self.errors = []  # Acumulador de mensajes de error
+        self.structs = {}  # Tracking global: nombre → StructDecl
+        self.functions = {}  # Tracking global: nombre → FunctionDecl
+    
+    def analyze(self, ast: Program) -> bool:
+        """Retorna True si análisis exitoso, False si hay errores"""
+```
+
+#### Estrategia de Dos Pasadas
+
+**Pasada 1: Declaración de Símbolos Globales**
+- Registra todas las estructuras en `self.structs`
+- Registra todas las funciones en `self.functions` (incluyendo externas)
+- Calcula offsets y tamaños de miembros de estructuras
+- Permite referencias forward: funciones pueden llamarse entre sí
+
+**Pasada 2: Análisis de Cuerpos de Función**
+- Analiza el cuerpo de cada función no externa
+- Valida tipos de expresiones y compatibilidad
+- Verifica que todas las variables usadas estén declaradas
+- Valida control de flujo (`romper`/`continuar` solo en loops)
+- Verifica que `retornar` coincida con tipo de retorno de función
+
+#### Gestión de Tabla de Símbolos
+
+**`SymbolTable`**: Stack de scopes con búsqueda jerárquica
+
 ```python
 class SymbolTable:
     def __init__(self):
-        self.scopes = [{}]  # Stack de scopes
+        self.global_scope = Scope(name="global")
+        self.current_scope = self.global_scope
+        self.scope_stack = [self.global_scope]
     
-    def enter_scope(self):
-        """Crear nuevo scope anidado"""
-        self.scopes.append({})
+    def enter_scope(self, name="block", is_loop=False, 
+                    is_function=False, return_type=None):
+        """Crear nuevo scope (función, bloque, loop)"""
     
     def exit_scope(self):
         """Salir del scope actual"""
-        self.scopes.pop()
-    
-    def define(self, symbol):
-        """Definir símbolo en scope actual"""
-        self.scopes[-1][symbol.name] = symbol
     
     def lookup(self, name):
-        """Buscar símbolo en scopes (innermost first)"""
-        for scope in reversed(self.scopes):
-            if name in scope:
-                return scope[name]
-        return None
+        """Buscar símbolo en scope actual y ancestros"""
 ```
 
-**Validación de tipos ejemplo**:
+**`Scope`**: Representa un ámbito léxico
+
 ```python
-def _check_binary_op(self, op, left_type, right_type):
-    """Verificar compatibilidad de tipos en operación binaria"""
-    if op in ['+', '-', '*', '/']:
-        # Aritmética requiere tipos numéricos
-        if not self._is_numeric(left_type) or not self._is_numeric(right_type):
-            return None  # Error de tipos
-        # Promoción: si uno es flotante, resultado es flotante
-        if self._is_float(left_type) or self._is_float(right_type):
-            return Type('flotante')
-        return Type('entero4')
+class Scope:
+    def __init__(self, parent=None, name="global"):
+        self.parent = parent  # Scope padre (None para global)
+        self.name = name  # Identificador para debugging
+        self.symbols = {}  # Diccionario: name → Symbol
+        self.is_loop = False  # True si es un mientras/para
+        self.is_function = False  # True si es cuerpo de función
+        self.return_type = None  # Tipo retorno (si is_function)
 ```
+
+**`Symbol`**: Entrada en tabla de símbolos
+
+```python
+class Symbol:
+    def __init__(self, name, symbol_type, node, kind='variable'):
+        self.name = name  # Identificador del símbolo
+        self.type = symbol_type  # Objeto Type
+        self.node = node  # Nodo AST (VarDecl, FunctionDecl, etc.)
+        self.kind = kind  # 'variable', 'function', 'struct', 'parameter'
+        self.is_const = False  # True para constantes
+```
+
+#### Validaciones Realizadas
+
+1. **Unicidad de Símbolos**: No redeclarar en mismo scope
+2. **Existencia de Símbolos**: Variables/funciones usadas deben estar declaradas
+3. **Tipos Compatibles**: Operaciones deben tener tipos válidos
+   - Aritméticas: operandos numéricos
+   - Comparaciones: tipos comparables
+   - Asignaciones: tipo de rvalue compatible con lvalue
+4. **Control de Flujo**: 
+   - `romper`/`continuar` solo dentro de loops (`is_loop=True`)
+   - `retornar` solo en funciones
+   - Tipo de valor retornado coincide con tipo de función
+5. **Acceso a Estructuras**:
+   - Miembro existe en la estructura
+   - Tipo del objeto es estructura
+   - Operador correcto (`.` para valor, `->` para puntero)
+6. **Arreglos Multidimensionales**:
+   - Índices deben ser enteros
+   - Número de dimensiones coincide con declaración
+7. **Punteros**:
+   - Operaciones de dereferencia (`*p`) requieren tipo puntero
+   - Direcciones (`&x`) de lvalues válidos
+
+#### Cálculo de Offsets de Estructuras
+
+```python
+def _register_struct(self, node: StructDecl):
+    """Registra estructura y calcula layout de memoria"""
+    if node.name in self.structs:
+        self.errors.append(f"Estructura '{node.name}' ya declarada")
+        return
+    
+    offset = 0
+    for member in node.members:
+        member.offset = offset  # Guardar offset en el nodo
+        offset += self._get_type_size(member.type)
+    
+    node.size = offset  # Tamaño total de la estructura
+    self.structs[node.name] = node
+```
+
+**Ejemplo**: Estructura `Punto` con miembros `entero4 x; entero4 y;`
+- `x.offset = 0`
+- `y.offset = 4`
+- `Punto.size = 8`
+
+#### Reporte de Errores
+
+Los errores se acumulan en `self.errors` con número de línea:
+
+```python
+def _error(self, message, node=None):
+    """Agregar error con información de línea"""
+    if node and hasattr(node, 'lineno'):
+        self.errors.append(f"Línea {node.lineno}: {message}")
+    else:
+        self.errors.append(message)
+```
+
+Ejemplos de mensajes:
+- `"Línea 15: Variable 'x' no declarada"`
+- `"Línea 23: Función 'calcular' espera 2 argumentos, se pasaron 3"`
+- `"Línea 31: 'romper' fuera de un bucle"`
+- `"Línea 42: Incompatibilidad de tipos: no se puede asignar 'cadena' a 'entero4'"`
+
+
 
 ### 4.3.3 Generador de Código (code_generator.py)
 
-Traduce el AST validado a código ensamblador Atlas mediante recorrido del árbol.
+**Archivo**: `src/compiler/code_generator.py` (2368 líneas)
 
-**Estrategias de Generación**:
+Traduce el AST validado a código ensamblador Atlas mediante recorrido del árbol, aplicando convenciones de la arquitectura.
 
-1. **Variables Globales**: Direcciones absolutas desde 0x1000
-2. **Variables Locales**: Offsets negativos desde BP (Base Pointer = R14)
-3. **Parámetros**: Offsets positivos desde BP (BP+16, BP+24, ...)
-4. **Expresiones**: Registros temporales R00-R13
-5. **Llamadas a Función**: Convención con prólogo/epílogo estándar
+#### Arquitectura y Convenciones
 
-**Generación de función**:
-```python
-def visit_function_decl(self, node):
-    """Generar código para declaración de función"""
-    # Etiqueta de función
-    self.emit(f"{node.name}:")
-    
-    # Prólogo: establecer frame
-    self.emit("PUSH8 R14")           # Guardar BP anterior
-    self.emit("MOV8 R14, R15")       # BP = SP
-    
-    # Reservar espacio para locales
-    local_size = self._calculate_local_size(node)
-    if local_size > 0:
-        self.emit(f"SUBV8 R15, {local_size}")
-    
-    # Generar código del cuerpo
-    self.visit(node.body)
-    
-    # Epílogo: limpiar frame y retornar
-    self.emit("MOV8 R15, R14")       # SP = BP
-    self.emit("POP8 R14")            # Restaurar BP
-    self.emit("RET")
+**Registros**:
+- **R00-R13**: 14 registros temporales para evaluar expresiones
+- **R14 (BP)**: Base Pointer, apunta al inicio del stack frame actual
+- **R15 (SP)**: Stack Pointer, apunta al tope del stack
+- **R00**: También usado para valor de retorno de funciones
+
+**Organización de Memoria**:
+```
+0x0000-0x0FFF: Código ejecutable y constantes (4KB)
+0x1000-0x7FFF: Variables globales y heap dinámico (28KB)
+0x8000-0xFFFF: Stack (32KB, crece hacia arriba)
 ```
 
-**Generación de expresiones** (ejemplo suma):
+**Stack Frame de Función**:
+```
+[BP+32]  Parámetro 3        ┐
+[BP+24]  Parámetro 2         ├─ Parámetros (offsets positivos)
+[BP+16]  Parámetro 1        ┘
+[BP+8]   Dirección retorno  ← Guardada por CALL
+[BP]     BP anterior        ← Apunta BP actual
+[BP-4]   Variable local 1   ┐
+[BP-8]   Variable local 2    ├─ Locales (offsets negativos)
+[BP-12]  Variable local 3   ┘
+```
+
+**Instrucciones con Sufijo de Tamaño**:
+
+El generador selecciona el sufijo correcto según el tipo:
+
+| Tipo SPL | Bytes | Sufijo | Ejemplo Instrucción |
+|----------|-------|--------|---------------------|
+| `caracter`, `booleano` | 1 | `1` | `ADD1`, `LOAD1` |
+| `entero2` | 2 | `2` | `ADD2`, `LOAD2` |
+| `entero4`, `flotante` | 4 | `4` | `ADD4`, `FADD4` |
+| `entero8`, `doble`, punteros | 8 | `8` | `ADD8`, `FADD8` |
+
+**Prefijo `F` para Punto Flotante**:
+- `FADD4`, `FSUB4`, `FMUL4`, `FDIV4`: Operaciones flotantes de 32 bits
+- `FADD8`, `FSUB8`, `FMUL8`, `FDIV8`: Operaciones dobles de 64 bits
+
+#### Clase CodeGenerator
+
 ```python
-def visit_binary_op(self, node):
+class CodeGenerator:
+    def __init__(self, ast, symbol_table):
+        self.ast = ast  # Árbol de sintaxis abstracta
+        self.symbol_table = symbol_table  # Tabla de símbolos
+        self.code = []  # Acumulador de líneas de ensamblador
+        
+        # Gestión de registros temporales
+        self.temp_counter = 0  # Índice del próximo temporal (0-13)
+        self.max_temps = 14
+        
+        # Gestión de etiquetas
+        self.label_counter = 0
+        
+        # Gestión de literales
+        self.string_literals = {}  # Cadenas constantes
+        self.float_literals = {}  # Constantes flotantes
+    
+    def generate(self) -> str:
+        """Genera código ensamblador completo"""
+        # Sección de datos
+        self.emit(".data")
+        self._generate_globals()
+        self._generate_string_literals()
+        
+        # Sección de código
+        self.emit(".text")
+        for decl in self.ast.declarations:
+            if isinstance(decl, FunctionDecl) and not decl.is_extern:
+                self._generate_function(decl)
+        
+        return '\n'.join(self.code)
+```
+
+#### Generación de Funciones
+
+**Prólogo estándar** (establecer stack frame):
+
+```assembly
+nombre_funcion:
+    PUSH8 R14           ; Guardar BP anterior
+    MOV8 R14, R15       ; BP = SP (nuevo frame)
+    SUBV8 R15, <size>   ; Reservar espacio para locales
+```
+
+**Epílogo estándar** (limpiar y retornar):
+
+```assembly
+    MOV8 R15, R14       ; SP = BP (liberar locales)
+    POP8 R14            ; Restaurar BP anterior
+    RET                 ; Pop IP y retornar
+```
+
+**Ejemplo completo de función**:
+
+Código SPL:
+```spl
+funcion entero4 suma(entero4 a, entero4 b) {
+    entero4 resultado;
+    resultado = a + b;
+    retornar resultado;
+}
+```
+
+Código Atlas generado:
+```assembly
+suma:
+    ; Prólogo
+    PUSH8 R14              ; Guardar BP
+    MOV8 R14, R15          ; Establecer nuevo BP
+    SUBV8 R15, 4           ; Reservar 4 bytes para 'resultado'
+    
+    ; resultado = a + b
+    LOAD4 R00, [R14+16]    ; R00 = a (primer parámetro)
+    LOAD4 R01, [R14+24]    ; R01 = b (segundo parámetro)
+    ADD4 R02, R00, R01     ; R02 = R00 + R01
+    STORE4 [R14-4], R02    ; resultado = R02
+    
+    ; retornar resultado
+    LOAD4 R00, [R14-4]     ; R00 = resultado (valor de retorno)
+    
+    ; Epílogo
+    MOV8 R15, R14          ; Liberar locales
+    POP8 R14               ; Restaurar BP
+    RET
+```
+
+#### Gestión de Registros Temporales
+
+```python
+def new_temp(self):
+    """Asignar próximo registro temporal"""
+    if self.temp_counter >= self.max_temps:
+        raise RuntimeError("Registros temporales agotados")
+    reg = self.temp_counter
+    self.temp_counter += 1
+    return reg
+
+def free_temps(self):
+    """Liberar todos los registros temporales"""
+    self.temp_counter = 0
+```
+
+**Nota**: Los registros se reutilizan entre sentencias. Dentro de una expresión compleja, pueden agotarse si hay más de 14 operaciones anidadas.
+
+#### Generación de Expresiones
+
+**Operaciones binarias**:
+
+```python
+def _generate_binary_op(self, node: BinaryOp):
     """Generar código para operación binaria"""
     # Evaluar operandos
     left_reg = self.visit(node.left)
     right_reg = self.visit(node.right)
     
-    # Generar instrucción según operador y tipo
-    result_reg = self.new_temp()
-    size = self.get_type_size(node.type)
+    # Determinar tamaño e instrucción
+    size = self._get_type_size(node.type)
+    is_float = self._is_float_type(node.type)
     
+    result_reg = self.new_temp()
+    
+    # Generar instrucción según operador
     if node.op == '+':
-        if self.is_float_type(node.type):
-            self.emit(f"FADD{size} R{result_reg}, R{left_reg}, R{right_reg}")
-        else:
-            self.emit(f"ADD{size} R{result_reg}, R{left_reg}, R{right_reg}")
+        instr = f"FADD{size}" if is_float else f"ADD{size}"
+        self.emit(f"{instr} R{result_reg:02d}, R{left_reg:02d}, R{right_reg:02d}")
+    elif node.op == '-':
+        instr = f"FSUB{size}" if is_float else f"SUB{size}"
+        self.emit(f"{instr} R{result_reg:02d}, R{left_reg:02d}, R{right_reg:02d}")
+    # ... otros operadores
     
     return result_reg
 ```
 
-**Gestión de Stack Frame**:
+#### Estructuras de Control
 
-Cada función mantiene un frame en el stack:
+**Sentencia `si/si_no`**:
 
+Código SPL:
+```spl
+si (x > 0) {
+    imprimir("Positivo");
+} si_no {
+    imprimir("No positivo");
+}
 ```
-[BP+24]  Parámetro 2
-[BP+16]  Parámetro 1
-[BP+8]   Dirección retorno (guardada por CALL)
-[BP]     BP anterior (guardado por PUSH8 R14)
-[BP-4]   Local 1
-[BP-8]   Local 2
+
+Código Atlas:
+```assembly
+    LOAD4 R00, [x]
+    CMPV4 R00, 0
+    JLE .L_else_1        ; Si x <= 0, saltar a else
+    ; Bloque then
+    ; ... código de imprimir("Positivo")
+    JMP .L_end_if_1
+.L_else_1:
+    ; Bloque else
+    ; ... código de imprimir("No positivo")
+.L_end_if_1:
 ```
 
-**Instrucciones con tamaño**: El generador selecciona el sufijo correcto (1/2/4/8) según el tipo de dato.
+**Bucle `mientras`**:
+
+Código SPL:
+```spl
+mientras (i < 10) {
+    suma = suma + i;
+    i = i + 1;
+}
+```
+
+Código Atlas:
+```assembly
+.L_while_cond_1:
+    LOAD4 R00, [i]
+    CMPV4 R00, 10
+    JGE .L_while_end_1     ; Si i >= 10, salir
+    ; Cuerpo del bucle
+    LOAD4 R01, [suma]
+    ADD4 R02, R01, R00
+    STORE4 [suma], R02
+    ADDV4 R00, 1
+    STORE4 [i], R00
+    JMP .L_while_cond_1    ; Repetir
+.L_while_end_1:
+```
+
+#### Arreglos Multidimensionales
+
+**Declaración**: `entero4[3][4] matriz;` (3 filas, 4 columnas)
+
+**Acceso**: `matriz[i][j]`
+
+**Cálculo de offset**: `offset = (i × 4 + j) × sizeof(entero4)`
+
+Código generado:
+```assembly
+LOAD4 R00, [i]          ; R00 = i
+MOVV4 R01, 4            ; R01 = número de columnas
+MUL4 R02, R00, R01      ; R02 = i × 4
+LOAD4 R03, [j]          ; R03 = j
+ADD4 R04, R02, R03      ; R04 = i × 4 + j
+MOVV4 R05, 4            ; R05 = sizeof(entero4)
+MUL4 R06, R04, R05      ; R06 = offset total
+LOADV8 R07, matriz      ; R07 = dirección base
+ADD8 R08, R07, R06      ; R08 = dirección final
+LOAD4 R09, [R08]        ; R09 = matriz[i][j]
+```
 
 ## 4.4 Ensamblador (ensamblador.py)
 
@@ -3750,7 +4451,7 @@ Retornando como resultado del analisis
     LexToken(MIENTRAS,'mientras',4,87)
     LexToken(PARIZQ,'(',4,95)
     LexToken(ID,'b',4,96)
-    LexToken(DISTINTO,'!=',4,98)      
+    LexToken(DIFERENTE,'!=',4,98)      
     LexToken(ENTERO,0,4,101)
     LexToken(PARDER,')',4,102)
     LexToken(LLAVEIZQ,'{',4,104)

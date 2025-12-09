@@ -1,0 +1,16 @@
+entero8 global_a = 42;
+flotante global_f = 3.14;
+
+funcion vacio principal() {
+    entero8 local_x = 7;
+    flotante local_f = 1.5;
+
+    imprimir("Direcciones:");
+    // Imprimir direcciones de globals (usamos direcciones absolutas emitidas por el compilador)
+    imprimir(global_a);
+    imprimir(global_f);
+
+    // Imprimir valores locales
+    imprimir(local_x);
+    imprimir(local_f);
+}

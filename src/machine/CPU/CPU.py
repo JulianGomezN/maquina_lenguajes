@@ -4,6 +4,11 @@ from machine.Memory.Memory import Memory
 from machine.IO.IOsystem import IOSystem
 from machine.CPU.Register import Register
 from machine.CPU.Units import ALU, FPU
+from compiler.instructions import IS_INV
+import logging
+import struct
+
+logger = logging.getLogger("machine.cpu")
 
 MASK64 = (1 << 64) - 1
 
@@ -49,6 +54,11 @@ class CPU:
         self.io = io_sytem
         self.alu = ALU()
         self.fpu = FPU()
+
+        # printing control for store logs: print header only once
+        self._store_header_printed = False
+        # small helper: keep minimal runtime symbol logging for stores
+        # CPU will consult memory.find_symbol_at(addr) if available
 
         # mapa de opcode -> formato
         self.formats = {
@@ -171,6 +181,101 @@ class CPU:
         word = int.from_bytes(self.memory.get_bytes(self.pc,8), "little")
         self.ir = word 
         self.pc += 8
+
+    def _log_store(self, addr: int, size: int, val: int):
+        """Log a memory store only if it corresponds to a named symbol registered in Memory.
+        Keeps logs minimal as requested: only when we move variables to memory.
+        """
+        try:
+            if not hasattr(self.memory, 'find_symbol_at'):
+                return
+            # pass current BP to allow resolving BP-relative symbols
+            try:
+                bp_val = self.registers[14].read(8)
+            except Exception:
+                bp_val = None
+            # debug: show BP when resolving relative symbols
+            logger.debug("CPU: resolving symbol addr=%s with BP=%s", f"{addr:#010x}", f"{bp_val:#010x}" if bp_val is not None else 'None')
+            sym = self.memory.find_symbol_at(addr, bp=bp_val)
+
+            # compute unsigned/hex representation
+            mask = (1 << (size * 8)) - 1
+            unsigned = int(val) & mask
+            try:
+                hex_str = f"0x{unsigned:0{size*2}X}"
+            except Exception:
+                hex_str = hex(unsigned)
+
+            # optional float reinterpretation for 4/8 bytes
+            float_val = None
+            if size in (4, 8):
+                try:
+                    if size == 4:
+                        float_val = struct.unpack('<f', int(val).to_bytes(4, 'little', signed=False))[0]
+                    else:
+                        float_val = struct.unpack('<d', int(val).to_bytes(8, 'little', signed=False))[0]
+                except Exception:
+                    float_val = None
+
+            # print a header once to introduce the STORE table
+            if not self._store_header_printed:
+                # Print a nicely aligned header for STORE table
+                # widen Raw column to accommodate 8-byte hex values with 'raw=' prefix
+                logger.info("STORE  %-12s %-12s %-6s %-16s %-20s %-24s %s", 'Name', 'Addr', 'Size', 'Offset', 'Value/Float', 'Raw', 'PC')
+                self._store_header_printed = True
+
+            # Common fields
+            instr_addr = max(0, self.pc - 8)
+            pc_field = f"pc=0x{instr_addr:06x}"
+
+            if sym:
+                name = sym.get('name')
+                base_addr = sym.get('addr')
+                rel = addr - base_addr
+
+                # Prepare column fields
+                name_col = name[:12]
+                addr_col = f"{addr:#010x}"
+                size_col = size
+                offset_display = f"+{rel} (0x{rel:X})" if rel != 0 else "+0"
+                if float_val is not None:
+                    val_field = f"float={float_val:.6f}"
+                else:
+                    val_field = f"value={int(val)}"
+                raw_field = f"raw={hex_str}"
+                instr_addr = max(0, self.pc - 8)
+                pc_field = f"pc={instr_addr:#010x}"
+
+                logger.info("STORE  %-12s %-12s %-6d %-16s %-20s %-24s %s", name_col, addr_col, size_col, offset_display, val_field, raw_field, pc_field)
+            else:
+                # if store is inside the stack area, also log address/size/value
+                try:
+                    if hasattr(self.memory, 'stack_base') and hasattr(self.memory, 'stack_end'):
+                        if self.memory.stack_base <= addr < self.memory.stack_end:
+                            addr_f = f"{addr:#010x}"
+                            size_f = f"{size}"
+                            offset_display = f"+0 (0x0)"
+                            if float_val is not None:
+                                val_field = f"{float_val:.6f}"
+                            else:
+                                val_field = f"{int(val)}"
+                            raw_field = hex_str
+                            name_col = 'stack'
+                            addr_col = f"{addr:#010x}"
+                            size_col = size
+                            offset_display = "+0"
+                            if float_val is not None:
+                                val_field = f"float={float_val:.6f}"
+                            else:
+                                val_field = f"value={int(val)}"
+                            raw_field = f"raw={hex_str}"
+                            instr_addr = max(0, self.pc - 8)
+                            pc_field = f"pc={instr_addr:#010x}"
+                            logger.info("STORE  %-12s %-12s %-6d %-16s %-20s %-24s %s", name_col, addr_col, size_col, offset_display, val_field, raw_field, pc_field)
+                except Exception:
+                    pass
+        except Exception:
+            logger.exception("error logging store @0x%08X", addr)
         
 
     def decode(self) -> Instruction:
@@ -387,7 +492,9 @@ class CPU:
             return
 
         if op == 0x0063:  # STOREV M, R
-            self.memory.write(ins.imm,self.registers[ins.rd].read(8),8)
+            val = self.registers[ins.rd].read(8)
+            self.memory.write(ins.imm, val, 8)
+            self._log_store(ins.imm, 8, val)
             return
 
         # -------- Comparación --------
@@ -806,32 +913,48 @@ class CPU:
 
         # -------- STORE Instructions --------
         if op == 0x0600:  # STORE1
-            self.memory.write(ins.imm, self.registers[ins.rd].read(1), 1)
+            val = self.registers[ins.rd].read(1)
+            self.memory.write(ins.imm, val, 1)
+            self._log_store(ins.imm, 1, val)
             return
         if op == 0x0601:  # STORE2
-            self.memory.write(ins.imm, self.registers[ins.rd].read(2), 2)
+            val = self.registers[ins.rd].read(2)
+            self.memory.write(ins.imm, val, 2)
+            self._log_store(ins.imm, 2, val)
             return
         if op == 0x0602:  # STORE4
-            self.memory.write(ins.imm, self.registers[ins.rd].read(4), 4)
+            val = self.registers[ins.rd].read(4)
+            self.memory.write(ins.imm, val, 4)
+            self._log_store(ins.imm, 4, val)
             return
         if op == 0x0603:  # STORE8
-            self.memory.write(ins.imm, self.registers[ins.rd].read(8), 8)
+            val = self.registers[ins.rd].read(8)
+            self.memory.write(ins.imm, val, 8)
+            self._log_store(ins.imm, 8, val)
             return
         if op == 0x0610:  # STORER1
             addr = self.registers[ins.rs].read(8) & MASK64
-            self.memory.write(addr, self.registers[ins.rd].read(1), 1)
+            val = self.registers[ins.rd].read(1)
+            self.memory.write(addr, val, 1)
+            self._log_store(addr, 1, val)
             return
         if op == 0x0611:  # STORER2
             addr = self.registers[ins.rs].read(8) & MASK64
-            self.memory.write(addr, self.registers[ins.rd].read(2), 2)
+            val = self.registers[ins.rd].read(2)
+            self.memory.write(addr, val, 2)
+            self._log_store(addr, 2, val)
             return
         if op == 0x0612:  # STORER4
             addr = self.registers[ins.rs].read(8) & MASK64
-            self.memory.write(addr, self.registers[ins.rd].read(4), 4)
+            val = self.registers[ins.rd].read(4)
+            self.memory.write(addr, val, 4)
+            self._log_store(addr, 4, val)
             return
         if op == 0x0613:  # STORER8
             addr = self.registers[ins.rs].read(8) & MASK64
-            self.memory.write(addr, self.registers[ins.rd].read(8), 8)
+            val = self.registers[ins.rd].read(8)
+            self.memory.write(addr, val, 8)
+            self._log_store(addr, 8, val)
             return
 
         # -------- FPU Instructions --------
@@ -886,7 +1009,6 @@ class CPU:
         if op == 0x0720:  # FSQRT4
             a = self.registers[ins.rd].read(4)
             r = self.fpu.sqrt(a, 4)
-            print(f"FSQRT4: {a} = {r}")
             self.sync_flags_from_fpu()
             self.registers[ins.rd].write(r, 4)
             return
@@ -1056,7 +1178,6 @@ class CPU:
         """ Emulates excecution of one instrucction
         """
         self.fetch()
-        #print(f"Executing: {self.ir:016X}")
         ins = self.decode()
         self.execute(ins)
 

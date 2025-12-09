@@ -1,6 +1,10 @@
 import os
 import re
 import atexit
+import logging
+import struct
+
+logger = logging.getLogger("machine.memory")
 
 MASK64 = (1 << 64) - 1
 MASK32 = (1 << 32) - 1
@@ -21,7 +25,9 @@ class Memory:
     Memoria lineal de bytes con utilidades para leer/escribir
     valores de 1, 2, 4 y 8 bytes en little endian.
     """
-    def __init__(self, size: int, *, memory_file: str | None = None, auto_load: bool = True, auto_save_at_exit: bool = True):
+    def __init__(self, size: int, *, memory_file: str | None = None, auto_load: bool = True, auto_save_at_exit: bool = True,
+                 debug_writes: bool = False, debug_stack_writes: bool = False,
+                 stack_base: int = 0x1C000, stack_end: int | None = None):
         """
         size: tamaño de la RAM en bytes.
         memory_file: ruta del archivo .txt para persistencia. Si None, usa 'memory_ram.txt' en el cwd.
@@ -52,6 +58,24 @@ class Memory:
                     pass
             atexit.register(_save_on_exit)
 
+        # Debug options
+        self.debug_writes = debug_writes
+        self.debug_stack_writes = debug_stack_writes
+        self.stack_base = stack_base
+        self.stack_end = stack_end or (stack_base + 0x4000)  # default 16KB stack
+        # Symbol tracking data structures for runtime variable tracking:
+        # self.symbols: List of symbol entries, each a dict with keys:
+        #   - 'name': str, the symbol/variable name
+        #   - 'addr': int, the starting address in memory
+        #   - 'size': int, the size in bytes
+        self.symbols: list[dict] = []
+        # self.symbol_table_by_name: Dict mapping symbol names (str) to their symbol dicts.
+        #   Allows fast lookup of symbol information by name.
+        self.symbol_table_by_name: dict = {}
+        # self.symbol_table_by_addr: Dict mapping addresses (int) to their symbol dicts.
+        #   Allows fast lookup of symbol information by address.
+        self.symbol_table_by_addr: dict = {}
+
     def _check_range(self, addr: int, nbytes: int):
         if addr < 0 or addr + nbytes > self.size:
             raise IndexError(f"Dirección fuera de rango: {addr}..{addr+nbytes-1}")
@@ -73,19 +97,23 @@ class Memory:
             raise ValueError("El tamaño debe ser 1, 2, 4 u 8 bytes")
 
         self._check_range(addr, size)
-        # Convertir a bytes en little endian, siempre unsigned
+        # Convertir a bytes en little endian, siempre unsigned si es necesario
         intval = int(val)
-    
-    # Rango signed para size bytes
+
+        # Rango signed para size bytes
         signed_min = -(1 << (size*8 - 1))
         signed_max = (1 << (size*8 - 1)) - 1
-        
+
         # Si cabe en signed → signed=True
         if signed_min <= intval <= signed_max:
-            self.mem[addr:addr+size] = intval.to_bytes(size, "little", signed=True)
+            b = intval.to_bytes(size, "little", signed=True)
         else:
-            # Caso IEEE-754: no cabe en signed, así que va como unsigned
-            self.mem[addr:addr+size] = intval.to_bytes(size, "little", signed=False)
+            # Caso (por ejemplo floats empaquetados) usar unsigned
+            b = intval.to_bytes(size, "little", signed=False)
+
+        self.mem[addr:addr+size] = b
+
+        # Intentionally no logging here; loader now logs .DATA moves.
 
     # ---------- Utilidades ----------
     def dump(self, start: int = 0, end: int = 64):
@@ -100,6 +128,62 @@ class Memory:
         """Cargar bytes crudos en memoria"""
         self._check_range(addr, len(data))
         self.mem[addr:addr+len(data)] = data
+
+    def register_symbol(self, name: str, addr: int | None, size: int, meta: dict | None = None):
+        """Register a symbol name with its address and size for runtime lookup.
+        if meta is None:
+            meta = {}
+        addr may be None for symbols that are BP-relative; in that case the
+        actual address will be resolved at runtime using BP and the stored meta
+        field (meta['local_rel']).
+        """
+        if not name:
+            return
+        meta = meta or {}
+        # avoid exact duplicate registrations (same name, addr, size, meta)
+        for s in self.symbols:
+            if s['name'] == name and s.get('addr') == addr and s['size'] == size and s.get('meta', {}) == meta:
+                return False
+
+        entry = {'name': name, 'addr': addr, 'size': size, 'meta': meta}
+        self.symbols.append(entry)
+
+        # maintain name index as a list of (addr,size) entries to allow
+        # multiple symbols with same name (e.g., locals in different functions)
+        self.symbol_table_by_name.setdefault(name, []).append((addr, size))
+
+        # only index by absolute address when addr is provided
+        if addr is not None:
+            self.symbol_table_by_addr[addr] = name
+
+        return True
+
+    def find_symbol_at(self, addr: int, bp: int | None = None):
+        """Return symbol dict containing name, addr, size if the address lies within a registered symbol.
+        If no absolute symbol matches and bp is provided, also resolve BP-relative symbols
+        registered with meta['local_rel'].
+        Returns None if no symbol matches.
+        """
+        # Prefer most-recently registered symbols: iterate in reverse order
+        for s in reversed(self.symbols):
+            a = s.get('addr')
+            if a is not None and a <= addr < a + s['size']:
+                return s
+
+        # If caller provided BP, try resolving relative symbols (also prefer recent registrations)
+        if bp is not None:
+            for s in reversed(self.symbols):
+                meta = s.get('meta') or {}
+                if 'local_rel' in meta:
+                    rel = meta['local_rel']
+                    base = bp + rel
+                    if base <= addr < base + s['size']:
+                        # return a copy with resolved addr for convenience
+                        resolved = s.copy()
+                        resolved['addr'] = base
+                        return resolved
+
+        return None
 
     def get_bytes(self, addr: int, n: int) -> bytes:
         """Obtener n bytes crudos desde memoria"""

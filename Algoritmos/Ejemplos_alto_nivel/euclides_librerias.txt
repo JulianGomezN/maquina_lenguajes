@@ -1,0 +1,60 @@
+// ============================================================================
+// DEMOSTRACIÓN DE PREPROCESADOR: #include y #define
+// ============================================================================
+// Este programa muestra el uso completo del preprocesador antes de compilar
+
+// #include: Inserta el contenido del archivo math_utils.h aquí
+//           El preprocesador busca el archivo y copia su contenido
+//           Proporciona: #define PI, #define CUADRADO(x), #define EULER, #define GRAVEDAD
+#include "../lib/math_utils.h"
+
+// #define: Define constantes que serán reemplazadas por el preprocesador
+//          El preprocesador busca cada ocurrencia de estos identificadores
+//          y los reemplaza por sus valores antes del análisis léxico
+#define VALOR_A 1071
+#define VALOR_B 462
+
+funcion entero4 euclides(entero4 a, entero4 b) {
+    entero4 temp;
+    entero4 iteraciones = 0;
+    entero4 limite = CUADRADO(10);  // Usa macro de math_utils.h: CUADRADO(10) = (10*10) = 100
+    
+    // limite (100) limita las iteraciones del algoritmo
+    mientras (b != 0 && iteraciones < limite) {
+        temp = a % b;
+        a = b;
+        b = temp;
+        iteraciones = iteraciones + 1;
+    }
+    
+    retornar a;
+}
+
+funcion vacio imprimir_info(entero4 num1, entero4 num2, entero4 resultado) {
+    imprimir("============================================");
+    imprimir("Algoritmo de Euclides - Con Preprocesador");
+    imprimir("============================================");
+    imprimir();
+    imprimir("Valores de entrada:");
+    imprimir("  Numero A = ", num1);
+    imprimir("  Numero B = ", num2);
+    imprimir();
+    imprimir("Calculando MCD...");
+    imprimir();
+    imprimir("Resultado:");
+    imprimir("  MCD(", num1, ",", num2, ") = ", resultado);
+    imprimir();
+    imprimir("============================================");
+}
+
+funcion entero4 principal() {
+    // VALOR_A y VALOR_B serán reemplazados por 1071 y 462 respectivamente
+    entero4 a = VALOR_A;
+    entero4 b = VALOR_B;
+    entero4 mcd;
+    
+    mcd = euclides(a, b);
+    imprimir_info(a, b, mcd);
+    
+    retornar mcd;
+}

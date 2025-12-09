@@ -113,9 +113,9 @@ class CodeGenerator:
         self.current_function = None
         
         # === LAYOUT DE MEMORIA PARA VARIABLES GLOBALES ===
-        # Las variables globales se ubican en direcciones absolutas desde 0x1000
-        self.global_data_base = 0x1000  # Dirección base de variables globales
-        self.string_data_base = 0x5000  # Dirección base de strings (separada del código) - movido de 0x3000 a 0x5000 para más espacio de código
+        # Las variables globales se ubican en direcciones absolutas después del código (64KB)
+        self.global_data_base = 0x10000  # Dirección base de variables globales (inicio del heap/global)
+        self.string_data_base = 0x18000  # Dirección base de strings y datos (zona separada)
         
         # === GESTIÓN DE OFFSETS ===
         # Los offsets se asignan dinámicamente durante la generación porque
@@ -250,11 +250,27 @@ class CodeGenerator:
         Returns:
             Type object o None si no se puede determinar
         """
-        from compiler.ast_nodes import Identifier, IntLiteral, FloatLiteral, StringLiteral, CharLiteral, MemberAccess
+        from compiler.ast_nodes import Identifier, IntLiteral, FloatLiteral, StringLiteral, CharLiteral, MemberAccess, ArrayAccess
         
         if isinstance(expr, Identifier):
             symbol = self.symbol_table.lookup(expr.name)
             return symbol.type if symbol else None
+        
+        elif isinstance(expr, ArrayAccess):
+            # Para acceso a arreglo, obtener el tipo base del arreglo
+            # arreglo[0] tiene el mismo tipo que los elementos del arreglo
+            if isinstance(expr.array, Identifier):
+                symbol = self.symbol_table.lookup(expr.array.name)
+                if symbol and symbol.type:
+                    # El tipo del arreglo puede ser Type('flotante[10]') o similar
+                    # Necesitamos extraer el tipo base
+                    base_type_name = symbol.type.name if hasattr(symbol.type, 'name') else str(symbol.type)
+                    # Remover los corchetes si existen: 'flotante[10]' -> 'flotante'
+                    if '[' in base_type_name:
+                        base_type_name = base_type_name.split('[')[0]
+                    from compiler.ast_nodes import Type
+                    return Type(base_type_name, is_pointer=False)
+            return None
         
         elif isinstance(expr, MemberAccess):
             # Obtener tipo de la estructura
@@ -349,56 +365,29 @@ class CodeGenerator:
         return f"{base_instr}{size}"
     
     def _assign_global_offset(self, symbol):
-        """
-        Asigna un offset secuencial a una variable global.
-        
-        ESTRATEGIA DE UBICACIÓN DE VARIABLES GLOBALES:
-        
-        Las variables globales se almacenan en memoria de forma contigua empezando
-        desde self.global_data_base (0x1000). Cada variable ocupa el espacio
-        determinado por su tipo, y el contador se incrementa para la siguiente.
-        
-        Ejemplo de layout en memoria:
-        
-        Código SPL:
-            entero8 x = 10;      // 8 bytes
-            flotante pi = 3.14;  // 4 bytes
-            entero4 z = 42;      // 4 bytes
-        
-        Layout en memoria:
-            Dirección  Variable  Offset  Tamaño
-            ─────────────────────────────────────
-            0x1000     x         0       8 bytes
-            0x1008     pi        8       4 bytes
-            0x100C     z         12      4 bytes
-            0x1010     (libre)   16      ...
-        
-        El acceso se realiza con instrucciones absolutas:
-            LOAD8 R00, 0x1000     ; Cargar x
-            STORE4 R01, 0x1008    ; Guardar pi
-        
+        """Asigna un offset secuencial a una variable global.
+
+        Las variables globales se colocan de forma contigua comenzando en
+        ``self.global_data_base`` (por defecto situado después del espacio de código).
+
         Args:
-            symbol: Símbolo de la tabla con atributo 'type'
-        
+            symbol: Símbolo de la tabla con atributo `type`.
+
         Returns:
-            int: Offset relativo desde global_data_base
-        
-        Side Effects:
-            Incrementa self.global_offset_counter por el tamaño del tipo
+            int: Offset relativo (en bytes) desde ``self.global_data_base``.
         """
         # Extraer nombre del tipo del símbolo
         type_name = symbol.type.name if hasattr(symbol.type, 'name') else str(symbol.type)
-        
+
         # Obtener tamaño en bytes del tipo
         size = self.get_type_size(type_name)
-        
-        # El offset actual es donde se ubicará esta variable
+
+        # Offset actual donde se ubicará esta variable (relativo a global_data_base)
         offset = self.global_offset_counter
-        
+
         # Avanzar el contador para la próxima variable global
-        # (layout secuencial sin gaps)
         self.global_offset_counter += size
-        
+
         return offset
     
     def _assign_local_offset(self, symbol):
@@ -685,6 +674,12 @@ class CodeGenerator:
         elif isinstance(node, IfStmt):
             self._collect_string_literals(node.condition)
             self._collect_string_literals(node.then_block)
+            # Also collect strings from any elif clauses
+            if hasattr(node, 'elif_clauses') and node.elif_clauses:
+                for clause in node.elif_clauses:
+                    # ElifClause has .condition and .block
+                    self._collect_string_literals(clause.condition)
+                    self._collect_string_literals(clause.block)
             if node.else_block:
                 self._collect_string_literals(node.else_block)
         
@@ -797,7 +792,8 @@ class CodeGenerator:
         # Usar mitad de la memoria disponible (0x8000 para memoria de 64KB)
         # Esto deja espacio para código en la parte baja y stack en la parte alta
         self.emit("; Inicializar Stack Pointer (R15) y Frame Pointer (R14)")
-        self.emit("MOVV8 R15, 0xC000        ; SP en 48KB (deja espacio para heap)")
+        self.emit("; Nueva ubicación de stack: colocar al inicio de la zona de stack (0x1C000)")
+        self.emit("MOVV8 R15, 0x1C000        ; SP en 0x1C000 (inicio de la región de stack)")
         self.emit("MOV8 R14, R15            ; BP = SP (frame inicial)")
         self.emit("")
         
@@ -807,29 +803,37 @@ class CodeGenerator:
             self.emit("CALL __init_heap")
             self.emit("")
         
-        # Inicializar string literals en memoria (área separada 0x5000+)
+        # Inicializar string literals en memoria (área separada 0x18000+)
         if self.string_literals:
-            self.emit("; Inicializar string literals en memoria (área 0x5000+)")
+            # Diagnostic: list collected strings (helps detect missing literals)
+            self.emit("; Strings recolectados:")
+            for s, lbl in self.string_literals.items():
+                # Emitir una línea resumida (no imprimir contenido binario completo aquí)
+                safe_preview = s.replace('\n', '\\n')[:60]
+                self.emit(f";   {lbl}: '{safe_preview}'")
+
+            self.emit("; Inicializar string literals en memoria (área 0x18000+)")
             string_offset = 0
             for string_val, label in self.string_literals.items():
                 addr = self.string_data_base + string_offset
                 self.string_addresses[string_val] = addr
                 self.emit(f"; {label} = \"{string_val}\" @ 0x{addr:X}")
-                
-                # Escribir string completo usando STORE1 (dirección absoluta)
-                for i, char in enumerate(string_val):
+
+                # Escribir string como bytes UTF-8 usando STORE1 (dirección absoluta)
+                val_bytes = string_val.encode('utf-8')
+                for i, b in enumerate(val_bytes):
                     char_addr = addr + i
-                    self.emit(f"  MOVV1 R01, {ord(char)}  ; '{char}'")
+                    self.emit(f"  MOVV1 R01, {b}  ; byte 0x{b:02X}")
                     self.emit(f"  STORE1 R01, {char_addr}  ; Escribir en 0x{char_addr:X}")
-                
+
                 # Escribir NULL terminator
-                null_addr = addr + len(string_val)
+                null_addr = addr + len(val_bytes)
                 self.emit(f"  MOVV1 R01, 0  ; NULL")
                 self.emit(f"  STORE1 R01, {null_addr}  ; Escribir en 0x{null_addr:X}")
-                
-                # Avanzar offset (para el siguiente string)
-                string_offset += len(string_val) + 1
-            
+
+                # Avanzar offset (para el siguiente string) — medir en bytes
+                string_offset += len(val_bytes) + 1
+
             self.emit("")
         
         # Llamar a la función principal
@@ -890,11 +894,48 @@ class CodeGenerator:
         address = self.global_data_base + symbol.offset
         self.emit(f"; Variable global: {node.name} (tipo: {type_name}, tamaño: {size} bytes, dirección: {address})")
         
-        # Si tiene inicializador, generar código para inicializarla
+        # Emit .DATA for the global variable (deterministic load-time initialization)
+        # Format: .DATA <ADDR_HEX> <SIZE> <HEXBYTES> ; NAME=<symbol> ; RELOCS=
         if node.init_value:
-            reg = self.visit_expr(node.init_value, type_name)
-            store_instr = self.get_sized_instruction("STORE", type_name)
-            self.emit(f"{store_instr} R{reg:02d}, {address}  ; {node.name} = valor_inicial")
+            from compiler.ast_nodes import IntLiteral, FloatLiteral, CharLiteral, StringLiteral
+            lit = node.init_value
+            try:
+                if isinstance(lit, IntLiteral) or isinstance(lit, CharLiteral):
+                    # integer / char initializer
+                    value = int(lit.value)
+                    b = (value & ((1 << (size*8)) - 1)).to_bytes(size, byteorder='little', signed=False)
+                    hexbytes = b.hex().upper()
+                    self.emit(f".DATA {address:08X} {size} {hexbytes} ; NAME={node.name} ; RELOCS=")
+                    self.emit(f"; {node.name} = {value} ({size} bytes)")
+                elif isinstance(lit, FloatLiteral):
+                    import struct
+                    if size == 4:
+                        b = struct.pack('<f', float(lit.value))
+                    else:
+                        b = struct.pack('<d', float(lit.value))
+                    hexbytes = b.hex().upper()
+                    self.emit(f".DATA {address:08X} {size} {hexbytes} ; NAME={node.name} ; RELOCS=")
+                    self.emit(f"; {node.name} = {lit.value} ({size} bytes float)")
+                elif isinstance(lit, StringLiteral):
+                    # For string initializer for a global, store pointer/address or raw bytes?
+                    # Here we emit raw bytes of the string (truncated/padded to size)
+                    val_bytes = bytes(lit.value.encode('utf-8'))[:size]
+                    if len(val_bytes) < size:
+                        val_bytes = val_bytes + b'\x00' * (size - len(val_bytes))
+                    hexbytes = val_bytes.hex().upper()
+                    self.emit(f".DATA {address:08X} {size} {hexbytes} ; NAME={node.name} ; RELOCS=")
+                    self.emit(f"; {node.name} = \"{lit.value}\" (string)")
+                else:
+                    # Complex initializer: emit zero-filled data and record the NAME
+                    zero_bytes = (0).to_bytes(size, byteorder='little') * 1
+                    hexbytes = zero_bytes.hex().upper()
+                    self.emit(f".DATA {address:08X} {size} {hexbytes} ; NAME={node.name} ; RELOCS=")
+                    self.emit(f"; {node.name} = <initializer emitted separately or requires relocations>")
+            except Exception:
+                zero_bytes = (0).to_bytes(size, byteorder='little') * 1
+                hexbytes = zero_bytes.hex().upper()
+                self.emit(f".DATA {address:08X} {size} {hexbytes} ; NAME={node.name} ; RELOCS=")
+                self.emit(f"; {node.name} = <initializer error, zero-filled>")
     
     def visit_struct_decl(self, node):
         """
@@ -1109,6 +1150,29 @@ class CodeGenerator:
         self.emit("")
         
         # === SALIR DEL SCOPE DE LA FUNCIÓN ===
+        # Emit local-symbol metadata so the loader can register local names at load time
+        # We compute absolute addresses using the initial BP value used by the program (0x1C000)
+        try:
+            # initial SP set to 0x1C000 in program prologue; after CALL and function prologue
+            # (CALL pushes return addr) and (PUSH8 R14 saves old BP) the effective BP is
+            # initial SP + 16. Use that to compute absolute addresses for emitted .LOCAL metadata.
+            stack_base = 0x1C000 + 16
+            current_scope = self.symbol_table.current_scope
+            # Emit .LOCAL entries for parameters and locals defined in this function scope
+            for sym_name, sym in current_scope.symbols.items():
+                if sym.kind in ('local', 'parameter'):
+                    # determine size
+                    type_name = sym.type.name if hasattr(sym.type, 'name') else str(sym.type)
+                    size = self.get_type_size(type_name)
+                    # Emit relative local metadata instead of absolute addresses.
+                    # The loader/VM will resolve these at runtime using BP.
+                    rel = getattr(sym, 'offset', 0)
+                    # .LOCAL_REL <OFFSET> <SIZE> <NAME> ; FUNC=<func_name>
+                    self.emit(f".LOCAL_REL {rel} {size} {sym.name} ; FUNC={node.name}")
+        except Exception:
+            # don't fail code generation on metadata emission problems
+            self.emit(f"; ERROR: failed to emit local metadata for function {node.name}")
+
         self.symbol_table.exit_scope()
         
         # Limpiar contexto de función
@@ -1424,34 +1488,71 @@ class CodeGenerator:
     
     def visit_if_stmt(self, node):
         """
-        Genera código para un statement if.
+        Genera código para un statement if con soporte para elif.
         
         Estructura:
-          <evaluar condición>
-          CMP + JEQ else_label
+          <evaluar condición if>
+          CMP + JEQ elif1_label
           <then_block>
           JMP end_label
+        elif1_label:
+          <evaluar condición elif1>
+          CMP + JEQ elif2_label (o else_label)
+          <elif1_block>
+          JMP end_label
+        elif2_label:
+          ...
         else_label:
           <else_block>
         end_label:
         """
-        else_label = self.new_label("ELSE")
         end_label = self.new_label("ENDIF")
         
-        # Evaluar condición (debe ser booleano)
+        # Evaluar condición principal
         cond_reg = self.visit_expr(node.condition, "booleano")
         
-        # Si la condición es falsa (0), saltar a else
+        # Determinar siguiente etiqueta
+        if node.elif_clauses:
+            next_label = self.new_label("ELIF")
+        elif node.else_block:
+            next_label = self.new_label("ELSE")
+        else:
+            next_label = end_label
+        
+        # Si la condición principal es falsa, saltar a siguiente sección
         self.emit(f"  CMPV R{cond_reg:02d}, 0")
-        self.emit(f"  JEQ {else_label}")
+        self.emit(f"  JEQ {next_label}")
         
         # Bloque then
         self.visit_stmt(node.then_block)
         self.emit(f"  JMP {end_label}")
         
+        # Generar código para cada cláusula elif
+        for i, elif_clause in enumerate(node.elif_clauses):
+            self.emit(f"{next_label}:")
+            
+            # Evaluar condición elif
+            elif_cond_reg = self.visit_expr(elif_clause.condition, "booleano")
+            
+            # Determinar siguiente etiqueta
+            if i < len(node.elif_clauses) - 1:
+                next_label = self.new_label("ELIF")
+            elif node.else_block:
+                next_label = self.new_label("ELSE")
+            else:
+                next_label = end_label
+            
+            # Si la condición elif es falsa, saltar a siguiente sección
+            self.emit(f"  CMPV R{elif_cond_reg:02d}, 0")
+            self.emit(f"  JEQ {next_label}")
+            
+            # Bloque elif
+            self.visit_stmt(elif_clause.block)
+            self.emit(f"  JMP {end_label}")
+        
         # Bloque else (si existe)
-        self.emit(f"{else_label}:")
         if node.else_block:
+            self.emit(f"{next_label}:")
             self.visit_stmt(node.else_block)
         
         self.emit(f"{end_label}:")
@@ -1614,8 +1715,8 @@ class CodeGenerator:
                 self.emit("  CALL __print_char")
                 self.emit(f"  ADDV8 R15, 8  ; Limpiar stack")
             
-            # Números flotantes
-            elif type_name == 'flotante':
+            # Números flotantes (incluir flotante y doble)
+            elif type_name in ['flotante', 'doble']:
                 self.emit(f"  PUSH4 R{reg:02d}")
                 self.emit("  CALL __print_float")
                 self.emit(f"  ADDV8 R15, 4  ; Limpiar stack")
@@ -1754,7 +1855,7 @@ class CodeGenerator:
                 entero8 y = x + 5;
             
             Genera (para x + 5):
-                LOAD8 R00, 0x1000     ; Cargar x (global en 0x1000)
+                LOAD8 R00, 0x10000     ; Cargar x (global en 0x10000)
                 MOVV8 R01, 5
                 ADD8 R00, R01
         
