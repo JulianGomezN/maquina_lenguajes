@@ -17,7 +17,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from machine.CPU.CPU import CPU
 from machine.IO.Devices import Screen, Keyboard
-from compiler.ensamblador import Ensamblador
+from compiler.ensamblador import Ensamblador, CodigoRelo
+from compiler.Linker import Linker
 from compiler.Loader import Loader
 from compiler.Preprocessor import preprocess
 from compiler.Lex_analizer import lexer as preprocessor_lexer
@@ -47,6 +48,8 @@ class SimuladorGUI:
             pass
 
         self.assembler = Ensamblador()
+        self.linker = Linker()
+        self.relocatables = []
         self.loader = Loader(self.cpu.memory)
         self.programa_actual = [] ##??
         self.ejecutando_paso_automatico = False
@@ -152,6 +155,8 @@ class SimuladorGUI:
 
         ttk.Button(parent, text="Ensamblar", command=self.ensamblar).pack(fill="x", pady=2)
         ttk.Button(parent, text="Cargar Archivo", command=self.cargar_archivo_asm).pack(fill="x", pady=2)
+        ttk.Button(parent, text="Ensamblar y guardar .relo", command=self.save_archivo_relo).pack(fill="x", pady=2)
+
 
     # ======================================================================
     #   COLUMNA 3 – RELOCALIZABLE + SALIDA
@@ -159,16 +164,6 @@ class SimuladorGUI:
 
     def _columna_codigo_relocalizable(self, parent):
 
-        # ==== CONFIGURAR FILAS DEL GRID ====
-        # 0: título
-        # 1: código relocalizable (expandible)
-        # 2-4: entrada dirección + botón
-        # 5: título botones ejecución
-        # 6: botones ejecución
-        # 7: título salida (si lo agregas después)
-        # 8: entrada (si lo agregas después)
-        # 9: título log
-        # 10: visor log (expandible)
 
         for r in range(11):
             parent.grid_rowconfigure(r, weight=0)
@@ -204,17 +199,19 @@ class SimuladorGUI:
             self.entrada_direccion.insert(0, "0")
         except Exception:
             pass
-
+        ttk.Button(parent, text="Cargar relocalizables",
+                command=self.load_relos).grid(row=4, column=0, sticky="ew", pady=(2,5))
+        
         ttk.Button(parent, text="Enlazar y Cargar",
-                command=self.enlazar_y_cargar).grid(row=4, column=0, sticky="ew", pady=(2,5))
+                command=self.enlazar_y_cargar).grid(row=5, column=0, sticky="ew", pady=(2,5))
 
         # =================================
         # ====== Botones Ejecución ========
         # =================================
-        ttk.Label(parent, text="Ejecución:").grid(row=5, column=0, sticky="w", pady=(10, 2))
+        ttk.Label(parent, text="Ejecución:").grid(row=6, column=0, sticky="w", pady=(10, 2))
 
         frame_botones = ttk.Frame(parent)
-        frame_botones.grid(row=6, column=0, sticky="ew")
+        frame_botones.grid(row=7, column=0, sticky="ew")
 
         frame_botones.grid_columnconfigure(0, weight=1)
 
@@ -556,17 +553,17 @@ class SimuladorGUI:
         
         try:
             # Detectar si el texto es código binario hexadecimal
-            es_binario = self._es_codigo_binario(texto)
+            #es_binario = self._es_codigo_binario(texto)
             
-            if es_binario:
-                # Cargar código binario directamente
-                self.programa_actual = self._parsear_codigo_binario(texto)
-                tipo_carga = "binario"
-                print("Cargando binario")
-            else:
+            # if es_binario:
+            #     # Cargar código binario directamente
+            #     self.programa_actual = self._parsear_codigo_binario(texto)
+            #     tipo_carga = "binario"
+            #     print("Cargando binario")
+            # else:
                 # Ensamblar el código assembly
-                self.programa_actual = self.assembler.assemble(texto)
-                tipo_carga = "assembly"
+            self.programa_actual = self.assembler.assemble(texto)
+            tipo_carga = "assembly"
 
             #traduccion = ""
             #traduccion = f"Código {'binario cargado' if es_binario else 'ensamblado'}:\n\n"
@@ -576,7 +573,7 @@ class SimuladorGUI:
             #    traduccion += f"{addr:04x}: {instr:016x}\n      {desasm}\n\n"   
 
             self.texto_relo.delete("1.0", "end")
-            self.texto_relo.insert("1.0", self.programa_actual)
+            self.texto_relo.insert("1.0", self.programa_actual.codigo)
             self.set_log(f"✓ Ensamblado exitoso. \nAsigne una direccion de carga y haga clic en 'Enlazar y cargar' para enlazar el programa y cargarlo en la memoria RAM.")
 
             #self.set_salida(f"Programa cargado exitosamente desde {tipo_carga}. ¡Haz clic en 'Ejecutar'!")
@@ -596,10 +593,22 @@ class SimuladorGUI:
         
         try:
 
+            ###Linkear
+            if self.relocatables:
+                self.linker.relocatables = [self.programa_actual] + self.relocatables
+
+                self.programa_actual = self.linker.get_liked_code()
+
+                self.texto_relo.delete("1.0", "end")
+                self.texto_relo.insert("1.0", self.programa_actual.codigo)
+
+            if self.programa_actual.extern_labels:
+                raise Exception(f"Hay referencias sin resolver: {self.programa_actual.extern_labels}")
+            ### Load
             start = self.obtener_direccion_carga()
 
             # Cargar programa en RAM
-            program_info = self.loader.load_in_memory(texto,start)
+            program_info = self.loader.load_in_memory(self.programa_actual.codigo,start)
 
             # Poner PC apuntando a inicio de programa
             self.cpu.set_pc(start)
@@ -873,6 +882,8 @@ class SimuladorGUI:
         ##self.disco = Disco()  # También reiniciar el disco
         self.programa_actual = []  # Limpiar programa actual
         
+        self.linker.relocatables = []
+        self.relocatables = []
         # Limpiar interfaz
         self.clear_all_text()
         self.update_gui()
@@ -1340,3 +1351,38 @@ class SimuladorGUI:
         print("Libera el buffer")
 
         self.texto_syntax.insert("1.0", codigo_syntax)
+
+    def load_relos(self):
+        # Abrir diálogo para seleccionar archivo
+        from tkinter import filedialog
+        import os
+        archivos = filedialog.askopenfilenames(
+            title="Seleccionar archivo relocalizables",
+            filetypes=[
+                ("Archivos relocalizables", "*.relo"),
+            ],
+            initialdir=os.path.join(os.path.dirname(__file__), "../../lib")
+        )
+
+        if archivos:
+            self.relocatables = []
+            for archivo in archivos:
+                self.relocatables.append(CodigoRelo.load_relo(archivo))
+
+            archivos_names = [os.path.basename(f) for f in archivos]
+            self.set_log(f"{archivos_names}\nHan sido agregados para linker")
+
+
+
+    def save_archivo_relo(self):
+        from tkinter import filedialog
+        filename = filedialog.asksaveasfilename(
+                title="Guardar archivo .relo",
+                defaultextension=".relo",
+                filetypes=[("Archivo Relocatable", "*.relo"), ("Todos los archivos", "*.*")]
+            )
+        if filename:
+            texto = self.texto_asm.get("1.0", "end").strip()
+            relo = self.assembler.assemble(texto)
+            relo.save_to_file(filename)
+            

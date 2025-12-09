@@ -1,0 +1,18 @@
+externo funcion entero8 sumar(entero8 a, entero8 b);
+externo funcion entero8 restar(entero8 a, entero8 b);
+externo funcion entero8 multiplicar(entero8 a, entero8 b);
+externo funcion entero8 dividir(entero8 a, entero8 b);
+
+funcion entero4 principal(){
+  entero4 suma = sumar(10,10);
+  imprimir(suma);
+
+  entero4 resta = restar(16,8);
+  imprimir(resta);
+
+  entero4 multi = multiplicar(4,20);
+  imprimir(multi);
+
+  entero8 div = dividir(144,12);
+  imprimir(div); 
+}

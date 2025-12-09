@@ -6,7 +6,9 @@ Puede generar archivos objeto para enlace posterior
 """
 
 import ply.lex as lex
-from compiler.instructions import INSTRUCTION_SET as IS, IS_INV
+from compiler.instrucctions import INSTRUCTION_SET as IS, IS_INV
+import json
+import struct
 
 # =============================================
 # ANALIZADOR LÉXICO (PLY Lex)
@@ -107,6 +109,64 @@ def literal_to_ieee_int(literal: str) -> int:
     else:  # tipo == 'd'
         return struct.unpack('>Q', struct.pack('>d', number))[0]
 
+
+class CodigoRelo:
+    """Gaurda los metadatos del codigo relocalizable"""
+    
+    def __init__(self):
+        self.extern_labels = {}
+        self.labels = {}
+        self.codigo = ""
+        self.size = 0
+
+    def save_to_file(self, filename="a.reloc"):
+        with open(filename, "wb") as f:
+            # Serializamos los metadatos en JSON
+            metadata = {
+                "extern_labels": self.extern_labels,
+                "labels": self.labels,
+                "size" : self.size,
+            }
+            metadata_bytes = json.dumps(metadata).encode("utf-8")
+
+            # Escribimos primero el tamaño del JSON (4 bytes)
+            f.write(struct.pack("<I", len(metadata_bytes)))
+            # Ahora el JSON
+            f.write(metadata_bytes)
+
+            # Luego escribimos el tamaño del código
+            f.write(struct.pack("<I", len(self.codigo)))
+            # Y el código en sí
+            f.write(self.codigo.encode("utf-8"))
+    @staticmethod
+    def load_relo(filename):
+        with open(filename, "rb") as f:
+            meta_len = struct.unpack("<I", f.read(4))[0]
+            metadata = json.loads(f.read(meta_len))
+
+            code_len = struct.unpack("<I", f.read(4))[0]
+            codigo = f.read(code_len).decode("utf-8")
+
+        obj = CodigoRelo()
+        obj.extern_labels = metadata["extern_labels"]
+        obj.labels = metadata["labels"]
+        obj.size = metadata["size"]
+        obj.codigo = codigo
+
+        print(obj)
+        return obj
+    
+    def __str__(self):
+        return f"size={self.size}\nlabels={self.labels}\n,ext_labels={self.extern_labels}"
+    
+
+    def __repr__(self):
+        return self.__str__()
+
+
+    
+
+
 # =============================================
 # ENSAMBLADOR PRINCIPAL
 # =============================================
@@ -118,7 +178,9 @@ class Ensamblador:
         self.lexer = lex.lex()
         # Tabla de símbolos (etiquetas y direcciones)
         self.labels = {}
+        self.extern_labels = {}
         self.current_address = 0
+        #self.codigorelo = Codigorelo()
     
     
     def tokenize_line(self, line):
@@ -154,9 +216,9 @@ class Ensamblador:
             return int(imm_str, 2)
         elif imm_str.upper() in self.labels:
             return self.labels[imm_str.upper()]
-        
+      
         ### FLOATANTE
-        elif imm_str_lower.startswith(('d','f')):
+        elif imm_str_lower.startswith(('d','f')) and imm_str_lower[1:-1].replace('.','').isdigit():
             cast = literal_to_ieee_int(imm_str_lower)
             return cast
         
@@ -177,7 +239,11 @@ class Ensamblador:
                 # Debe ser una etiqueta
                 imm_upper = imm_str.upper()
                 if imm_upper not in self.labels:
-                    raise ValueError(f"Etiqueta no definida: {imm_str}")
+                    if imm_upper not in self.extern_labels:
+                        self.extern_labels[imm_upper] = [self.current_address + 8]
+                    else:   
+                        self.extern_labels[imm_upper].append(self.current_address + 8) # second byte of instuction
+                    return self.extern_labels [imm_upper]
                 return self.labels[imm_upper]
     
     def assemble_tokens(self, tokens):
@@ -234,13 +300,17 @@ class Ensamblador:
             imm = self.parse_immediate(tokens[1])
 
             if address:
+                imm_str = tokens[1].value if hasattr(tokens[1], 'value') else tokens[1]
+                if imm_str.upper() in self.extern_labels:
+                    return f"{opcode:04X}{0:012X}\n{{{0:016X}}}\n"
+                
                 return f"{opcode:04X}{0:012X}\n[{imm:016X}]\n"
             return f"{opcode:04X}{0:012X}\n{imm:016X}\n"
         
         else:
             raise ValueError(f"Formato desconocido: {fmt}")
     
-    def assemble(self, code):
+    def assemble(self, code) -> CodigoRelo:
         """
         Ensambla código completo
         
@@ -253,6 +323,7 @@ class Ensamblador:
         
         lines = code.split('\n')
         self.labels = {}
+        self.extern_labels = {}
         self.current_address = 0
         
         # Primera pasada: recopilar etiquetas
@@ -273,6 +344,7 @@ class Ensamblador:
             # Si hay etiqueta, guardarla
             if tokens[0].type == 'LABEL':
                 label_name = tokens[0].value.upper()
+                if label_name in self.labels.keys(): raise ValueError(f"label {label_name} already exits ")
                 self.labels[label_name] = temp_address * 8  # Direcciones en bytes
                 tokens = tokens[1:]  # Remover la etiqueta
             
@@ -308,8 +380,19 @@ class Ensamblador:
                 if instruction is not None:
                     program.append(instruction)
                     self.current_address += 8
-        
-        return "".join(program)
+                    if IS[tokens[0].value]["format"] in ["RI", "I"]:
+                        self.current_address += 8
+
+        relocalizable = CodigoRelo()
+        relocalizable.labels = self.labels
+        relocalizable.extern_labels = self.extern_labels
+        relocalizable.codigo = "".join(program)
+        relocalizable.size = self.current_address
+
+        print(relocalizable)
+        #self.codigorelo.save_to_file()
+
+        return relocalizable
     
 
     ### TODO: RI y I formatos ahora sons instrucciones de 128 bits
@@ -400,6 +483,6 @@ if __name__ == '__main__':
     source = sys.stdin.read()
 
     assembler = Ensamblador()
-    program = assembler.assemble(source)
-
-    print(program)
+    relo = assembler.assemble(source)
+    relo.save_to_file()
+    print(relo)
