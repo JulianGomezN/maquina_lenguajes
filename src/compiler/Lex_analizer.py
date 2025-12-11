@@ -31,6 +31,8 @@ reserved = {
     'nuevo': 'NUEVO',
     'eliminar': 'ELIMINAR',
     'imprimir': 'IMPRIMIR',
+    'verdadero': 'VERDADERO',
+    'falso': 'FALSO',
 }
 
 # -----------------------------

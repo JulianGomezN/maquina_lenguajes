@@ -525,6 +525,8 @@ def p_primary(p):
                | FLOT
                | CARACTER
                | CADENA
+               | VERDADERO
+               | FALSO
                | PARIZQ expression PARDER
                | new_expr
                | delete_expr'''
@@ -546,6 +548,12 @@ def p_primary(p):
         elif p.slice[1].type == 'CADENA':
             # Literal cadena
             p[0] = StringLiteral(token_val, lineno=p.lineno(1))
+        elif p.slice[1].type == 'VERDADERO':
+            from .ast_nodes import BoolLiteral
+            p[0] = BoolLiteral(True, lineno=p.lineno(1))
+        elif p.slice[1].type == 'FALSO':
+            from .ast_nodes import BoolLiteral
+            p[0] = BoolLiteral(False, lineno=p.lineno(1))
         else:
             # NewExpr, DeleteExpr
             p[0] = token_val

@@ -3,6 +3,7 @@
 
 funcion vacio clasificar_temperatura(entero4 temp) {
     // Clasificación detallada de temperatura en grados Celsius
+    imprimir(temp);
     si (temp >= 45) {
         imprimir("Extremadamente caliente - Peligro de muerte");
     } si_no_si (temp >= 40) {
@@ -26,36 +27,36 @@ funcion vacio clasificar_temperatura(entero4 temp) {
     }
 }
 
-funcion booleano es_año_bisiesto(entero4 año) {
-    // Determinar si un año es bisiesto usando elif
-    booleano bisiesto = 0;
-    
-    si (año % 400 == 0) {
+funcion booleano es_ano_bisiesto(entero4 ano) {
+    // Determinar si un ano es bisiesto usando elif
+    booleano bisiesto = falso;
+
+    si (ano % 400 == 0) {
         // Divisible por 400 -> bisiesto
-        bisiesto = 1;
-    } si_no_si (año % 100 == 0) {
+        bisiesto = verdadero;
+    } si_no_si (ano % 100 == 0) {
         // Divisible por 100 pero no por 400 -> no bisiesto
-        bisiesto = 0;
-    } si_no_si (año % 4 == 0) {
+        bisiesto = falso;
+    } si_no_si (ano % 4 == 0) {
         // Divisible por 4 pero no por 100 -> bisiesto
-        bisiesto = 1;
+        bisiesto = verdadero;
     } si_no {
         // No divisible por 4 -> no bisiesto
-        bisiesto = 0;
+        bisiesto = falso;
     }
-    
+
     retornar bisiesto;
 }
 
-funcion entero4 dias_en_mes(entero4 mes, entero4 año) {
+funcion entero4 dias_en_mes(entero4 mes, entero4 ano) {
     entero4 dias = 0;
-    
+
     si (mes == 1 || mes == 3 || mes == 5 || mes == 7 || mes == 8 || mes == 10 || mes == 12) {
         dias = 31;
     } si_no_si (mes == 4 || mes == 6 || mes == 9 || mes == 11) {
         dias = 30;
     } si_no_si (mes == 2) {
-        si (es_año_bisiesto(año)) {
+        si (es_ano_bisiesto(ano)) {
             dias = 29;
         } si_no {
             dias = 28;
@@ -63,7 +64,7 @@ funcion entero4 dias_en_mes(entero4 mes, entero4 año) {
     } si_no {
         dias = 0;  // Mes inválido
     }
-    
+
     retornar dias;
 }
 
@@ -75,26 +76,26 @@ funcion vacio principal() {
     clasificar_temperatura(8);
     clasificar_temperatura(-5);
     
-    // Prueba de año bisiesto
-    imprimir("=== Años Bisiestos ===");
-    entero4 año_prueba = 2024;
-    si (es_año_bisiesto(año_prueba)) {
+    // Prueba de ano bisiesto
+    imprimir("=== Anos Bisiestos ===");
+    entero4 ano_prueba = 2024;
+    si (es_ano_bisiesto(ano_prueba)) {
         imprimir("2024 es bisiesto");
     }
-    
-    año_prueba = 2023;
-    si (!es_año_bisiesto(año_prueba)) {
+
+    ano_prueba = 2023;
+    si (!es_ano_bisiesto(ano_prueba)) {
         imprimir("2023 no es bisiesto");
     }
-    
+
     // Prueba de días en mes
     imprimir("=== Días en Mes ===");
     entero4 dias = dias_en_mes(2, 2024);
     imprimir(dias);  // 29 (febrero bisiesto)
-    
+
     dias = dias_en_mes(2, 2023);
     imprimir(dias);  // 28 (febrero normal)
-    
+
     dias = dias_en_mes(7, 2024);
     imprimir(dias);  // 31 (julio)
 }

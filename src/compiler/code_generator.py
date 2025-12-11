@@ -1786,7 +1786,10 @@ class CodeGenerator:
         mov_instr = self.get_sized_instruction("MOVV", expected_type)
         
         if isinstance(node, IntLiteral):
-            self.emit(f"  {mov_instr} R{reg:02d}, {node.value}")
+            # Cargar literales enteros siempre en 8 bytes para preservar signo
+            # Evita problemas donde un entero de 32 bits negativo se interpreta
+            # como un valor sin signo al pasarlo en 8 bytes.
+            self.emit(f"  MOVV8 R{reg:02d}, {node.value}")
         elif isinstance(node, FloatLiteral):
             # Para flotantes, convertir a representación hexadecimal IEEE 754
             import struct
@@ -1951,6 +1954,26 @@ class CodeGenerator:
             # Generar instrucción LOAD con tamaño apropiado
             load_instr = self.get_sized_instruction("LOAD", type_name)
             self.emit(f"  {load_instr} R{reg:02d}, {address}  ; Cargar {node.name} (global)")
+
+            # Si el tipo es un entero más pequeño que 8 bytes, sign-extend a 64 bits
+            if type_name in ["entero1", "entero2", "entero4"]:
+                # Umbral y cantidad a restar para convertir a signo (2^N)
+                if type_name == "entero1":
+                    threshold = 128
+                    sub_amount = 256
+                elif type_name == "entero2":
+                    threshold = 32768
+                    sub_amount = 65536
+                else:  # entero4
+                    threshold = 2147483648
+                    sub_amount = 4294967296
+
+                skip_label = self.new_label("SSKIP")
+                self.emit(f"  CMPV R{reg:02d}, {threshold}")
+                self.emit(f"  JLT {skip_label}")
+                # Si >= threshold, restar 2^N para obtener valor negativo correcto en 64-bit
+                self.emit(f"  SUBV8 R{reg:02d}, {sub_amount}")
+                self.emit(f"{skip_label}:")
         else:
             # === CASO 2: VARIABLE LOCAL O PARÁMETRO ===
             # Cargar usando offset relativo a BP
@@ -1969,6 +1992,24 @@ class CodeGenerator:
             
             # Paso 2: Cargar valor desde la dirección calculada
             self.emit(f"  {load_instr} R{reg:02d}, R{addr_reg:02d}  ; Cargar {node.name}")
+
+            # Si el tipo es un entero más pequeño que 8 bytes, sign-extend a 64 bits
+            if type_name in ["entero1", "entero2", "entero4"]:
+                if type_name == "entero1":
+                    threshold = 128
+                    sub_amount = 256
+                elif type_name == "entero2":
+                    threshold = 32768
+                    sub_amount = 65536
+                else:  # entero4
+                    threshold = 2147483648
+                    sub_amount = 4294967296
+
+                skip_label = self.new_label("SSKIP")
+                self.emit(f"  CMPV R{reg:02d}, {threshold}")
+                self.emit(f"  JLT {skip_label}")
+                self.emit(f"  SUBV8 R{reg:02d}, {sub_amount}")
+                self.emit(f"{skip_label}:")
         
         return reg
     
