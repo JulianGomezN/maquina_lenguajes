@@ -74,18 +74,16 @@ funcion caracter obtener_calificacion(flotante nota) {
     retornar 'F';
 }
 
-// Función que calcula distancia entre dos puntos
+// Función que calcula distancia entre dos puntos (aproximada)
 funcion flotante calcular_distancia(flotante x1, flotante y1, flotante x2, flotante y2) {
     flotante dx = x2 - x1;
     flotante dy = y2 - y1;
     flotante dist_cuadrada = dx * dx + dy * dy;
-    // Aproximación de raíz cuadrada usando Newton
+    // Aproximación simple de raíz cuadrada
     flotante resultado = dist_cuadrada / 2.0;
-    flotante temp;
-    para (entero4 i = 0; i < 5; i++) {
-        temp = resultado;
-        resultado = (resultado + dist_cuadrada / resultado) / 2.0;
-    }
+    resultado = (resultado + dist_cuadrada / resultado) / 2.0;
+    resultado = (resultado + dist_cuadrada / resultado) / 2.0;
+    resultado = (resultado + dist_cuadrada / resultado) / 2.0;
     retornar resultado;
 }
 
@@ -102,8 +100,10 @@ funcion flotante perimetro_rectangulo(flotante ancho, flotante alto) {
 // Función para calcular promedio de array
 funcion flotante calcular_promedio(flotante[5] notas) {
     flotante suma = 0.0;
-    para (entero4 i = 0; i < 5; i++) {
+    entero4 i = 0;
+    mientras (i < 5) {
         suma = suma + notas[i];
+        i = i + 1;
     }
     retornar suma / 5.0;
 }
@@ -220,33 +220,6 @@ funcion entero4 principal() {
     
     imprimir_separador();
     
-    // Estructura Vector3D
-    Vector3D vector;
-    vector.x = 3.0;
-    vector.y = 4.0;
-    vector.z = 5.0;
-    
-    imprimir("Vector 3D:");
-    imprimir();
-    imprimir("  x: ");
-    imprimir(vector.x);
-    imprimir();
-    imprimir("  y: ");
-    imprimir(vector.y);
-    imprimir();
-    imprimir("  z: ");
-    imprimir(vector.z);
-    imprimir();
-    
-    // Magnitud del vector (aproximada)
-    flotante mag_xy = calcular_distancia(0.0, 0.0, vector.x, vector.y);
-    flotante magnitud = calcular_distancia(0.0, 0.0, mag_xy, vector.z);
-    imprimir("  Magnitud: ");
-    imprimir(magnitud);
-    imprimir();
-    
-    imprimir_separador();
-    
     // Estructura Estudiante
     Estudiante estudiante;
     estudiante.nombre = "Maria Garcia";
@@ -270,7 +243,8 @@ funcion entero4 principal() {
     imprimir("  Calificaciones:");
     imprimir();
     
-    para (entero4 i = 0; i < 5; i++) {
+    entero4 i = 0;
+    mientras (i < 5) {
         imprimir("    ");
         imprimir(i + 1);
         imprimir(". ");
@@ -280,6 +254,7 @@ funcion entero4 principal() {
         imprimir(letra);
         imprimir(")");
         imprimir();
+        i = i + 1;
     }
     
     imprimir("  Promedio: ");
@@ -333,73 +308,6 @@ funcion entero4 principal() {
     imprimir();
     
     imprimir_separador();
-    
-    // ============================================================================
-    // COMBINACIÓN DE TIPOS
-    // ============================================================================
-    imprimir("=== COMBINACION DE TIPOS ===");
-    imprimir();
-    
-    // Arrays de estructuras simulado con variables individuales
-    Punto puntos_triangulo_a;
-    Punto puntos_triangulo_b;
-    Punto puntos_triangulo_c;
-    
-    puntos_triangulo_a.x = 0.0;
-    puntos_triangulo_a.y = 0.0;
-    
-    puntos_triangulo_b.x = 4.0;
-    puntos_triangulo_b.y = 0.0;
-    
-    puntos_triangulo_c.x = 2.0;
-    puntos_triangulo_c.y = 3.0;
-    
-    imprimir("Triangulo con vertices:");
-    imprimir();
-    imprimir("  A: (");
-    imprimir(puntos_triangulo_a.x);
-    imprimir(", ");
-    imprimir(puntos_triangulo_a.y);
-    imprimir(")");
-    imprimir();
-    
-    imprimir("  B: (");
-    imprimir(puntos_triangulo_b.x);
-    imprimir(", ");
-    imprimir(puntos_triangulo_b.y);
-    imprimir(")");
-    imprimir();
-    
-    imprimir("  C: (");
-    imprimir(puntos_triangulo_c.x);
-    imprimir(", ");
-    imprimir(puntos_triangulo_c.y);
-    imprimir(")");
-    imprimir();
-    
-    flotante lado_ab = calcular_distancia(puntos_triangulo_a.x, puntos_triangulo_a.y, 
-                                           puntos_triangulo_b.x, puntos_triangulo_b.y);
-    flotante lado_bc = calcular_distancia(puntos_triangulo_b.x, puntos_triangulo_b.y, 
-                                           puntos_triangulo_c.x, puntos_triangulo_c.y);
-    flotante lado_ca = calcular_distancia(puntos_triangulo_c.x, puntos_triangulo_c.y, 
-                                           puntos_triangulo_a.x, puntos_triangulo_a.y);
-    
-    imprimir("Longitud de lados:");
-    imprimir();
-    imprimir("  AB: ");
-    imprimir(lado_ab);
-    imprimir();
-    imprimir("  BC: ");
-    imprimir(lado_bc);
-    imprimir();
-    imprimir("  CA: ");
-    imprimir(lado_ca);
-    imprimir();
-    
-    flotante perimetro_triangulo = lado_ab + lado_bc + lado_ca;
-    imprimir("Perimetro: ");
-    imprimir(perimetro_triangulo);
-    imprimir();
     
     imprimir("=== FIN DEMO ESTRUCTURAS Y FUNCIONES ===");
     imprimir();

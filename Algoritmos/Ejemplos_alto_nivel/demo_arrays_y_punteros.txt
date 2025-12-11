@@ -32,28 +32,33 @@ funcion entero4 principal() {
     imprimir();
     
     // ============================================================================
-    // PUNTEROS
+    // PUNTEROS BASICOS
     // ============================================================================
-    imprimir("=== PUNTEROS ===");
+    imprimir("=== PUNTEROS BASICOS ===");
     imprimir();
     
-    entero4 valor = 42;
+    entero4 valor1 = 42;
+    entero4 valor2 = 84;
     entero4* puntero;
     
-    imprimir("Valor original: ");
-    imprimir(valor);
+    imprimir("Valor1 original: ");
+    imprimir(valor1);
     imprimir();
     
-    puntero = &valor;
+    imprimir("Valor2 original: ");
+    imprimir(valor2);
+    imprimir();
     
-    imprimir("Valor apuntado: ");
+    // Apuntar a valor1 y leerlo
+    puntero = &valor1;
+    imprimir("Puntero apunta a valor1: ");
     imprimir(*puntero);
     imprimir();
     
-    // Modificar valor a través del puntero
-    *puntero = 100;
-    imprimir("Valor modificado: ");
-    imprimir(valor);
+    // Apuntar a valor2 y leerlo
+    puntero = &valor2;
+    imprimir("Puntero apunta a valor2: ");
+    imprimir(*puntero);
     imprimir();
     
     // ============================================================================

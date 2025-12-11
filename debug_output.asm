@@ -643,16 +643,17 @@ MOV8 R14, R15            ; BP = SP (frame inicial)
 ;   __STR2: numeros[0] = 
 ;   __STR3: numeros[2] = 
 ;   __STR4: numeros[4] = 
-;   __STR5: === PUNTEROS ===
-;   __STR6: Valor original : 
-;   __STR7: Valor apuntado : 
-;   __STR8: Valor modificado : 
-;   __STR9: === OPERACIONES CON ARRAYS ===
-;   __STR10: Valores: 
-;   __STR11:  
-;   __STR12: Valor maximo : 
-;   __STR13: Suma total : 
-;   __STR14: === FIN DEMO ===
+;   __STR5: === PUNTEROS BASICOS ===
+;   __STR6: Valor1 original : 
+;   __STR7: Valor2 original : 
+;   __STR8: Puntero apunta a valor1 : 
+;   __STR9: Puntero apunta a valor2 : 
+;   __STR10: === OPERACIONES CON ARRAYS ===
+;   __STR11: Valores: 
+;   __STR12:  
+;   __STR13: Valor maximo : 
+;   __STR14: Suma total : 
+;   __STR15: === FIN DEMO ===
 ; Inicializar string literals en memoria (área 0x18000+)
 ; __STR0 @ 0x18000
   MOVV1 R01, 61  ; byte 0x3D
@@ -872,315 +873,404 @@ MOV8 R14, R15            ; BP = SP (frame inicial)
   STORE1 R01, 98408  ; Escribir en 0x18068
   MOVV1 R01, 32  ; byte 0x20
   STORE1 R01, 98409  ; Escribir en 0x18069
-  MOVV1 R01, 61  ; byte 0x3D
+  MOVV1 R01, 66  ; byte 0x42
   STORE1 R01, 98410  ; Escribir en 0x1806A
-  MOVV1 R01, 61  ; byte 0x3D
+  MOVV1 R01, 65  ; byte 0x41
   STORE1 R01, 98411  ; Escribir en 0x1806B
-  MOVV1 R01, 61  ; byte 0x3D
+  MOVV1 R01, 83  ; byte 0x53
   STORE1 R01, 98412  ; Escribir en 0x1806C
-  MOVV1 R01, 0  ; NULL
+  MOVV1 R01, 73  ; byte 0x49
   STORE1 R01, 98413  ; Escribir en 0x1806D
-; __STR6 @ 0x1806E
-  MOVV1 R01, 86  ; byte 0x56
+  MOVV1 R01, 67  ; byte 0x43
   STORE1 R01, 98414  ; Escribir en 0x1806E
-  MOVV1 R01, 97  ; byte 0x61
+  MOVV1 R01, 79  ; byte 0x4F
   STORE1 R01, 98415  ; Escribir en 0x1806F
-  MOVV1 R01, 108  ; byte 0x6C
+  MOVV1 R01, 83  ; byte 0x53
   STORE1 R01, 98416  ; Escribir en 0x18070
-  MOVV1 R01, 111  ; byte 0x6F
-  STORE1 R01, 98417  ; Escribir en 0x18071
-  MOVV1 R01, 114  ; byte 0x72
-  STORE1 R01, 98418  ; Escribir en 0x18072
   MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98417  ; Escribir en 0x18071
+  MOVV1 R01, 61  ; byte 0x3D
+  STORE1 R01, 98418  ; Escribir en 0x18072
+  MOVV1 R01, 61  ; byte 0x3D
   STORE1 R01, 98419  ; Escribir en 0x18073
-  MOVV1 R01, 111  ; byte 0x6F
+  MOVV1 R01, 61  ; byte 0x3D
   STORE1 R01, 98420  ; Escribir en 0x18074
-  MOVV1 R01, 114  ; byte 0x72
+  MOVV1 R01, 0  ; NULL
   STORE1 R01, 98421  ; Escribir en 0x18075
-  MOVV1 R01, 105  ; byte 0x69
+; __STR6 @ 0x18076
+  MOVV1 R01, 86  ; byte 0x56
   STORE1 R01, 98422  ; Escribir en 0x18076
-  MOVV1 R01, 103  ; byte 0x67
-  STORE1 R01, 98423  ; Escribir en 0x18077
-  MOVV1 R01, 105  ; byte 0x69
-  STORE1 R01, 98424  ; Escribir en 0x18078
-  MOVV1 R01, 110  ; byte 0x6E
-  STORE1 R01, 98425  ; Escribir en 0x18079
   MOVV1 R01, 97  ; byte 0x61
-  STORE1 R01, 98426  ; Escribir en 0x1807A
+  STORE1 R01, 98423  ; Escribir en 0x18077
   MOVV1 R01, 108  ; byte 0x6C
+  STORE1 R01, 98424  ; Escribir en 0x18078
+  MOVV1 R01, 111  ; byte 0x6F
+  STORE1 R01, 98425  ; Escribir en 0x18079
+  MOVV1 R01, 114  ; byte 0x72
+  STORE1 R01, 98426  ; Escribir en 0x1807A
+  MOVV1 R01, 49  ; byte 0x31
   STORE1 R01, 98427  ; Escribir en 0x1807B
   MOVV1 R01, 32  ; byte 0x20
   STORE1 R01, 98428  ; Escribir en 0x1807C
-  MOVV1 R01, 58  ; byte 0x3A
-  STORE1 R01, 98429  ; Escribir en 0x1807D
-  MOVV1 R01, 32  ; byte 0x20
-  STORE1 R01, 98430  ; Escribir en 0x1807E
-  MOVV1 R01, 0  ; NULL
-  STORE1 R01, 98431  ; Escribir en 0x1807F
-; __STR7 @ 0x18080
-  MOVV1 R01, 86  ; byte 0x56
-  STORE1 R01, 98432  ; Escribir en 0x18080
-  MOVV1 R01, 97  ; byte 0x61
-  STORE1 R01, 98433  ; Escribir en 0x18081
-  MOVV1 R01, 108  ; byte 0x6C
-  STORE1 R01, 98434  ; Escribir en 0x18082
   MOVV1 R01, 111  ; byte 0x6F
-  STORE1 R01, 98435  ; Escribir en 0x18083
+  STORE1 R01, 98429  ; Escribir en 0x1807D
   MOVV1 R01, 114  ; byte 0x72
+  STORE1 R01, 98430  ; Escribir en 0x1807E
+  MOVV1 R01, 105  ; byte 0x69
+  STORE1 R01, 98431  ; Escribir en 0x1807F
+  MOVV1 R01, 103  ; byte 0x67
+  STORE1 R01, 98432  ; Escribir en 0x18080
+  MOVV1 R01, 105  ; byte 0x69
+  STORE1 R01, 98433  ; Escribir en 0x18081
+  MOVV1 R01, 110  ; byte 0x6E
+  STORE1 R01, 98434  ; Escribir en 0x18082
+  MOVV1 R01, 97  ; byte 0x61
+  STORE1 R01, 98435  ; Escribir en 0x18083
+  MOVV1 R01, 108  ; byte 0x6C
   STORE1 R01, 98436  ; Escribir en 0x18084
   MOVV1 R01, 32  ; byte 0x20
   STORE1 R01, 98437  ; Escribir en 0x18085
-  MOVV1 R01, 97  ; byte 0x61
+  MOVV1 R01, 58  ; byte 0x3A
   STORE1 R01, 98438  ; Escribir en 0x18086
-  MOVV1 R01, 112  ; byte 0x70
+  MOVV1 R01, 32  ; byte 0x20
   STORE1 R01, 98439  ; Escribir en 0x18087
-  MOVV1 R01, 117  ; byte 0x75
+  MOVV1 R01, 0  ; NULL
   STORE1 R01, 98440  ; Escribir en 0x18088
-  MOVV1 R01, 110  ; byte 0x6E
-  STORE1 R01, 98441  ; Escribir en 0x18089
-  MOVV1 R01, 116  ; byte 0x74
-  STORE1 R01, 98442  ; Escribir en 0x1808A
-  MOVV1 R01, 97  ; byte 0x61
-  STORE1 R01, 98443  ; Escribir en 0x1808B
-  MOVV1 R01, 100  ; byte 0x64
-  STORE1 R01, 98444  ; Escribir en 0x1808C
-  MOVV1 R01, 111  ; byte 0x6F
-  STORE1 R01, 98445  ; Escribir en 0x1808D
-  MOVV1 R01, 32  ; byte 0x20
-  STORE1 R01, 98446  ; Escribir en 0x1808E
-  MOVV1 R01, 58  ; byte 0x3A
-  STORE1 R01, 98447  ; Escribir en 0x1808F
-  MOVV1 R01, 32  ; byte 0x20
-  STORE1 R01, 98448  ; Escribir en 0x18090
-  MOVV1 R01, 0  ; NULL
-  STORE1 R01, 98449  ; Escribir en 0x18091
-; __STR8 @ 0x18092
+; __STR7 @ 0x18089
   MOVV1 R01, 86  ; byte 0x56
-  STORE1 R01, 98450  ; Escribir en 0x18092
+  STORE1 R01, 98441  ; Escribir en 0x18089
   MOVV1 R01, 97  ; byte 0x61
-  STORE1 R01, 98451  ; Escribir en 0x18093
+  STORE1 R01, 98442  ; Escribir en 0x1808A
   MOVV1 R01, 108  ; byte 0x6C
-  STORE1 R01, 98452  ; Escribir en 0x18094
+  STORE1 R01, 98443  ; Escribir en 0x1808B
   MOVV1 R01, 111  ; byte 0x6F
-  STORE1 R01, 98453  ; Escribir en 0x18095
+  STORE1 R01, 98444  ; Escribir en 0x1808C
   MOVV1 R01, 114  ; byte 0x72
-  STORE1 R01, 98454  ; Escribir en 0x18096
+  STORE1 R01, 98445  ; Escribir en 0x1808D
+  MOVV1 R01, 50  ; byte 0x32
+  STORE1 R01, 98446  ; Escribir en 0x1808E
   MOVV1 R01, 32  ; byte 0x20
-  STORE1 R01, 98455  ; Escribir en 0x18097
-  MOVV1 R01, 109  ; byte 0x6D
-  STORE1 R01, 98456  ; Escribir en 0x18098
+  STORE1 R01, 98447  ; Escribir en 0x1808F
   MOVV1 R01, 111  ; byte 0x6F
-  STORE1 R01, 98457  ; Escribir en 0x18099
-  MOVV1 R01, 100  ; byte 0x64
-  STORE1 R01, 98458  ; Escribir en 0x1809A
+  STORE1 R01, 98448  ; Escribir en 0x18090
+  MOVV1 R01, 114  ; byte 0x72
+  STORE1 R01, 98449  ; Escribir en 0x18091
   MOVV1 R01, 105  ; byte 0x69
-  STORE1 R01, 98459  ; Escribir en 0x1809B
-  MOVV1 R01, 102  ; byte 0x66
-  STORE1 R01, 98460  ; Escribir en 0x1809C
+  STORE1 R01, 98450  ; Escribir en 0x18092
+  MOVV1 R01, 103  ; byte 0x67
+  STORE1 R01, 98451  ; Escribir en 0x18093
   MOVV1 R01, 105  ; byte 0x69
-  STORE1 R01, 98461  ; Escribir en 0x1809D
-  MOVV1 R01, 99  ; byte 0x63
-  STORE1 R01, 98462  ; Escribir en 0x1809E
+  STORE1 R01, 98452  ; Escribir en 0x18094
+  MOVV1 R01, 110  ; byte 0x6E
+  STORE1 R01, 98453  ; Escribir en 0x18095
   MOVV1 R01, 97  ; byte 0x61
-  STORE1 R01, 98463  ; Escribir en 0x1809F
-  MOVV1 R01, 100  ; byte 0x64
-  STORE1 R01, 98464  ; Escribir en 0x180A0
-  MOVV1 R01, 111  ; byte 0x6F
-  STORE1 R01, 98465  ; Escribir en 0x180A1
+  STORE1 R01, 98454  ; Escribir en 0x18096
+  MOVV1 R01, 108  ; byte 0x6C
+  STORE1 R01, 98455  ; Escribir en 0x18097
   MOVV1 R01, 32  ; byte 0x20
-  STORE1 R01, 98466  ; Escribir en 0x180A2
+  STORE1 R01, 98456  ; Escribir en 0x18098
   MOVV1 R01, 58  ; byte 0x3A
-  STORE1 R01, 98467  ; Escribir en 0x180A3
+  STORE1 R01, 98457  ; Escribir en 0x18099
   MOVV1 R01, 32  ; byte 0x20
-  STORE1 R01, 98468  ; Escribir en 0x180A4
+  STORE1 R01, 98458  ; Escribir en 0x1809A
   MOVV1 R01, 0  ; NULL
-  STORE1 R01, 98469  ; Escribir en 0x180A5
-; __STR9 @ 0x180A6
-  MOVV1 R01, 61  ; byte 0x3D
-  STORE1 R01, 98470  ; Escribir en 0x180A6
-  MOVV1 R01, 61  ; byte 0x3D
-  STORE1 R01, 98471  ; Escribir en 0x180A7
-  MOVV1 R01, 61  ; byte 0x3D
-  STORE1 R01, 98472  ; Escribir en 0x180A8
-  MOVV1 R01, 32  ; byte 0x20
-  STORE1 R01, 98473  ; Escribir en 0x180A9
-  MOVV1 R01, 79  ; byte 0x4F
-  STORE1 R01, 98474  ; Escribir en 0x180AA
+  STORE1 R01, 98459  ; Escribir en 0x1809B
+; __STR8 @ 0x1809C
   MOVV1 R01, 80  ; byte 0x50
+  STORE1 R01, 98460  ; Escribir en 0x1809C
+  MOVV1 R01, 117  ; byte 0x75
+  STORE1 R01, 98461  ; Escribir en 0x1809D
+  MOVV1 R01, 110  ; byte 0x6E
+  STORE1 R01, 98462  ; Escribir en 0x1809E
+  MOVV1 R01, 116  ; byte 0x74
+  STORE1 R01, 98463  ; Escribir en 0x1809F
+  MOVV1 R01, 101  ; byte 0x65
+  STORE1 R01, 98464  ; Escribir en 0x180A0
+  MOVV1 R01, 114  ; byte 0x72
+  STORE1 R01, 98465  ; Escribir en 0x180A1
+  MOVV1 R01, 111  ; byte 0x6F
+  STORE1 R01, 98466  ; Escribir en 0x180A2
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98467  ; Escribir en 0x180A3
+  MOVV1 R01, 97  ; byte 0x61
+  STORE1 R01, 98468  ; Escribir en 0x180A4
+  MOVV1 R01, 112  ; byte 0x70
+  STORE1 R01, 98469  ; Escribir en 0x180A5
+  MOVV1 R01, 117  ; byte 0x75
+  STORE1 R01, 98470  ; Escribir en 0x180A6
+  MOVV1 R01, 110  ; byte 0x6E
+  STORE1 R01, 98471  ; Escribir en 0x180A7
+  MOVV1 R01, 116  ; byte 0x74
+  STORE1 R01, 98472  ; Escribir en 0x180A8
+  MOVV1 R01, 97  ; byte 0x61
+  STORE1 R01, 98473  ; Escribir en 0x180A9
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98474  ; Escribir en 0x180AA
+  MOVV1 R01, 97  ; byte 0x61
   STORE1 R01, 98475  ; Escribir en 0x180AB
-  MOVV1 R01, 69  ; byte 0x45
+  MOVV1 R01, 32  ; byte 0x20
   STORE1 R01, 98476  ; Escribir en 0x180AC
-  MOVV1 R01, 82  ; byte 0x52
+  MOVV1 R01, 118  ; byte 0x76
   STORE1 R01, 98477  ; Escribir en 0x180AD
-  MOVV1 R01, 65  ; byte 0x41
+  MOVV1 R01, 97  ; byte 0x61
   STORE1 R01, 98478  ; Escribir en 0x180AE
-  MOVV1 R01, 67  ; byte 0x43
+  MOVV1 R01, 108  ; byte 0x6C
   STORE1 R01, 98479  ; Escribir en 0x180AF
-  MOVV1 R01, 73  ; byte 0x49
+  MOVV1 R01, 111  ; byte 0x6F
   STORE1 R01, 98480  ; Escribir en 0x180B0
-  MOVV1 R01, 79  ; byte 0x4F
+  MOVV1 R01, 114  ; byte 0x72
   STORE1 R01, 98481  ; Escribir en 0x180B1
-  MOVV1 R01, 78  ; byte 0x4E
+  MOVV1 R01, 49  ; byte 0x31
   STORE1 R01, 98482  ; Escribir en 0x180B2
-  MOVV1 R01, 69  ; byte 0x45
+  MOVV1 R01, 32  ; byte 0x20
   STORE1 R01, 98483  ; Escribir en 0x180B3
-  MOVV1 R01, 83  ; byte 0x53
+  MOVV1 R01, 58  ; byte 0x3A
   STORE1 R01, 98484  ; Escribir en 0x180B4
   MOVV1 R01, 32  ; byte 0x20
   STORE1 R01, 98485  ; Escribir en 0x180B5
-  MOVV1 R01, 67  ; byte 0x43
-  STORE1 R01, 98486  ; Escribir en 0x180B6
-  MOVV1 R01, 79  ; byte 0x4F
-  STORE1 R01, 98487  ; Escribir en 0x180B7
-  MOVV1 R01, 78  ; byte 0x4E
-  STORE1 R01, 98488  ; Escribir en 0x180B8
-  MOVV1 R01, 32  ; byte 0x20
-  STORE1 R01, 98489  ; Escribir en 0x180B9
-  MOVV1 R01, 65  ; byte 0x41
-  STORE1 R01, 98490  ; Escribir en 0x180BA
-  MOVV1 R01, 82  ; byte 0x52
-  STORE1 R01, 98491  ; Escribir en 0x180BB
-  MOVV1 R01, 82  ; byte 0x52
-  STORE1 R01, 98492  ; Escribir en 0x180BC
-  MOVV1 R01, 65  ; byte 0x41
-  STORE1 R01, 98493  ; Escribir en 0x180BD
-  MOVV1 R01, 89  ; byte 0x59
-  STORE1 R01, 98494  ; Escribir en 0x180BE
-  MOVV1 R01, 83  ; byte 0x53
-  STORE1 R01, 98495  ; Escribir en 0x180BF
-  MOVV1 R01, 32  ; byte 0x20
-  STORE1 R01, 98496  ; Escribir en 0x180C0
-  MOVV1 R01, 61  ; byte 0x3D
-  STORE1 R01, 98497  ; Escribir en 0x180C1
-  MOVV1 R01, 61  ; byte 0x3D
-  STORE1 R01, 98498  ; Escribir en 0x180C2
-  MOVV1 R01, 61  ; byte 0x3D
-  STORE1 R01, 98499  ; Escribir en 0x180C3
   MOVV1 R01, 0  ; NULL
+  STORE1 R01, 98486  ; Escribir en 0x180B6
+; __STR9 @ 0x180B7
+  MOVV1 R01, 80  ; byte 0x50
+  STORE1 R01, 98487  ; Escribir en 0x180B7
+  MOVV1 R01, 117  ; byte 0x75
+  STORE1 R01, 98488  ; Escribir en 0x180B8
+  MOVV1 R01, 110  ; byte 0x6E
+  STORE1 R01, 98489  ; Escribir en 0x180B9
+  MOVV1 R01, 116  ; byte 0x74
+  STORE1 R01, 98490  ; Escribir en 0x180BA
+  MOVV1 R01, 101  ; byte 0x65
+  STORE1 R01, 98491  ; Escribir en 0x180BB
+  MOVV1 R01, 114  ; byte 0x72
+  STORE1 R01, 98492  ; Escribir en 0x180BC
+  MOVV1 R01, 111  ; byte 0x6F
+  STORE1 R01, 98493  ; Escribir en 0x180BD
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98494  ; Escribir en 0x180BE
+  MOVV1 R01, 97  ; byte 0x61
+  STORE1 R01, 98495  ; Escribir en 0x180BF
+  MOVV1 R01, 112  ; byte 0x70
+  STORE1 R01, 98496  ; Escribir en 0x180C0
+  MOVV1 R01, 117  ; byte 0x75
+  STORE1 R01, 98497  ; Escribir en 0x180C1
+  MOVV1 R01, 110  ; byte 0x6E
+  STORE1 R01, 98498  ; Escribir en 0x180C2
+  MOVV1 R01, 116  ; byte 0x74
+  STORE1 R01, 98499  ; Escribir en 0x180C3
+  MOVV1 R01, 97  ; byte 0x61
   STORE1 R01, 98500  ; Escribir en 0x180C4
-; __STR10 @ 0x180C5
-  MOVV1 R01, 86  ; byte 0x56
+  MOVV1 R01, 32  ; byte 0x20
   STORE1 R01, 98501  ; Escribir en 0x180C5
   MOVV1 R01, 97  ; byte 0x61
   STORE1 R01, 98502  ; Escribir en 0x180C6
-  MOVV1 R01, 108  ; byte 0x6C
+  MOVV1 R01, 32  ; byte 0x20
   STORE1 R01, 98503  ; Escribir en 0x180C7
-  MOVV1 R01, 111  ; byte 0x6F
+  MOVV1 R01, 118  ; byte 0x76
   STORE1 R01, 98504  ; Escribir en 0x180C8
-  MOVV1 R01, 114  ; byte 0x72
+  MOVV1 R01, 97  ; byte 0x61
   STORE1 R01, 98505  ; Escribir en 0x180C9
-  MOVV1 R01, 101  ; byte 0x65
-  STORE1 R01, 98506  ; Escribir en 0x180CA
-  MOVV1 R01, 115  ; byte 0x73
-  STORE1 R01, 98507  ; Escribir en 0x180CB
-  MOVV1 R01, 58  ; byte 0x3A
-  STORE1 R01, 98508  ; Escribir en 0x180CC
-  MOVV1 R01, 32  ; byte 0x20
-  STORE1 R01, 98509  ; Escribir en 0x180CD
-  MOVV1 R01, 0  ; NULL
-  STORE1 R01, 98510  ; Escribir en 0x180CE
-; __STR11 @ 0x180CF
-  MOVV1 R01, 32  ; byte 0x20
-  STORE1 R01, 98511  ; Escribir en 0x180CF
-  MOVV1 R01, 0  ; NULL
-  STORE1 R01, 98512  ; Escribir en 0x180D0
-; __STR12 @ 0x180D1
-  MOVV1 R01, 86  ; byte 0x56
-  STORE1 R01, 98513  ; Escribir en 0x180D1
-  MOVV1 R01, 97  ; byte 0x61
-  STORE1 R01, 98514  ; Escribir en 0x180D2
   MOVV1 R01, 108  ; byte 0x6C
-  STORE1 R01, 98515  ; Escribir en 0x180D3
+  STORE1 R01, 98506  ; Escribir en 0x180CA
   MOVV1 R01, 111  ; byte 0x6F
-  STORE1 R01, 98516  ; Escribir en 0x180D4
+  STORE1 R01, 98507  ; Escribir en 0x180CB
   MOVV1 R01, 114  ; byte 0x72
-  STORE1 R01, 98517  ; Escribir en 0x180D5
+  STORE1 R01, 98508  ; Escribir en 0x180CC
+  MOVV1 R01, 50  ; byte 0x32
+  STORE1 R01, 98509  ; Escribir en 0x180CD
   MOVV1 R01, 32  ; byte 0x20
-  STORE1 R01, 98518  ; Escribir en 0x180D6
-  MOVV1 R01, 109  ; byte 0x6D
-  STORE1 R01, 98519  ; Escribir en 0x180D7
-  MOVV1 R01, 97  ; byte 0x61
-  STORE1 R01, 98520  ; Escribir en 0x180D8
-  MOVV1 R01, 120  ; byte 0x78
-  STORE1 R01, 98521  ; Escribir en 0x180D9
-  MOVV1 R01, 105  ; byte 0x69
-  STORE1 R01, 98522  ; Escribir en 0x180DA
-  MOVV1 R01, 109  ; byte 0x6D
-  STORE1 R01, 98523  ; Escribir en 0x180DB
-  MOVV1 R01, 111  ; byte 0x6F
-  STORE1 R01, 98524  ; Escribir en 0x180DC
-  MOVV1 R01, 32  ; byte 0x20
-  STORE1 R01, 98525  ; Escribir en 0x180DD
+  STORE1 R01, 98510  ; Escribir en 0x180CE
   MOVV1 R01, 58  ; byte 0x3A
-  STORE1 R01, 98526  ; Escribir en 0x180DE
+  STORE1 R01, 98511  ; Escribir en 0x180CF
   MOVV1 R01, 32  ; byte 0x20
-  STORE1 R01, 98527  ; Escribir en 0x180DF
+  STORE1 R01, 98512  ; Escribir en 0x180D0
   MOVV1 R01, 0  ; NULL
-  STORE1 R01, 98528  ; Escribir en 0x180E0
-; __STR13 @ 0x180E1
+  STORE1 R01, 98513  ; Escribir en 0x180D1
+; __STR10 @ 0x180D2
+  MOVV1 R01, 61  ; byte 0x3D
+  STORE1 R01, 98514  ; Escribir en 0x180D2
+  MOVV1 R01, 61  ; byte 0x3D
+  STORE1 R01, 98515  ; Escribir en 0x180D3
+  MOVV1 R01, 61  ; byte 0x3D
+  STORE1 R01, 98516  ; Escribir en 0x180D4
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98517  ; Escribir en 0x180D5
+  MOVV1 R01, 79  ; byte 0x4F
+  STORE1 R01, 98518  ; Escribir en 0x180D6
+  MOVV1 R01, 80  ; byte 0x50
+  STORE1 R01, 98519  ; Escribir en 0x180D7
+  MOVV1 R01, 69  ; byte 0x45
+  STORE1 R01, 98520  ; Escribir en 0x180D8
+  MOVV1 R01, 82  ; byte 0x52
+  STORE1 R01, 98521  ; Escribir en 0x180D9
+  MOVV1 R01, 65  ; byte 0x41
+  STORE1 R01, 98522  ; Escribir en 0x180DA
+  MOVV1 R01, 67  ; byte 0x43
+  STORE1 R01, 98523  ; Escribir en 0x180DB
+  MOVV1 R01, 73  ; byte 0x49
+  STORE1 R01, 98524  ; Escribir en 0x180DC
+  MOVV1 R01, 79  ; byte 0x4F
+  STORE1 R01, 98525  ; Escribir en 0x180DD
+  MOVV1 R01, 78  ; byte 0x4E
+  STORE1 R01, 98526  ; Escribir en 0x180DE
+  MOVV1 R01, 69  ; byte 0x45
+  STORE1 R01, 98527  ; Escribir en 0x180DF
   MOVV1 R01, 83  ; byte 0x53
+  STORE1 R01, 98528  ; Escribir en 0x180E0
+  MOVV1 R01, 32  ; byte 0x20
   STORE1 R01, 98529  ; Escribir en 0x180E1
-  MOVV1 R01, 117  ; byte 0x75
+  MOVV1 R01, 67  ; byte 0x43
   STORE1 R01, 98530  ; Escribir en 0x180E2
-  MOVV1 R01, 109  ; byte 0x6D
+  MOVV1 R01, 79  ; byte 0x4F
   STORE1 R01, 98531  ; Escribir en 0x180E3
-  MOVV1 R01, 97  ; byte 0x61
+  MOVV1 R01, 78  ; byte 0x4E
   STORE1 R01, 98532  ; Escribir en 0x180E4
   MOVV1 R01, 32  ; byte 0x20
   STORE1 R01, 98533  ; Escribir en 0x180E5
-  MOVV1 R01, 116  ; byte 0x74
+  MOVV1 R01, 65  ; byte 0x41
   STORE1 R01, 98534  ; Escribir en 0x180E6
-  MOVV1 R01, 111  ; byte 0x6F
+  MOVV1 R01, 82  ; byte 0x52
   STORE1 R01, 98535  ; Escribir en 0x180E7
-  MOVV1 R01, 116  ; byte 0x74
+  MOVV1 R01, 82  ; byte 0x52
   STORE1 R01, 98536  ; Escribir en 0x180E8
-  MOVV1 R01, 97  ; byte 0x61
+  MOVV1 R01, 65  ; byte 0x41
   STORE1 R01, 98537  ; Escribir en 0x180E9
-  MOVV1 R01, 108  ; byte 0x6C
+  MOVV1 R01, 89  ; byte 0x59
   STORE1 R01, 98538  ; Escribir en 0x180EA
-  MOVV1 R01, 32  ; byte 0x20
+  MOVV1 R01, 83  ; byte 0x53
   STORE1 R01, 98539  ; Escribir en 0x180EB
-  MOVV1 R01, 58  ; byte 0x3A
-  STORE1 R01, 98540  ; Escribir en 0x180EC
   MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98540  ; Escribir en 0x180EC
+  MOVV1 R01, 61  ; byte 0x3D
   STORE1 R01, 98541  ; Escribir en 0x180ED
-  MOVV1 R01, 0  ; NULL
+  MOVV1 R01, 61  ; byte 0x3D
   STORE1 R01, 98542  ; Escribir en 0x180EE
-; __STR14 @ 0x180EF
   MOVV1 R01, 61  ; byte 0x3D
   STORE1 R01, 98543  ; Escribir en 0x180EF
-  MOVV1 R01, 61  ; byte 0x3D
+  MOVV1 R01, 0  ; NULL
   STORE1 R01, 98544  ; Escribir en 0x180F0
-  MOVV1 R01, 61  ; byte 0x3D
+; __STR11 @ 0x180F1
+  MOVV1 R01, 86  ; byte 0x56
   STORE1 R01, 98545  ; Escribir en 0x180F1
-  MOVV1 R01, 32  ; byte 0x20
+  MOVV1 R01, 97  ; byte 0x61
   STORE1 R01, 98546  ; Escribir en 0x180F2
-  MOVV1 R01, 70  ; byte 0x46
+  MOVV1 R01, 108  ; byte 0x6C
   STORE1 R01, 98547  ; Escribir en 0x180F3
-  MOVV1 R01, 73  ; byte 0x49
+  MOVV1 R01, 111  ; byte 0x6F
   STORE1 R01, 98548  ; Escribir en 0x180F4
-  MOVV1 R01, 78  ; byte 0x4E
+  MOVV1 R01, 114  ; byte 0x72
   STORE1 R01, 98549  ; Escribir en 0x180F5
-  MOVV1 R01, 32  ; byte 0x20
+  MOVV1 R01, 101  ; byte 0x65
   STORE1 R01, 98550  ; Escribir en 0x180F6
-  MOVV1 R01, 68  ; byte 0x44
+  MOVV1 R01, 115  ; byte 0x73
   STORE1 R01, 98551  ; Escribir en 0x180F7
-  MOVV1 R01, 69  ; byte 0x45
+  MOVV1 R01, 58  ; byte 0x3A
   STORE1 R01, 98552  ; Escribir en 0x180F8
-  MOVV1 R01, 77  ; byte 0x4D
+  MOVV1 R01, 32  ; byte 0x20
   STORE1 R01, 98553  ; Escribir en 0x180F9
-  MOVV1 R01, 79  ; byte 0x4F
+  MOVV1 R01, 0  ; NULL
   STORE1 R01, 98554  ; Escribir en 0x180FA
+; __STR12 @ 0x180FB
   MOVV1 R01, 32  ; byte 0x20
   STORE1 R01, 98555  ; Escribir en 0x180FB
-  MOVV1 R01, 61  ; byte 0x3D
-  STORE1 R01, 98556  ; Escribir en 0x180FC
-  MOVV1 R01, 61  ; byte 0x3D
-  STORE1 R01, 98557  ; Escribir en 0x180FD
-  MOVV1 R01, 61  ; byte 0x3D
-  STORE1 R01, 98558  ; Escribir en 0x180FE
   MOVV1 R01, 0  ; NULL
+  STORE1 R01, 98556  ; Escribir en 0x180FC
+; __STR13 @ 0x180FD
+  MOVV1 R01, 86  ; byte 0x56
+  STORE1 R01, 98557  ; Escribir en 0x180FD
+  MOVV1 R01, 97  ; byte 0x61
+  STORE1 R01, 98558  ; Escribir en 0x180FE
+  MOVV1 R01, 108  ; byte 0x6C
   STORE1 R01, 98559  ; Escribir en 0x180FF
+  MOVV1 R01, 111  ; byte 0x6F
+  STORE1 R01, 98560  ; Escribir en 0x18100
+  MOVV1 R01, 114  ; byte 0x72
+  STORE1 R01, 98561  ; Escribir en 0x18101
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98562  ; Escribir en 0x18102
+  MOVV1 R01, 109  ; byte 0x6D
+  STORE1 R01, 98563  ; Escribir en 0x18103
+  MOVV1 R01, 97  ; byte 0x61
+  STORE1 R01, 98564  ; Escribir en 0x18104
+  MOVV1 R01, 120  ; byte 0x78
+  STORE1 R01, 98565  ; Escribir en 0x18105
+  MOVV1 R01, 105  ; byte 0x69
+  STORE1 R01, 98566  ; Escribir en 0x18106
+  MOVV1 R01, 109  ; byte 0x6D
+  STORE1 R01, 98567  ; Escribir en 0x18107
+  MOVV1 R01, 111  ; byte 0x6F
+  STORE1 R01, 98568  ; Escribir en 0x18108
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98569  ; Escribir en 0x18109
+  MOVV1 R01, 58  ; byte 0x3A
+  STORE1 R01, 98570  ; Escribir en 0x1810A
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98571  ; Escribir en 0x1810B
+  MOVV1 R01, 0  ; NULL
+  STORE1 R01, 98572  ; Escribir en 0x1810C
+; __STR14 @ 0x1810D
+  MOVV1 R01, 83  ; byte 0x53
+  STORE1 R01, 98573  ; Escribir en 0x1810D
+  MOVV1 R01, 117  ; byte 0x75
+  STORE1 R01, 98574  ; Escribir en 0x1810E
+  MOVV1 R01, 109  ; byte 0x6D
+  STORE1 R01, 98575  ; Escribir en 0x1810F
+  MOVV1 R01, 97  ; byte 0x61
+  STORE1 R01, 98576  ; Escribir en 0x18110
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98577  ; Escribir en 0x18111
+  MOVV1 R01, 116  ; byte 0x74
+  STORE1 R01, 98578  ; Escribir en 0x18112
+  MOVV1 R01, 111  ; byte 0x6F
+  STORE1 R01, 98579  ; Escribir en 0x18113
+  MOVV1 R01, 116  ; byte 0x74
+  STORE1 R01, 98580  ; Escribir en 0x18114
+  MOVV1 R01, 97  ; byte 0x61
+  STORE1 R01, 98581  ; Escribir en 0x18115
+  MOVV1 R01, 108  ; byte 0x6C
+  STORE1 R01, 98582  ; Escribir en 0x18116
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98583  ; Escribir en 0x18117
+  MOVV1 R01, 58  ; byte 0x3A
+  STORE1 R01, 98584  ; Escribir en 0x18118
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98585  ; Escribir en 0x18119
+  MOVV1 R01, 0  ; NULL
+  STORE1 R01, 98586  ; Escribir en 0x1811A
+; __STR15 @ 0x1811B
+  MOVV1 R01, 61  ; byte 0x3D
+  STORE1 R01, 98587  ; Escribir en 0x1811B
+  MOVV1 R01, 61  ; byte 0x3D
+  STORE1 R01, 98588  ; Escribir en 0x1811C
+  MOVV1 R01, 61  ; byte 0x3D
+  STORE1 R01, 98589  ; Escribir en 0x1811D
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98590  ; Escribir en 0x1811E
+  MOVV1 R01, 70  ; byte 0x46
+  STORE1 R01, 98591  ; Escribir en 0x1811F
+  MOVV1 R01, 73  ; byte 0x49
+  STORE1 R01, 98592  ; Escribir en 0x18120
+  MOVV1 R01, 78  ; byte 0x4E
+  STORE1 R01, 98593  ; Escribir en 0x18121
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98594  ; Escribir en 0x18122
+  MOVV1 R01, 68  ; byte 0x44
+  STORE1 R01, 98595  ; Escribir en 0x18123
+  MOVV1 R01, 69  ; byte 0x45
+  STORE1 R01, 98596  ; Escribir en 0x18124
+  MOVV1 R01, 77  ; byte 0x4D
+  STORE1 R01, 98597  ; Escribir en 0x18125
+  MOVV1 R01, 79  ; byte 0x4F
+  STORE1 R01, 98598  ; Escribir en 0x18126
+  MOVV1 R01, 32  ; byte 0x20
+  STORE1 R01, 98599  ; Escribir en 0x18127
+  MOVV1 R01, 61  ; byte 0x3D
+  STORE1 R01, 98600  ; Escribir en 0x18128
+  MOVV1 R01, 61  ; byte 0x3D
+  STORE1 R01, 98601  ; Escribir en 0x18129
+  MOVV1 R01, 61  ; byte 0x3D
+  STORE1 R01, 98602  ; Escribir en 0x1812A
+  MOVV1 R01, 0  ; NULL
+  STORE1 R01, 98603  ; Escribir en 0x1812B
 
 ; Llamar a la función principal
 CALL principal
@@ -1192,7 +1282,7 @@ principal:  ; Función: principal
   ; Prólogo de principal
   PUSH8 R14          ; Guardar BP del caller en stack
   MOV8 R14, R15      ; BP = SP (inicio del frame actual)
-  ADDV8 R15, 60  ; Reservar 60 bytes para locales
+  ADDV8 R15, 64  ; Reservar 64 bytes para locales
 
   ; Cuerpo de principal
   ; imprimir()
@@ -1204,40 +1294,40 @@ principal:  ; Función: principal
   ; imprimir()
   CALL __print_newline
   ; Variable local: numeros (offset: 0)
-  MOVV4 R01, 10
-  MOVV4 R02, 0
+  MOVV8 R01, 10
+  MOVV8 R02, 0
   MOVV4 R03, 4
   MUL4 R02, R03
   MOVV8 R04, 0
   ADD8 R04, R14  ; Base del array
   ADD8 R04, R02  ; Dirección del elemento
   STORER4 R01, R04  ; arr[...] = valor
-  MOVV4 R05, 20
-  MOVV4 R06, 1
+  MOVV8 R05, 20
+  MOVV8 R06, 1
   MOVV4 R07, 4
   MUL4 R06, R07
   MOVV8 R08, 0
   ADD8 R08, R14  ; Base del array
   ADD8 R08, R06  ; Dirección del elemento
   STORER4 R05, R08  ; arr[...] = valor
-  MOVV4 R09, 30
-  MOVV4 R10, 2
+  MOVV8 R09, 30
+  MOVV8 R10, 2
   MOVV4 R11, 4
   MUL4 R10, R11
   MOVV8 R12, 0
   ADD8 R12, R14  ; Base del array
   ADD8 R12, R10  ; Dirección del elemento
   STORER4 R09, R12  ; arr[...] = valor
-  MOVV4 R13, 40
-  MOVV4 R00, 3
+  MOVV8 R13, 40
+  MOVV8 R00, 3
   MOVV4 R01, 4
   MUL4 R00, R01
   MOVV8 R02, 0
   ADD8 R02, R14  ; Base del array
   ADD8 R02, R00  ; Dirección del elemento
   STORER4 R13, R02  ; arr[...] = valor
-  MOVV4 R03, 50
-  MOVV4 R04, 4
+  MOVV8 R03, 50
+  MOVV8 R04, 4
   MOVV4 R05, 4
   MUL4 R04, R05
   MOVV8 R06, 0
@@ -1259,7 +1349,7 @@ principal:  ; Función: principal
   ADDV8 R15, 8  ; Limpiar stack
   CALL __print_newline
   ; imprimir()
-  MOVV4 R09, 0
+  MOVV8 R09, 0
   MOVV4 R10, 4
   MUL4 R09, R10
   MOVV8 R11, 0
@@ -1279,7 +1369,7 @@ principal:  ; Función: principal
   ADDV8 R15, 8  ; Limpiar stack
   CALL __print_newline
   ; imprimir()
-  MOVV4 R00, 2
+  MOVV8 R00, 2
   MOVV4 R01, 4
   MUL4 R00, R01
   MOVV8 R02, 0
@@ -1299,7 +1389,7 @@ principal:  ; Función: principal
   ADDV8 R15, 8  ; Limpiar stack
   CALL __print_newline
   ; imprimir()
-  MOVV4 R05, 4
+  MOVV8 R05, 4
   MOVV4 R06, 4
   MUL4 R05, R06
   MOVV8 R07, 0
@@ -1320,243 +1410,281 @@ principal:  ; Función: principal
   CALL __print_newline
   ; imprimir()
   CALL __print_newline
-  ; Variable local: valor (offset: 20)
-  MOVV4 R10, 42
+  ; Variable local: valor1 (offset: 20)
+  MOVV8 R10, 42
   MOVV8 R11, 20
   ADD8 R11, R14  ; Dirección = BP + offset
-  STORER4 R10, R11  ; valor = valor_inicial
-  ; Variable local: puntero (offset: 24)
+  STORER4 R10, R11  ; valor1 = valor_inicial
+  ; Variable local: valor2 (offset: 24)
+  MOVV8 R12, 84
+  MOVV8 R13, 24
+  ADD8 R13, R14  ; Dirección = BP + offset
+  STORER4 R12, R13  ; valor2 = valor_inicial
+  ; Variable local: puntero (offset: 28)
   ; imprimir()
-  MOVV8 R12, 0x1806E  ; __STR6
-  PUSH8 R12
+  MOVV8 R00, 0x18076  ; __STR6
+  PUSH8 R00
   CALL __print_string
   ADDV8 R15, 8  ; Limpiar stack
   CALL __print_newline
   ; imprimir()
-  MOVV8 R00, 20  ; Offset desde BP
-  ADD8 R00, R14  ; Dirección = BP + offset
-  LOADR4 R13, R00  ; Cargar valor
+  MOVV8 R02, 20  ; Offset desde BP
+  ADD8 R02, R14  ; Dirección = BP + offset
+  LOADR4 R01, R02  ; Cargar valor1
+  CMPV R01, 2147483648
+  JLT SSKIP0
+  SUBV8 R01, 4294967296
+SSKIP0:
+  PUSH8 R01
+  CALL __print_int8
+  ADDV8 R15, 8  ; Limpiar stack
+  CALL __print_newline
+  ; imprimir()
+  CALL __print_newline
+  ; imprimir()
+  MOVV8 R03, 0x18089  ; __STR7
+  PUSH8 R03
+  CALL __print_string
+  ADDV8 R15, 8  ; Limpiar stack
+  CALL __print_newline
+  ; imprimir()
+  MOVV8 R05, 24  ; Offset desde BP
+  ADD8 R05, R14  ; Dirección = BP + offset
+  LOADR4 R04, R05  ; Cargar valor2
+  CMPV R04, 2147483648
+  JLT SSKIP1
+  SUBV8 R04, 4294967296
+SSKIP1:
+  PUSH8 R04
+  CALL __print_int8
+  ADDV8 R15, 8  ; Limpiar stack
+  CALL __print_newline
+  ; imprimir()
+  CALL __print_newline
+  MOVV8 R07, 20  ; Offset desde BP
+  ADD8 R07, R14  ; Dirección = BP + offset
+  LOADR4 R06, R07  ; Cargar valor1
+  CMPV R06, 2147483648
+  JLT SSKIP2
+  SUBV8 R06, 4294967296
+SSKIP2:
+  ; ERROR: Operador unario & no soportado
+  MOV8 R08, R06
+  MOVV8 R09, 28  ; Offset desde BP
+  ADD8 R09, R14  ; Dirección = BP + offset
+  STORER4 R08, R09  ; puntero = valor
+  ; imprimir()
+  MOVV8 R10, 0x1809C  ; __STR8
+  PUSH8 R10
+  CALL __print_string
+  ADDV8 R15, 8  ; Limpiar stack
+  CALL __print_newline
+  ; imprimir()
+  MOVV8 R12, 28  ; Offset desde BP
+  ADD8 R12, R14  ; Dirección = BP + offset
+  LOADR4 R11, R12  ; Cargar puntero
+  CMPV R11, 2147483648
+  JLT SSKIP3
+  SUBV8 R11, 4294967296
+SSKIP3:
+  ; ERROR: Operador unario * no soportado
+  MOV8 R13, R11
   PUSH8 R13
   CALL __print_int8
   ADDV8 R15, 8  ; Limpiar stack
   CALL __print_newline
   ; imprimir()
   CALL __print_newline
-  MOVV8 R02, 20  ; Offset desde BP
-  ADD8 R02, R14  ; Dirección = BP + offset
-  LOADR4 R01, R02  ; Cargar valor
+  MOVV8 R01, 24  ; Offset desde BP
+  ADD8 R01, R14  ; Dirección = BP + offset
+  LOADR4 R00, R01  ; Cargar valor2
+  CMPV R00, 2147483648
+  JLT SSKIP4
+  SUBV8 R00, 4294967296
+SSKIP4:
   ; ERROR: Operador unario & no soportado
-  MOV8 R03, R01
-  MOVV8 R04, 24  ; Offset desde BP
-  ADD8 R04, R14  ; Dirección = BP + offset
-  STORER4 R03, R04  ; puntero = valor
+  MOV8 R02, R00
+  MOVV8 R03, 28  ; Offset desde BP
+  ADD8 R03, R14  ; Dirección = BP + offset
+  STORER4 R02, R03  ; puntero = valor
   ; imprimir()
-  MOVV8 R05, 0x18080  ; __STR7
-  PUSH8 R05
+  MOVV8 R04, 0x180B7  ; __STR9
+  PUSH8 R04
   CALL __print_string
   ADDV8 R15, 8  ; Limpiar stack
   CALL __print_newline
   ; imprimir()
-  MOVV8 R07, 24  ; Offset desde BP
-  ADD8 R07, R14  ; Dirección = BP + offset
-  LOADR4 R06, R07  ; Cargar puntero
+  MOVV8 R06, 28  ; Offset desde BP
+  ADD8 R06, R14  ; Dirección = BP + offset
+  LOADR4 R05, R06  ; Cargar puntero
+  CMPV R05, 2147483648
+  JLT SSKIP5
+  SUBV8 R05, 4294967296
+SSKIP5:
   ; ERROR: Operador unario * no soportado
-  MOV8 R08, R06
+  MOV8 R07, R05
+  PUSH8 R07
+  CALL __print_int8
+  ADDV8 R15, 8  ; Limpiar stack
+  CALL __print_newline
+  ; imprimir()
+  CALL __print_newline
+  ; imprimir()
+  MOVV8 R08, 0x180D2  ; __STR10
   PUSH8 R08
-  CALL __print_int8
-  ADDV8 R15, 8  ; Limpiar stack
-  CALL __print_newline
-  ; imprimir()
-  CALL __print_newline
-  ; ADVERTENCIA: Asignación a expresión compleja no implementada
-  ; imprimir()
-  MOVV8 R09, 0x18092  ; __STR8
-  PUSH8 R09
-  CALL __print_string
-  ADDV8 R15, 8  ; Limpiar stack
-  CALL __print_newline
-  ; imprimir()
-  MOVV8 R11, 20  ; Offset desde BP
-  ADD8 R11, R14  ; Dirección = BP + offset
-  LOADR4 R10, R11  ; Cargar valor
-  PUSH8 R10
-  CALL __print_int8
-  ADDV8 R15, 8  ; Limpiar stack
-  CALL __print_newline
-  ; imprimir()
-  CALL __print_newline
-  ; imprimir()
-  MOVV8 R12, 0x180A6  ; __STR9
-  PUSH8 R12
   CALL __print_string
   ADDV8 R15, 8  ; Limpiar stack
   CALL __print_newline
   ; imprimir()
   CALL __print_newline
-  ; Variable local: valores (offset: 28)
-  MOVV4 R13, 5
-  MOVV4 R00, 0
+  ; Variable local: valores (offset: 32)
+  MOVV8 R09, 5
+  MOVV8 R10, 0
+  MOVV4 R11, 4
+  MUL4 R10, R11
+  MOVV8 R12, 32
+  ADD8 R12, R14  ; Base del array
+  ADD8 R12, R10  ; Dirección del elemento
+  STORER4 R09, R12  ; arr[...] = valor
+  MOVV8 R13, 3
+  MOVV8 R00, 1
   MOVV4 R01, 4
   MUL4 R00, R01
-  MOVV8 R02, 28
+  MOVV8 R02, 32
   ADD8 R02, R14  ; Base del array
   ADD8 R02, R00  ; Dirección del elemento
   STORER4 R13, R02  ; arr[...] = valor
-  MOVV4 R03, 3
-  MOVV4 R04, 1
+  MOVV8 R03, 8
+  MOVV8 R04, 2
   MOVV4 R05, 4
   MUL4 R04, R05
-  MOVV8 R06, 28
+  MOVV8 R06, 32
   ADD8 R06, R14  ; Base del array
   ADD8 R06, R04  ; Dirección del elemento
   STORER4 R03, R06  ; arr[...] = valor
-  MOVV4 R07, 8
-  MOVV4 R08, 2
+  MOVV8 R07, 1
+  MOVV8 R08, 3
   MOVV4 R09, 4
   MUL4 R08, R09
-  MOVV8 R10, 28
+  MOVV8 R10, 32
   ADD8 R10, R14  ; Base del array
   ADD8 R10, R08  ; Dirección del elemento
   STORER4 R07, R10  ; arr[...] = valor
-  MOVV4 R11, 1
-  MOVV4 R12, 3
+  MOVV8 R11, 9
+  MOVV8 R12, 4
   MOVV4 R13, 4
   MUL4 R12, R13
-  MOVV8 R00, 28
+  MOVV8 R00, 32
   ADD8 R00, R14  ; Base del array
   ADD8 R00, R12  ; Dirección del elemento
   STORER4 R11, R00  ; arr[...] = valor
-  MOVV4 R01, 9
+  ; Variable local: maximo (offset: 52)
+  MOVV8 R01, 0
   MOVV4 R02, 4
-  MOVV4 R03, 4
-  MUL4 R02, R03
-  MOVV8 R04, 28
-  ADD8 R04, R14  ; Base del array
-  ADD8 R04, R02  ; Dirección del elemento
-  STORER4 R01, R04  ; arr[...] = valor
-  ; Variable local: maximo (offset: 48)
-  MOVV4 R05, 0
-  MOVV4 R06, 4
-  MUL4 R05, R06
-  MOVV8 R07, 28
-  ADD8 R07, R14
-  ADD8 R07, R05
-  LOADR4 R08, R07
-  MOVV8 R09, 48
+  MUL4 R01, R02
+  MOVV8 R03, 32
+  ADD8 R03, R14
+  ADD8 R03, R01
+  LOADR4 R04, R03
+  MOVV8 R05, 52
+  ADD8 R05, R14  ; Dirección = BP + offset
+  STORER4 R04, R05  ; maximo = valor_inicial
+  ; Variable local: i (offset: 56)
+  MOVV8 R06, 1
+  MOVV8 R07, 56
+  ADD8 R07, R14  ; Dirección = BP + offset
+  STORER4 R06, R07  ; i = valor_inicial
+WHILE_START6:
+  MOVV8 R09, 56  ; Offset desde BP
   ADD8 R09, R14  ; Dirección = BP + offset
-  STORER4 R08, R09  ; maximo = valor_inicial
-  ; Variable local: i (offset: 52)
-  MOVV4 R10, 1
-  MOVV8 R11, 52
-  ADD8 R11, R14  ; Dirección = BP + offset
-  STORER4 R10, R11  ; i = valor_inicial
-WHILE_START0:
-  MOVV8 R13, 52  ; Offset desde BP
+  LOADR4 R08, R09  ; Cargar i
+  CMPV R08, 2147483648
+  JLT SSKIP8
+  SUBV8 R08, 4294967296
+SSKIP8:
+  MOVV8 R10, 5
+  CMP R08, R10
+  MOVV1 R11, 0  ; Asumir falso
+  JLT CMP_TRUE9
+  JMP CMP_END10
+CMP_TRUE9:
+  MOVV1 R11, 1  ; Verdadero
+CMP_END10:
+  CMPV R11, 0
+  JEQ WHILE_END7
+  MOVV8 R13, 56  ; Offset desde BP
   ADD8 R13, R14  ; Dirección = BP + offset
   LOADR4 R12, R13  ; Cargar i
-  MOVV1 R00, 5
-  CMP R12, R00
-  MOVV1 R01, 0  ; Asumir falso
-  JLT CMP_TRUE2
-  JMP CMP_END3
-CMP_TRUE2:
-  MOVV1 R01, 1  ; Verdadero
-CMP_END3:
-  CMPV R01, 0
-  JEQ WHILE_END1
-  MOVV8 R03, 52  ; Offset desde BP
-  ADD8 R03, R14  ; Dirección = BP + offset
-  LOADR4 R02, R03  ; Cargar i
-  MOVV4 R04, 4
-  MUL4 R02, R04
-  MOVV8 R05, 28
-  ADD8 R05, R14
-  ADD8 R05, R02
-  LOADR4 R06, R05
-  MOVV8 R08, 48  ; Offset desde BP
-  ADD8 R08, R14  ; Dirección = BP + offset
-  LOADR4 R07, R08  ; Cargar maximo
-  CMP R06, R07
-  MOVV1 R09, 0  ; Asumir falso
-  JGE CMP_TRUE5
-  JMP CMP_END6
-CMP_TRUE5:
-  MOVV1 R09, 1  ; Verdadero
-CMP_END6:
-  CMPV R09, 0
-  JEQ ENDIF4
+  CMPV R12, 2147483648
+  JLT SSKIP12
+  SUBV8 R12, 4294967296
+SSKIP12:
+  MOVV4 R00, 4
+  MUL4 R12, R00
+  MOVV8 R01, 32
+  ADD8 R01, R14
+  ADD8 R01, R12
+  LOADR4 R02, R01
+  MOVV8 R04, 52  ; Offset desde BP
+  ADD8 R04, R14  ; Dirección = BP + offset
+  LOADR4 R03, R04  ; Cargar maximo
+  CMPV R03, 2147483648
+  JLT SSKIP13
+  SUBV8 R03, 4294967296
+SSKIP13:
+  CMP R02, R03
+  MOVV1 R05, 0  ; Asumir falso
+  JGE CMP_TRUE14
+  JMP CMP_END15
+CMP_TRUE14:
+  MOVV1 R05, 1  ; Verdadero
+CMP_END15:
+  CMPV R05, 0
+  JEQ ENDIF11
+  MOVV8 R07, 56  ; Offset desde BP
+  ADD8 R07, R14  ; Dirección = BP + offset
+  LOADR4 R06, R07  ; Cargar i
+  CMPV R06, 2147483648
+  JLT SSKIP16
+  SUBV8 R06, 4294967296
+SSKIP16:
+  MOVV4 R08, 4
+  MUL4 R06, R08
+  MOVV8 R09, 32
+  ADD8 R09, R14
+  ADD8 R09, R06
+  LOADR4 R10, R09
   MOVV8 R11, 52  ; Offset desde BP
   ADD8 R11, R14  ; Dirección = BP + offset
-  LOADR4 R10, R11  ; Cargar i
-  MOVV4 R12, 4
-  MUL4 R10, R12
-  MOVV8 R13, 28
-  ADD8 R13, R14
-  ADD8 R13, R10
-  LOADR4 R00, R13
-  MOVV8 R01, 48  ; Offset desde BP
-  ADD8 R01, R14  ; Dirección = BP + offset
-  STORER4 R00, R01  ; maximo = valor
-  JMP ENDIF4
-ENDIF4:
-  MOVV8 R03, 52  ; Offset desde BP
-  ADD8 R03, R14  ; Dirección = BP + offset
-  LOADR4 R02, R03  ; Cargar i
-  MOVV4 R04, 1
-  MOV4 R05, R02
-  ADD4 R05, R04
-  MOVV8 R06, 52  ; Offset desde BP
-  ADD8 R06, R14  ; Dirección = BP + offset
-  STORER4 R05, R06  ; i = valor
-  JMP WHILE_START0
-WHILE_END1:
+  STORER4 R10, R11  ; maximo = valor
+  JMP ENDIF11
+ENDIF11:
+  MOVV8 R13, 56  ; Offset desde BP
+  ADD8 R13, R14  ; Dirección = BP + offset
+  LOADR4 R12, R13  ; Cargar i
+  CMPV R12, 2147483648
+  JLT SSKIP17
+  SUBV8 R12, 4294967296
+SSKIP17:
+  MOVV8 R00, 1
+  MOV4 R01, R12
+  ADD4 R01, R00
+  MOVV8 R02, 56  ; Offset desde BP
+  ADD8 R02, R14  ; Dirección = BP + offset
+  STORER4 R01, R02  ; i = valor
+  JMP WHILE_START6
+WHILE_END7:
   ; imprimir()
-  MOVV8 R07, 0x180C5  ; __STR10
-  PUSH8 R07
-  CALL __print_string
-  ADDV8 R15, 8  ; Limpiar stack
-  CALL __print_newline
-  ; imprimir()
-  MOVV4 R08, 0
-  MOVV4 R09, 4
-  MUL4 R08, R09
-  MOVV8 R10, 28
-  ADD8 R10, R14
-  ADD8 R10, R08
-  LOADR4 R11, R10
-  PUSH8 R11
-  CALL __print_int8
-  ADDV8 R15, 8  ; Limpiar stack
-  CALL __print_newline
-  ; imprimir()
-  MOVV8 R12, 0x180CF  ; __STR11
-  PUSH8 R12
-  CALL __print_string
-  ADDV8 R15, 8  ; Limpiar stack
-  CALL __print_newline
-  ; imprimir()
-  MOVV4 R13, 1
-  MOVV4 R00, 4
-  MUL4 R13, R00
-  MOVV8 R01, 28
-  ADD8 R01, R14
-  ADD8 R01, R13
-  LOADR4 R02, R01
-  PUSH8 R02
-  CALL __print_int8
-  ADDV8 R15, 8  ; Limpiar stack
-  CALL __print_newline
-  ; imprimir()
-  MOVV8 R03, 0x180CF  ; __STR11
+  MOVV8 R03, 0x180F1  ; __STR11
   PUSH8 R03
   CALL __print_string
   ADDV8 R15, 8  ; Limpiar stack
   CALL __print_newline
   ; imprimir()
-  MOVV4 R04, 2
+  MOVV8 R04, 0
   MOVV4 R05, 4
   MUL4 R04, R05
-  MOVV8 R06, 28
+  MOVV8 R06, 32
   ADD8 R06, R14
   ADD8 R06, R04
   LOADR4 R07, R06
@@ -1565,16 +1693,16 @@ WHILE_END1:
   ADDV8 R15, 8  ; Limpiar stack
   CALL __print_newline
   ; imprimir()
-  MOVV8 R08, 0x180CF  ; __STR11
+  MOVV8 R08, 0x180FB  ; __STR12
   PUSH8 R08
   CALL __print_string
   ADDV8 R15, 8  ; Limpiar stack
   CALL __print_newline
   ; imprimir()
-  MOVV4 R09, 3
+  MOVV8 R09, 1
   MOVV4 R10, 4
   MUL4 R09, R10
-  MOVV8 R11, 28
+  MOVV8 R11, 32
   ADD8 R11, R14
   ADD8 R11, R09
   LOADR4 R12, R11
@@ -1583,16 +1711,16 @@ WHILE_END1:
   ADDV8 R15, 8  ; Limpiar stack
   CALL __print_newline
   ; imprimir()
-  MOVV8 R13, 0x180CF  ; __STR11
+  MOVV8 R13, 0x180FB  ; __STR12
   PUSH8 R13
   CALL __print_string
   ADDV8 R15, 8  ; Limpiar stack
   CALL __print_newline
   ; imprimir()
-  MOVV4 R00, 4
+  MOVV8 R00, 2
   MOVV4 R01, 4
   MUL4 R00, R01
-  MOVV8 R02, 28
+  MOVV8 R02, 32
   ADD8 R02, R14
   ADD8 R02, R00
   LOADR4 R03, R02
@@ -1601,96 +1729,140 @@ WHILE_END1:
   ADDV8 R15, 8  ; Limpiar stack
   CALL __print_newline
   ; imprimir()
-  CALL __print_newline
-  ; imprimir()
-  MOVV8 R04, 0x180D1  ; __STR12
+  MOVV8 R04, 0x180FB  ; __STR12
   PUSH8 R04
   CALL __print_string
   ADDV8 R15, 8  ; Limpiar stack
   CALL __print_newline
   ; imprimir()
-  MOVV8 R06, 48  ; Offset desde BP
-  ADD8 R06, R14  ; Dirección = BP + offset
-  LOADR4 R05, R06  ; Cargar maximo
-  PUSH8 R05
+  MOVV8 R05, 3
+  MOVV4 R06, 4
+  MUL4 R05, R06
+  MOVV8 R07, 32
+  ADD8 R07, R14
+  ADD8 R07, R05
+  LOADR4 R08, R07
+  PUSH8 R08
+  CALL __print_int8
+  ADDV8 R15, 8  ; Limpiar stack
+  CALL __print_newline
+  ; imprimir()
+  MOVV8 R09, 0x180FB  ; __STR12
+  PUSH8 R09
+  CALL __print_string
+  ADDV8 R15, 8  ; Limpiar stack
+  CALL __print_newline
+  ; imprimir()
+  MOVV8 R10, 4
+  MOVV4 R11, 4
+  MUL4 R10, R11
+  MOVV8 R12, 32
+  ADD8 R12, R14
+  ADD8 R12, R10
+  LOADR4 R13, R12
+  PUSH8 R13
   CALL __print_int8
   ADDV8 R15, 8  ; Limpiar stack
   CALL __print_newline
   ; imprimir()
   CALL __print_newline
-  ; Variable local: suma (offset: 56)
-  MOVV4 R07, 0
+  ; imprimir()
+  MOVV8 R00, 0x180FD  ; __STR13
+  PUSH8 R00
+  CALL __print_string
+  ADDV8 R15, 8  ; Limpiar stack
+  CALL __print_newline
+  ; imprimir()
+  MOVV8 R02, 52  ; Offset desde BP
+  ADD8 R02, R14  ; Dirección = BP + offset
+  LOADR4 R01, R02  ; Cargar maximo
+  CMPV R01, 2147483648
+  JLT SSKIP18
+  SUBV8 R01, 4294967296
+SSKIP18:
+  PUSH8 R01
+  CALL __print_int8
+  ADDV8 R15, 8  ; Limpiar stack
+  CALL __print_newline
+  ; imprimir()
+  CALL __print_newline
+  ; Variable local: suma (offset: 60)
+  MOVV8 R03, 0
+  MOVV4 R04, 4
+  MUL4 R03, R04
+  MOVV8 R05, 32
+  ADD8 R05, R14
+  ADD8 R05, R03
+  LOADR4 R06, R05
+  MOVV8 R07, 1
   MOVV4 R08, 4
   MUL4 R07, R08
-  MOVV8 R09, 28
-  ADD8 R09, R14
-  ADD8 R09, R07
-  LOADR4 R10, R09
-  MOVV4 R11, 1
-  MOVV4 R12, 4
-  MUL4 R11, R12
-  MOVV8 R13, 28
-  ADD8 R13, R14
-  ADD8 R13, R11
-  LOADR4 R00, R13
-  MOV4 R01, R10
-  ADD4 R01, R00
-  MOVV4 R02, 2
-  MOVV4 R03, 4
-  MUL4 R02, R03
-  MOVV8 R04, 28
-  ADD8 R04, R14
-  ADD8 R04, R02
-  LOADR4 R05, R04
-  MOV4 R06, R01
-  ADD4 R06, R05
-  MOVV4 R07, 3
-  MOVV4 R08, 4
-  MUL4 R07, R08
-  MOVV8 R09, 28
+  MOVV8 R09, 32
   ADD8 R09, R14
   ADD8 R09, R07
   LOADR4 R10, R09
   MOV4 R11, R06
   ADD4 R11, R10
-  MOVV4 R12, 4
+  MOVV8 R12, 2
   MOVV4 R13, 4
   MUL4 R12, R13
-  MOVV8 R00, 28
+  MOVV8 R00, 32
   ADD8 R00, R14
   ADD8 R00, R12
   LOADR4 R01, R00
   MOV4 R02, R11
   ADD4 R02, R01
-  MOVV8 R03, 56
-  ADD8 R03, R14  ; Dirección = BP + offset
-  STORER4 R02, R03  ; suma = valor_inicial
+  MOVV8 R03, 3
+  MOVV4 R04, 4
+  MUL4 R03, R04
+  MOVV8 R05, 32
+  ADD8 R05, R14
+  ADD8 R05, R03
+  LOADR4 R06, R05
+  MOV4 R07, R02
+  ADD4 R07, R06
+  MOVV8 R08, 4
+  MOVV4 R09, 4
+  MUL4 R08, R09
+  MOVV8 R10, 32
+  ADD8 R10, R14
+  ADD8 R10, R08
+  LOADR4 R11, R10
+  MOV4 R12, R07
+  ADD4 R12, R11
+  MOVV8 R13, 60
+  ADD8 R13, R14  ; Dirección = BP + offset
+  STORER4 R12, R13  ; suma = valor_inicial
   ; imprimir()
-  MOVV8 R04, 0x180E1  ; __STR13
-  PUSH8 R04
+  MOVV8 R00, 0x1810D  ; __STR14
+  PUSH8 R00
   CALL __print_string
   ADDV8 R15, 8  ; Limpiar stack
   CALL __print_newline
   ; imprimir()
-  MOVV8 R06, 56  ; Offset desde BP
-  ADD8 R06, R14  ; Dirección = BP + offset
-  LOADR4 R05, R06  ; Cargar suma
-  PUSH8 R05
+  MOVV8 R02, 60  ; Offset desde BP
+  ADD8 R02, R14  ; Dirección = BP + offset
+  LOADR4 R01, R02  ; Cargar suma
+  CMPV R01, 2147483648
+  JLT SSKIP19
+  SUBV8 R01, 4294967296
+SSKIP19:
+  PUSH8 R01
   CALL __print_int8
   ADDV8 R15, 8  ; Limpiar stack
   CALL __print_newline
   ; imprimir()
   CALL __print_newline
   ; imprimir()
-  MOVV8 R07, 0x180EF  ; __STR14
-  PUSH8 R07
+  MOVV8 R03, 0x1811B  ; __STR15
+  PUSH8 R03
   CALL __print_string
   ADDV8 R15, 8  ; Limpiar stack
   CALL __print_newline
   ; imprimir()
   CALL __print_newline
-  MOVV4 R08, 0
-  MOV4 R00, R08  ; Valor de retorno en R00
+  MOVV8 R04, 0
+  MOV4 R00, R04  ; Valor de retorno en R00
   JMP principal_epilogue
 
 principal_epilogue:
@@ -1700,12 +1872,13 @@ principal_epilogue:
   RET                ; Retornar al caller
 
 .LOCAL_REL 0 4 numeros ; FUNC=principal
-.LOCAL_REL 20 4 valor ; FUNC=principal
-.LOCAL_REL 24 4 puntero ; FUNC=principal
-.LOCAL_REL 28 4 valores ; FUNC=principal
-.LOCAL_REL 48 4 maximo ; FUNC=principal
-.LOCAL_REL 52 4 i ; FUNC=principal
-.LOCAL_REL 56 4 suma ; FUNC=principal
+.LOCAL_REL 20 4 valor1 ; FUNC=principal
+.LOCAL_REL 24 4 valor2 ; FUNC=principal
+.LOCAL_REL 28 4 puntero ; FUNC=principal
+.LOCAL_REL 32 4 valores ; FUNC=principal
+.LOCAL_REL 52 4 maximo ; FUNC=principal
+.LOCAL_REL 56 4 i ; FUNC=principal
+.LOCAL_REL 60 4 suma ; FUNC=principal
 
 END_PROGRAM:
 ; Fin del código ejecutable
