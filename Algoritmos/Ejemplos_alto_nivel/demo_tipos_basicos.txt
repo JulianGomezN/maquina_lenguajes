@@ -1,0 +1,197 @@
+/*
+ * DEMO 1: Tipos de Datos Básicos
+ * Demuestra enteros, flotantes, caracteres, cadenas y booleanos
+ */
+
+funcion entero4 principal() {
+    // ============================================================================
+    // TIPOS ENTEROS: entero2, entero4, entero8
+    // ============================================================================
+    imprimir("=== TIPOS ENTEROS ===");
+    imprimir();
+    
+    entero2 num_pequeno = 100;
+    entero4 num_mediano = 50000;
+    entero8 num_grande = 1000000;
+    
+    imprimir("entero2: ");
+    imprimir(num_pequeno);
+    imprimir();
+    
+    imprimir("entero4: ");
+    imprimir(num_mediano);
+    imprimir();
+    
+    imprimir("entero8: ");
+    imprimir(num_grande);
+    imprimir();
+    
+    // Nota: con_signo y sin_signo son tipos especiales del lenguaje
+    // que requieren manejo especial de conversiones
+    
+    // ============================================================================
+    // TIPOS FLOTANTES: flotante, doble
+    // ============================================================================
+    imprimir("=== TIPOS FLOTANTES ===");
+    imprimir();
+    
+    flotante pi_simple = 3.14159;
+    doble pi_preciso = 3.141592653589793;
+    
+    imprimir("Flotante (simple precision): ");
+    imprimir(pi_simple);
+    imprimir();
+    
+    imprimir("Doble (doble precision): ");
+    imprimir(pi_preciso);
+    imprimir();
+    
+    // Operaciones con flotantes
+    flotante resultado = pi_simple * 2.0;
+    imprimir("Pi x 2 = ");
+    imprimir(resultado);
+    imprimir();
+    
+    // Notación científica
+    flotante exponencial = 1.23e+10;
+    imprimir("Notacion cientifica (1.23e+10): ");
+    imprimir(exponencial);
+    imprimir();
+    
+    // ============================================================================
+    // TIPO CARÁCTER
+    // ============================================================================
+    imprimir("=== TIPO CARACTER ===");
+    imprimir();
+    
+    caracter letra = 'A';
+    caracter simbolo = '@';
+    caracter escape = '\n';
+    
+    imprimir("Letra: ");
+    imprimir(letra);
+    imprimir();
+    
+    imprimir("Simbolo: ");
+    imprimir(simbolo);
+    imprimir();
+    
+    imprimir("Caracter con escape (\\n): ");
+    imprimir(escape);
+    
+    // ============================================================================
+    // TIPO CADENA
+    // ============================================================================
+    imprimir("=== TIPO CADENA ===");
+    imprimir();
+    
+    cadena saludo = "Hola Mundo";
+    cadena mensaje = "Este es un lenguaje de programacion";
+    cadena con_escapes = "Linea 1\nLinea 2\tTabulada";
+    
+    imprimir("Saludo: ");
+    imprimir(saludo);
+    imprimir();
+    
+    imprimir("Mensaje: ");
+    imprimir(mensaje);
+    imprimir();
+    
+    imprimir("Con escapes: ");
+    imprimir(con_escapes);
+    imprimir();
+    
+    // ============================================================================
+    // OPERACIONES LOGICAS Y CONDICIONALES
+    // ============================================================================
+    imprimir("=== OPERACIONES LOGICAS ===");
+    imprimir();
+    
+    entero4 x = 5;
+    entero4 y = 10;
+    
+    imprimir("x = ");
+    imprimir(x);
+    imprimir();
+    imprimir("y = ");
+    imprimir(y);
+    imprimir();
+    
+    // Operador AND en condicional
+    si (x > 0 && y > 0) {
+        imprimir("Ambos son positivos");
+        imprimir();
+    }
+    
+    // Operador OR en condicional  
+    si (x == 5 || y == 5) {
+        imprimir("Al menos uno es igual a 5");
+        imprimir();
+    }
+    
+    // Operador NOT en condicional
+    si (!(x > 20)) {
+        imprimir("x NO es mayor que 20");
+        imprimir();
+    }
+    
+    // ============================================================================
+    // CONSTANTES
+    // ============================================================================
+    imprimir("=== CONSTANTES ===");
+    imprimir();
+    
+    constante entero4 MAX_VALOR = 1000;
+    constante flotante GRAVEDAD = 9.81;
+    constante cadena VERSION = "1.0.0";
+    
+    imprimir("Constante MAX_VALOR: ");
+    imprimir(MAX_VALOR);
+    imprimir();
+    
+    imprimir("Constante GRAVEDAD: ");
+    imprimir(GRAVEDAD);
+    imprimir();
+    
+    imprimir("Constante VERSION: ");
+    imprimir(VERSION);
+    imprimir();
+    
+    // ============================================================================
+    // COMPARACIONES Y CONDICIONALES
+    // ============================================================================
+    imprimir("=== COMPARACIONES ===");
+    imprimir();
+    
+    entero4 a = 10;
+    entero4 b = 20;
+    
+    si (a < b) {
+        imprimir("a es menor que b");
+        imprimir();
+    }
+    
+    si (a == b) {
+        imprimir("a es igual a b");
+        imprimir();
+    } si_no {
+        imprimir("a es diferente de b");
+        imprimir();
+    }
+    
+    si (a > b) {
+        imprimir("a es mayor que b");
+        imprimir();
+    } si_no_si (a < b) {
+        imprimir("a es menor que b");
+        imprimir();
+    } si_no {
+        imprimir("a es igual a b");
+        imprimir();
+    }
+    
+    imprimir("=== FIN DEMO TIPOS BASICOS ===");
+    imprimir();
+    
+    retornar 0;
+}

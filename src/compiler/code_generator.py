@@ -599,8 +599,8 @@ class CodeGenerator:
                 result = result or self._has_dynamic_memory(node.init)
             if node.condition:
                 result = result or self._has_dynamic_memory(node.condition)
-            if node.update:
-                result = result or self._has_dynamic_memory(node.update)
+            if node.increment:
+                result = result or self._has_dynamic_memory(node.increment)
             result = result or self._has_dynamic_memory(node.body)
             return result
         
@@ -692,8 +692,8 @@ class CodeGenerator:
                 self._collect_string_literals(node.init)
             if node.condition:
                 self._collect_string_literals(node.condition)
-            if node.update:
-                self._collect_string_literals(node.update)
+            if node.increment:
+                self._collect_string_literals(node.increment)
             self._collect_string_literals(node.body)
         
         elif isinstance(node, BinaryOp):
@@ -809,15 +809,16 @@ class CodeGenerator:
             self.emit("; Strings recolectados:")
             for s, lbl in self.string_literals.items():
                 # Emitir una línea resumida (no imprimir contenido binario completo aquí)
-                safe_preview = s.replace('\n', '\\n')[:60]
-                self.emit(f";   {lbl}: '{safe_preview}'")
+                safe_preview = s.replace('\n', '\\n').replace('"', '').replace('@', '')[:60]
+                self.emit(f";   {lbl}: {safe_preview}")
 
             self.emit("; Inicializar string literals en memoria (área 0x18000+)")
             string_offset = 0
             for string_val, label in self.string_literals.items():
                 addr = self.string_data_base + string_offset
                 self.string_addresses[string_val] = addr
-                self.emit(f"; {label} = \"{string_val}\" @ 0x{addr:X}")
+                # No emitir el valor del string en comentarios para evitar problemas con el lexer
+                self.emit(f"; {label} @ 0x{addr:X}")
 
                 # Escribir string como bytes UTF-8 usando STORE1 (dirección absoluta)
                 val_bytes = string_val.encode('utf-8')
@@ -1704,7 +1705,7 @@ class CodeGenerator:
             
             # Determinar qué función de impresión usar según el tipo
             # Cadenas (puntero a char)
-            if type_name == 'cadena' or (type_name == 'caracter' and expr_type and expr_type.pointer_level > 0):
+            if type_name == 'cadena' or (type_name == 'caracter' and expr_type and expr_type.is_pointer):
                 self.emit(f"  PUSH8 R{reg:02d}")
                 self.emit("  CALL __print_string")
                 self.emit(f"  ADDV8 R15, 8  ; Limpiar stack")

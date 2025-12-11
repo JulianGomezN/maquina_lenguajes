@@ -6,7 +6,7 @@ Puede generar archivos objeto para enlace posterior
 """
 
 import ply.lex as lex
-from compiler.instrucctions import INSTRUCTION_SET as IS, IS_INV
+from compiler.instructions import INSTRUCTION_SET as IS, IS_INV
 import json
 import struct
 
